@@ -25,6 +25,18 @@ pub struct ListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeleteRequest {
+    pub id: String,
+    pub signal: String,
+    pub grace_secs: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeleteResponse {
+    pub session: Session,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ShutdownResponse {
     pub message: String,
 }
@@ -42,6 +54,7 @@ pub struct DaemonStatus {
 pub enum RpcRequest {
     Spawn { request: SpawnRequest },
     List { request: ListRequest },
+    Delete { request: DeleteRequest },
     Shutdown,
 }
 
@@ -50,6 +63,7 @@ pub enum RpcRequest {
 pub enum RpcResponse {
     Spawned { response: SpawnResponse },
     Listed { response: ListResponse },
+    Deleted { response: DeleteResponse },
     Shutdown { response: ShutdownResponse },
     Error { message: String },
 }
@@ -65,6 +79,22 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+            },
+        };
+
+        let json = serde_json::to_string(&request).expect("serializes request");
+        let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
+
+        assert_eq!(decoded, request);
+    }
+
+    #[test]
+    fn delete_request_round_trips_as_tagged_json() {
+        let request = RpcRequest::Delete {
+            request: DeleteRequest {
+                id: "019e32e3-0000-7000-8000-000000000000".to_string(),
+                signal: "SIGTERM".to_string(),
+                grace_secs: 5,
             },
         };
 

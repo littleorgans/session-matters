@@ -1,8 +1,9 @@
 mod sessions;
 
+use std::collections::HashSet;
 use std::path::Path;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, Result};
 
 use crate::schema::SESSIONS_SCHEMA;
 
@@ -13,16 +14,43 @@ pub struct SqliteStore {
 }
 
 impl SqliteStore {
-    pub fn open(path: impl AsRef<Path>) -> Result<Self, rusqlite::Error> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let connection = Connection::open(path)?;
-        connection.execute_batch(SESSIONS_SCHEMA)?;
-        Ok(Self { connection })
+        Self::from_connection(connection)
     }
 
-    #[cfg(test)]
-    pub fn open_in_memory() -> Result<Self, rusqlite::Error> {
+    pub fn open_in_memory() -> Result<Self> {
         let connection = Connection::open_in_memory()?;
+        Self::from_connection(connection)
+    }
+
+    fn from_connection(connection: Connection) -> Result<Self> {
         connection.execute_batch(SESSIONS_SCHEMA)?;
+        migrate_sessions(&connection)?;
         Ok(Self { connection })
     }
+}
+
+fn migrate_sessions(connection: &Connection) -> Result<()> {
+    let columns = session_columns(connection)?;
+    if !columns.contains("started_at") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN started_at TEXT", [])?;
+        connection.execute(
+            "UPDATE sessions SET started_at = created_at WHERE started_at IS NULL",
+            [],
+        )?;
+    }
+    if !columns.contains("terminated_at") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN terminated_at TEXT", [])?;
+    }
+    if !columns.contains("exit_code") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN exit_code INTEGER", [])?;
+    }
+    Ok(())
+}
+
+fn session_columns(connection: &Connection) -> Result<HashSet<String>> {
+    let mut statement = connection.prepare("PRAGMA table_info(sessions)")?;
+    let rows = statement.query_map([], |row| row.get::<_, String>("name"))?;
+    rows.collect()
 }

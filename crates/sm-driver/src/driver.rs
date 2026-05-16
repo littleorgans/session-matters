@@ -1,9 +1,18 @@
+use std::time::Duration;
+
 use sm_core::SpawnRequest;
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnedProcess {
     pub runtime_pid: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChildExit {
+    pub session_id: String,
+    pub runtime_pid: u32,
+    pub exit_code: Option<i32>,
 }
 
 #[derive(Debug, Error)]
@@ -14,6 +23,10 @@ pub enum DriverError {
     PidOutOfRange(i32),
     #[error("runtime command contains a null byte")]
     InvalidRuntimeCommand,
+    #[error("unsupported signal: {0}")]
+    InvalidSignal(String),
+    #[error("runtime process did not terminate after SIGKILL")]
+    TerminationTimeout,
 }
 
 pub trait SpawnDriver: Send + Sync {
@@ -22,6 +35,15 @@ pub trait SpawnDriver: Send + Sync {
         session_id: &str,
         request: &SpawnRequest,
     ) -> Result<SpawnedProcess, DriverError>;
+
+    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
+
+    fn terminate(
+        &self,
+        session_id: &str,
+        signal: &str,
+        grace: Duration,
+    ) -> Result<Option<ChildExit>, DriverError>;
 
     fn terminate_all(&self);
 }

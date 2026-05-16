@@ -1,7 +1,8 @@
 use anyhow::{Result, bail};
-use sm_core::{ListRequest, RpcRequest, RpcResponse, Session, SmPaths};
+use sm_core::{ListRequest, RpcRequest, RpcResponse, SmPaths};
 
 use crate::cli::cli_def::{GetArgs, GetResource};
+use crate::cli::output::print_session_table;
 
 pub async fn run(args: GetArgs) -> Result<()> {
     match args.resource {
@@ -25,25 +26,10 @@ async fn list_agents(args: GetArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Listed { response } => {
-            print_sessions(&response.sessions);
+            print_session_table(&response.sessions);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
         other => bail!("unexpected daemon response: {other:?}"),
-    }
-}
-
-fn print_sessions(sessions: &[Session]) {
-    println!("ID RUNTIME ROLE WORKSPACE STATE PID");
-    for session in sessions {
-        println!(
-            "{} {} {} {} {} {}",
-            session.id,
-            session.runtime,
-            session.role,
-            session.workspace,
-            session.state,
-            session.runtime_pid
-        );
     }
 }

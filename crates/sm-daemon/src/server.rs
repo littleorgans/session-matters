@@ -9,6 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::handler::DaemonState;
+use crate::lifecycle::LifecycleTask;
 
 pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::create_dir_all(&paths.dir).context("failed to create runtime directory")?;
@@ -18,9 +19,12 @@ pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::write(&paths.pidfile, std::process::id().to_string()).context("failed to write pidfile")?;
 
     let store = SqliteStore::open(&paths.database).context("failed to open sqlite store")?;
-    let state = DaemonState::new(store, Arc::new(InProcessDriver::default()));
+    let driver = InProcessDriver::new().context("failed to initialize in-process driver")?;
+    let state = Arc::new(DaemonState::new(store, Arc::new(driver)));
+    let lifecycle = LifecycleTask::spawn(Arc::clone(&state));
 
     let result = serve(listener, &state).await;
+    drop(lifecycle);
     state.driver.terminate_all();
     cleanup_paths(&paths);
     result

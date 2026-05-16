@@ -13,6 +13,7 @@ pub enum Command {
     Daemon(DaemonArgs),
     Run(RunArgs),
     Get(GetArgs),
+    Delete(DeleteArgs),
     #[command(name = "__smd", hide = true)]
     InternalDaemon,
 }
@@ -53,4 +54,19 @@ pub struct GetArgs {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum GetResource {
     Agents,
+}
+
+#[derive(Debug, Args)]
+pub struct DeleteArgs {
+    pub resource: DeleteResource,
+    pub id: String,
+    #[arg(long, default_value = "SIGTERM")]
+    pub signal: String,
+    #[arg(long, default_value_t = 5)]
+    pub grace: u64,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum DeleteResource {
+    Agent,
 }

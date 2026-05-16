@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     state TEXT NOT NULL,
     runtime_pid INTEGER NOT NULL,
     created_at TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    terminated_at TEXT,
+    exit_code INTEGER,
     updated_at TEXT NOT NULL
 );
 "#;

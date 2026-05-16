@@ -2,6 +2,7 @@ use anyhow::{Result, bail};
 use sm_core::{RpcRequest, RpcResponse, SmPaths, SpawnRequest};
 
 use crate::cli::cli_def::RunArgs;
+use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
     if !args.detach {
@@ -23,16 +24,7 @@ pub async fn run(args: RunArgs) -> Result<()> {
 
     match response {
         RpcResponse::Spawned { response } => {
-            let session = response.session;
-            println!(
-                "{} {} {} {} {} {}",
-                session.id,
-                session.runtime,
-                session.role,
-                session.workspace,
-                session.state,
-                session.runtime_pid
-            );
+            print_session_line(&response.session);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
