@@ -1,0 +1,70 @@
+{
+  "description": "Read unread mail for one session id. Reads mark messages read unless peek is true.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "from": {
+        "description": "Inbox owner session id.",
+        "type": "string"
+      },
+      "peek": {
+        "description": "Return unread mail without marking it read.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "from"
+    ],
+    "type": "object"
+  },
+  "name": "mail_read",
+  "outputSchema": {
+    "properties": {
+      "mail": {
+        "items": {
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "read_at": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "recipient_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "sender_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "sent_at": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "sender_id",
+            "recipient_id",
+            "content",
+            "sent_at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "mail"
+    ],
+    "type": "object"
+  }
+}

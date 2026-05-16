@@ -29,6 +29,12 @@ pub enum DriverError {
     TerminationTimeout,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NudgeResult {
+    pub delivered: bool,
+    pub message: String,
+}
+
 pub trait SpawnDriver: Send + Sync {
     fn spawn(
         &self,
@@ -44,6 +50,8 @@ pub trait SpawnDriver: Send + Sync {
         signal: &str,
         grace: Duration,
     ) -> Result<Option<ChildExit>, DriverError>;
+
+    fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError>;
 
     fn terminate_all(&self);
 }

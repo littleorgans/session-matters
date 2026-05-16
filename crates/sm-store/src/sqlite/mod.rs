@@ -1,4 +1,6 @@
+mod mail;
 mod sessions;
+mod time;
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -7,6 +9,7 @@ use rusqlite::{Connection, Result};
 
 use crate::schema::SESSIONS_SCHEMA;
 
+pub use mail::MailRowError;
 pub use sessions::SessionRowError;
 
 pub struct SqliteStore {

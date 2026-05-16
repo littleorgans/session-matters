@@ -27,3 +27,36 @@ pub const AGENT_DELETE_ID_HELP: &str = "Session id to terminate.";
 pub const AGENT_DELETE_SIGNAL_HELP: &str = "Signal to send. Defaults to SIGTERM.";
 #[rustfmt::skip]
 pub const AGENT_DELETE_GRACE_SECS_HELP: &str = "Seconds to wait before SIGKILL. Defaults to 5.";
+
+#[rustfmt::skip]
+pub const MAIL_SEND_ABOUT: &str = "Send durable mail to one session id.";
+#[rustfmt::skip]
+pub const MAIL_SEND_TO_HELP: &str = "Recipient session id.";
+#[rustfmt::skip]
+pub const MAIL_SEND_FROM_HELP: &str = "Sender session id. Defaults to HELIOY_SESSION_ID when set.";
+#[rustfmt::skip]
+pub const MAIL_SEND_CONTENT_HELP: &str = "Message content.";
+
+#[rustfmt::skip]
+pub const MAIL_READ_ABOUT: &str = "Read unread mail for one session id.";
+#[rustfmt::skip]
+pub const MAIL_READ_FROM_HELP: &str = "Inbox owner session id.";
+#[rustfmt::skip]
+pub const MAIL_READ_PEEK_HELP: &str = "Return unread mail without marking it read.";
+
+#[rustfmt::skip]
+pub const MAIL_CHECK_ABOUT: &str = "Return unread mail count for one session id.";
+#[rustfmt::skip]
+pub const MAIL_CHECK_FROM_HELP: &str = "Inbox owner session id.";
+
+#[rustfmt::skip]
+pub const MAIL_STOP_CHECK_ABOUT: &str = "Check unread mail for stop-hook decisions.";
+#[rustfmt::skip]
+pub const MAIL_STOP_CHECK_FROM_HELP: &str = "Inbox owner session id.";
+
+#[rustfmt::skip]
+pub const NUDGE_ABOUT: &str = "Send an ephemeral nudge to one session id.";
+#[rustfmt::skip]
+pub const NUDGE_TO_HELP: &str = "Recipient session id.";
+#[rustfmt::skip]
+pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";

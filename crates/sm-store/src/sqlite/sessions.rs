@@ -7,6 +7,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::SqliteStore;
+use super::time::{parse_optional_timestamp, parse_timestamp};
 
 #[derive(Debug, Error)]
 pub enum SessionRowError {
@@ -111,25 +112,12 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         workspace: row.get("workspace")?,
         state: SessionState::from_str(&row.get::<_, String>("state")?)?,
         runtime_pid,
-        created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
-            .map(DateTime::<Utc>::from)?,
-        started_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("started_at")?)
-            .map(DateTime::<Utc>::from)?,
-        terminated_at: optional_timestamp(row, "terminated_at")?,
+        created_at: parse_timestamp(&row.get::<_, String>("created_at")?)?,
+        started_at: parse_timestamp(&row.get::<_, String>("started_at")?)?,
+        terminated_at: parse_optional_timestamp(row.get::<_, Option<String>>("terminated_at")?)?,
         exit_code: optional_i32(row, "exit_code")?,
-        updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("updated_at")?)
-            .map(DateTime::<Utc>::from)?,
+        updated_at: parse_timestamp(&row.get::<_, String>("updated_at")?)?,
     })
-}
-
-fn optional_timestamp(
-    row: &Row<'_>,
-    column: &'static str,
-) -> Result<Option<DateTime<Utc>>, SessionRowError> {
-    row.get::<_, Option<String>>(column)?
-        .map(|timestamp| DateTime::parse_from_rfc3339(&timestamp).map(DateTime::<Utc>::from))
-        .transpose()
-        .map_err(SessionRowError::from)
 }
 
 fn optional_i32(row: &Row<'_>, column: &'static str) -> Result<Option<i32>, SessionRowError> {

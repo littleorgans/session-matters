@@ -17,6 +17,9 @@ pub enum Command {
     Run(RunArgs),
     Get(GetArgs),
     Delete(DeleteArgs),
+    Mail(MailArgs),
+    #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
+    Nudge(NudgeArgs),
     #[command(about = "Bridge MCP stdio to the session-matters daemon")]
     Mcp(McpArgs),
     #[command(name = "__smd", hide = true)]
@@ -76,6 +79,62 @@ pub struct DeleteArgs {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum DeleteResource {
     Agent,
+}
+
+#[derive(Debug, Args)]
+pub struct MailArgs {
+    #[command(subcommand)]
+    pub action: MailAction,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MailAction {
+    #[command(about = generated_help::MAIL_SEND_ABOUT, long_about = generated_help::MAIL_SEND_ABOUT)]
+    Send(MailSendArgs),
+    #[command(about = generated_help::MAIL_READ_ABOUT, long_about = generated_help::MAIL_READ_ABOUT)]
+    Read(MailReadArgs),
+    #[command(about = generated_help::MAIL_CHECK_ABOUT, long_about = generated_help::MAIL_CHECK_ABOUT)]
+    Check(MailCheckArgs),
+    #[command(name = "stop-check", about = generated_help::MAIL_STOP_CHECK_ABOUT, long_about = generated_help::MAIL_STOP_CHECK_ABOUT)]
+    StopCheck(MailStopCheckArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct MailSendArgs {
+    #[arg(long, help = generated_help::MAIL_SEND_TO_HELP)]
+    pub to: String,
+    #[arg(long, help = generated_help::MAIL_SEND_FROM_HELP)]
+    pub from: Option<String>,
+    #[arg(long, help = generated_help::MAIL_SEND_CONTENT_HELP)]
+    pub content: String,
+}
+
+#[derive(Debug, Args)]
+pub struct MailReadArgs {
+    #[arg(long, help = generated_help::MAIL_READ_FROM_HELP)]
+    pub from: String,
+    #[arg(long, help = generated_help::MAIL_READ_PEEK_HELP)]
+    pub peek: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct MailCheckArgs {
+    #[arg(long, help = generated_help::MAIL_CHECK_FROM_HELP)]
+    pub from: String,
+}
+
+#[derive(Debug, Args)]
+pub struct MailStopCheckArgs {
+    #[arg(long, help = generated_help::MAIL_STOP_CHECK_FROM_HELP)]
+    pub from: String,
+}
+
+#[derive(Debug, Args)]
+pub struct NudgeArgs {
+    #[arg(long, help = generated_help::NUDGE_TO_HELP)]
+    pub to: String,
+    #[arg(long, help = generated_help::NUDGE_CONTENT_HELP)]
+    pub content: String,
 }
 
 #[derive(Debug, Args)]

@@ -12,4 +12,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     exit_code INTEGER,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mail (
+    id TEXT PRIMARY KEY NOT NULL,
+    sender_id TEXT NOT NULL,
+    recipient_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    read_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_mail_recipient_unread
+    ON mail(recipient_id, read_at, sent_at);
 "#;

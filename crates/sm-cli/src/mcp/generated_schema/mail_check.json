@@ -1,0 +1,28 @@
+{
+  "description": "Return the unread mail count for one session id without draining mail.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "from": {
+        "description": "Inbox owner session id.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "from"
+    ],
+    "type": "object"
+  },
+  "name": "mail_check",
+  "outputSchema": {
+    "properties": {
+      "unread": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "unread"
+    ],
+    "type": "object"
+  }
+}

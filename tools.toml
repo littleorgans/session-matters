@@ -10,6 +10,8 @@ Use `agent_run` to start a local agent runtime through the session-matters daemo
 Use `agent_list` to inspect live and terminated sessions.
 Use `agent_get` before acting on one session id.
 Use `agent_delete` to terminate daemon owned sessions.
+Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
+Use `nudge` for the ephemeral notification surface.
 """
 
 [tools.agent_run]
@@ -199,3 +201,172 @@ required        = false
 mcp_description = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_help        = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_flag        = "--grace"
+
+[tools.mail_send]
+cli_name        = "mail send"
+mcp_description = "Send durable mail to one session id. Selector addressing lands in a later pass."
+cli_about       = "Send durable mail to one session id."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["mail"],
+  "properties": {
+    "mail": {
+      "type": "object",
+      "required": ["id", "sender_id", "recipient_id", "content", "sent_at"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "sender_id": {"type": "string", "format": "uuid"},
+        "recipient_id": {"type": "string", "format": "uuid"},
+        "content": {"type": "string"},
+        "sent_at": {"type": "string", "format": "date-time"},
+        "read_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    }
+  }
+}
+'''
+
+[[tools.mail_send.params]]
+name            = "to"
+type            = "string"
+required        = true
+mcp_description = "Recipient session id."
+cli_help        = "Recipient session id."
+cli_flag        = "--to"
+
+[[tools.mail_send.params]]
+name            = "from"
+type            = "string"
+required        = false
+mcp_description = "Sender session id. Defaults to HELIOY_SESSION_ID when set; otherwise smd records the controller sender."
+cli_help        = "Sender session id. Defaults to HELIOY_SESSION_ID when set."
+cli_flag        = "--from"
+
+[[tools.mail_send.params]]
+name            = "content"
+type            = "string"
+required        = true
+mcp_description = "Message content."
+cli_help        = "Message content."
+cli_flag        = "--content"
+
+[tools.mail_read]
+cli_name        = "mail read"
+mcp_description = "Read unread mail for one session id. Reads mark messages read unless peek is true."
+cli_about       = "Read unread mail for one session id."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["mail"],
+  "properties": {
+    "mail": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sender_id", "recipient_id", "content", "sent_at"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "sender_id": {"type": "string", "format": "uuid"},
+          "recipient_id": {"type": "string", "format": "uuid"},
+          "content": {"type": "string"},
+          "sent_at": {"type": "string", "format": "date-time"},
+          "read_at": {"type": ["string", "null"], "format": "date-time"}
+        }
+      }
+    }
+  }
+}
+'''
+
+[[tools.mail_read.params]]
+name            = "from"
+type            = "string"
+required        = true
+mcp_description = "Inbox owner session id."
+cli_help        = "Inbox owner session id."
+cli_flag        = "--from"
+
+[[tools.mail_read.params]]
+name            = "peek"
+type            = "boolean"
+required        = false
+mcp_description = "Return unread mail without marking it read."
+cli_help        = "Return unread mail without marking it read."
+cli_flag        = "--peek"
+
+[tools.mail_check]
+cli_name        = "mail check"
+mcp_description = "Return the unread mail count for one session id without draining mail."
+cli_about       = "Return unread mail count for one session id."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["unread"],
+  "properties": {
+    "unread": {"type": "integer"}
+  }
+}
+'''
+
+[[tools.mail_check.params]]
+name            = "from"
+type            = "string"
+required        = true
+mcp_description = "Inbox owner session id."
+cli_help        = "Inbox owner session id."
+cli_flag        = "--from"
+
+[tools.mail_stop_check]
+cli_name        = "mail stop-check"
+mcp_description = "Return the unread mail count for stop-hook decisions without draining mail."
+cli_about       = "Check unread mail for stop-hook decisions."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["unread"],
+  "properties": {
+    "unread": {"type": "integer"}
+  }
+}
+'''
+
+[[tools.mail_stop_check.params]]
+name            = "from"
+type            = "string"
+required        = true
+mcp_description = "Inbox owner session id."
+cli_help        = "Inbox owner session id."
+cli_flag        = "--from"
+
+[tools.nudge]
+cli_name        = "nudge"
+mcp_description = "Send an ephemeral nudge to one session id. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver."
+cli_about       = "Send an ephemeral nudge to one session id."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["to", "delivered", "message"],
+  "properties": {
+    "to": {"type": "string", "format": "uuid"},
+    "delivered": {"type": "boolean"},
+    "message": {"type": "string"}
+  }
+}
+'''
+
+[[tools.nudge.params]]
+name            = "to"
+type            = "string"
+required        = true
+mcp_description = "Recipient session id."
+cli_help        = "Recipient session id."
+cli_flag        = "--to"
+
+[[tools.nudge.params]]
+name            = "content"
+type            = "string"
+required        = true
+mcp_description = "Nudge content."
+cli_help        = "Nudge content."
+cli_flag        = "--content"

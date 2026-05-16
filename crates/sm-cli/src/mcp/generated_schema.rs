@@ -11,6 +11,16 @@ pub fn generated_tool_list() -> serde_json::Value {
             .expect("generated schema for agent_get is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_delete.json"))
             .expect("generated schema for agent_delete is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/mail_send.json"))
+            .expect("generated schema for mail_send is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/mail_read.json"))
+            .expect("generated schema for mail_read is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/mail_check.json"))
+            .expect("generated schema for mail_check is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/mail_stop_check.json"))
+            .expect("generated schema for mail_stop_check is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/nudge.json"))
+            .expect("generated schema for nudge is valid JSON"),
     ];
     serde_json::json!({ "tools": tools })
 }

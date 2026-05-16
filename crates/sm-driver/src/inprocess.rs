@@ -13,7 +13,7 @@ use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{Pid, execvp};
 use sm_core::SpawnRequest;
 
-use crate::driver::{ChildExit, DriverError, SpawnDriver, SpawnedProcess};
+use crate::driver::{ChildExit, DriverError, NudgeResult, SpawnDriver, SpawnedProcess};
 
 pub struct InProcessDriver {
     children: Mutex<HashMap<String, SpawnHandle>>,
@@ -115,6 +115,14 @@ impl SpawnDriver for InProcessDriver {
         wait_for_exit(session_id, pid, Duration::from_secs(1))?
             .ok_or(DriverError::TerminationTimeout)
             .map(Some)
+    }
+
+    fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
+        eprintln!("nudge: tmux gateway not available; nudge skipped");
+        Ok(NudgeResult {
+            delivered: false,
+            message: "nudge: tmux gateway not available; nudge skipped".to_string(),
+        })
     }
 
     fn terminate_all(&self) {
