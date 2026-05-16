@@ -1,6 +1,8 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use sm_core::RuntimeKind;
 
+use crate::cli::generated_help;
+
 #[derive(Debug, Parser)]
 #[command(name = "sm", about = "session-matters control plane")]
 pub struct Cli {
@@ -11,9 +13,12 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Daemon(DaemonArgs),
+    #[command(about = generated_help::AGENT_RUN_ABOUT, long_about = generated_help::AGENT_RUN_ABOUT)]
     Run(RunArgs),
     Get(GetArgs),
     Delete(DeleteArgs),
+    #[command(about = "Bridge MCP stdio to the session-matters daemon")]
+    Mcp(McpArgs),
     #[command(name = "__smd", hide = true)]
     InternalDaemon,
 }
@@ -33,10 +38,11 @@ pub enum DaemonAction {
 
 #[derive(Debug, Args)]
 pub struct RunArgs {
+    #[arg(help = generated_help::AGENT_RUN_RUNTIME_HELP)]
     pub runtime: RuntimeKind,
-    #[arg(long)]
+    #[arg(long, help = generated_help::AGENT_RUN_ROLE_HELP)]
     pub role: String,
-    #[arg(long)]
+    #[arg(long, help = generated_help::AGENT_RUN_WORKSPACE_HELP)]
     pub workspace: String,
     #[arg(long)]
     pub detach: bool,
@@ -45,7 +51,7 @@ pub struct RunArgs {
 #[derive(Debug, Args)]
 pub struct GetArgs {
     pub resource: GetResource,
-    #[arg(long)]
+    #[arg(long, help = generated_help::AGENT_LIST_ID_HELP)]
     pub id: Option<String>,
     #[arg(long)]
     pub json: bool,
@@ -59,10 +65,11 @@ pub enum GetResource {
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
     pub resource: DeleteResource,
+    #[arg(help = generated_help::AGENT_DELETE_ID_HELP)]
     pub id: String,
-    #[arg(long, default_value = "SIGTERM")]
+    #[arg(long, default_value = "SIGTERM", help = generated_help::AGENT_DELETE_SIGNAL_HELP)]
     pub signal: String,
-    #[arg(long, default_value_t = 5)]
+    #[arg(long, default_value_t = 5, help = generated_help::AGENT_DELETE_GRACE_SECS_HELP)]
     pub grace: u64,
 }
 
@@ -70,3 +77,6 @@ pub struct DeleteArgs {
 pub enum DeleteResource {
     Agent,
 }
+
+#[derive(Debug, Args)]
+pub struct McpArgs {}

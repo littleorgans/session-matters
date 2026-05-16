@@ -1,0 +1,120 @@
+mod common;
+
+use common::DaemonFixture;
+use serde_json::{Value, json};
+
+#[test]
+fn initialize_and_tools_list_follow_mcp_shape() {
+    let daemon = DaemonFixture::start();
+    let mut mcp = daemon.spawn_mcp();
+
+    let initialized = mcp.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {}
+    }));
+    assert_eq!(initialized["jsonrpc"], "2.0");
+    assert_eq!(initialized["id"], 1);
+    assert!(initialized["error"].is_null());
+    assert_eq!(initialized["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(initialized["result"]["serverInfo"]["name"], "sm");
+    assert!(initialized["result"]["instructions"].is_string());
+    assert!(initialized["result"]["capabilities"]["tools"].is_object());
+
+    let listed = mcp.send(&json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+    }));
+    assert_eq!(listed["jsonrpc"], "2.0");
+    assert_eq!(listed["id"], 2);
+    assert!(listed["error"].is_null());
+    let names = tool_names(&listed["result"]["tools"]);
+    assert_eq!(
+        names,
+        vec!["agent_run", "agent_list", "agent_get", "agent_delete"]
+    );
+}
+
+#[test]
+fn tools_call_can_run_list_get_and_delete_agent() {
+    let daemon = DaemonFixture::start();
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let empty = call_tool(&mut mcp, 2, "agent_list", json!({}));
+    assert!(empty["error"].is_null());
+    assert_eq!(
+        empty["result"]["structuredContent"]["sessions"]
+            .as_array()
+            .expect("sessions is array")
+            .len(),
+        0
+    );
+
+    let spawned = call_tool(
+        &mut mcp,
+        3,
+        "agent_run",
+        json!({
+            "runtime": "codex",
+            "role": "engineer",
+            "workspace": "mcp-test"
+        }),
+    );
+    assert!(spawned["error"].is_null());
+    let id = spawned["result"]["structuredContent"]["session"]["id"]
+        .as_str()
+        .expect("spawn returns session id")
+        .to_string();
+
+    let found = call_tool(&mut mcp, 4, "agent_get", json!({ "id": id }));
+    assert!(found["error"].is_null());
+    assert_eq!(
+        found["result"]["structuredContent"]["session"]["workspace"],
+        "mcp-test"
+    );
+
+    let deleted = call_tool(
+        &mut mcp,
+        5,
+        "agent_delete",
+        json!({ "id": id, "signal": "SIGTERM", "grace_secs": 1 }),
+    );
+    assert!(deleted["error"].is_null());
+    assert_eq!(
+        deleted["result"]["structuredContent"]["session"]["state"],
+        "TERMINATED"
+    );
+}
+
+#[test]
+fn generated_schema_matches_contract_registry() {
+    assert_eq!(
+        sm_cli::mcp::schema::tool_list(),
+        sm_cli::tool_contracts::contract_registry().tool_list_value()
+    );
+}
+
+fn call_tool(mcp: &mut common::McpFixture, id: u64, name: &str, arguments: Value) -> Value {
+    mcp.send(&json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "tools/call",
+        "params": {
+            "name": name,
+            "arguments": arguments
+        }
+    }))
+}
+
+fn tool_names(tools: &Value) -> Vec<&str> {
+    tools
+        .as_array()
+        .expect("tools is array")
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .collect()
+}

@@ -1,0 +1,94 @@
+{
+  "description": "List session records known to the session-matters daemon. Pass an id only when a narrow list response is useful; use agent_get when exactly one session is required.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "description": "Optional session id filter.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "name": "agent_list",
+  "outputSchema": {
+    "properties": {
+      "sessions": {
+        "items": {
+          "properties": {
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "runtime": {
+              "enum": [
+                "claude",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "runtime_pid": {
+              "type": "integer"
+            },
+            "started_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "SPAWNING",
+                "RUNNING",
+                "TERMINATED"
+              ],
+              "type": "string"
+            },
+            "terminated_at": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "workspace": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "runtime",
+            "role",
+            "workspace",
+            "state",
+            "runtime_pid",
+            "created_at",
+            "started_at",
+            "updated_at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "sessions"
+    ],
+    "type": "object"
+  }
+}

@@ -4,8 +4,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use sm_core::{
-    DeleteRequest, DeleteResponse, ListRequest, ListResponse, RpcRequest, RpcResponse, Session,
-    SessionState, ShutdownResponse, SpawnResponse,
+    DeleteRequest, DeleteResponse, ListRequest, ListResponse, McpBridgeResponse, RpcRequest,
+    RpcResponse, Session, SessionState, ShutdownResponse, SpawnResponse,
 };
 use sm_driver::SpawnDriver;
 use sm_store::SqliteStore;
@@ -34,6 +34,14 @@ impl DaemonState {
             RpcRequest::Spawn { request } => response(self.spawn(request), false),
             RpcRequest::List { request } => response(self.list(request), false),
             RpcRequest::Delete { request } => response(self.delete(request), false),
+            RpcRequest::McpBridge { request } => HandlerResult {
+                response: RpcResponse::McpBridge {
+                    response: McpBridgeResponse {
+                        line: crate::mcp_bridge::handle_line(self, &request.line),
+                    },
+                },
+                shutdown: false,
+            },
             RpcRequest::Shutdown => HandlerResult {
                 response: RpcResponse::Shutdown {
                     response: ShutdownResponse {

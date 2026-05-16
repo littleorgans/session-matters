@@ -1,0 +1,108 @@
+{
+  "description": "Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, and a workspace. The tool returns the persisted session record.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "role": {
+        "description": "Role label recorded on the session.",
+        "type": "string"
+      },
+      "runtime": {
+        "description": "Runtime command to launch.",
+        "enum": [
+          "claude",
+          "codex"
+        ],
+        "type": "string"
+      },
+      "workspace": {
+        "description": "Workspace path or name recorded on the session.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "runtime",
+      "role",
+      "workspace"
+    ],
+    "type": "object"
+  },
+  "name": "agent_run",
+  "outputSchema": {
+    "properties": {
+      "session": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "exit_code": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "runtime": {
+            "enum": [
+              "claude",
+              "codex"
+            ],
+            "type": "string"
+          },
+          "runtime_pid": {
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "SPAWNING",
+              "RUNNING",
+              "TERMINATED"
+            ],
+            "type": "string"
+          },
+          "terminated_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "runtime",
+          "role",
+          "workspace",
+          "state",
+          "runtime_pid",
+          "created_at",
+          "started_at",
+          "updated_at"
+        ],
+        "type": "object"
+      }
+    },
+    "required": [
+      "session"
+    ],
+    "type": "object"
+  }
+}

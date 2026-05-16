@@ -37,6 +37,16 @@ pub struct DeleteResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct McpBridgeRequest {
+    pub line: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct McpBridgeResponse {
+    pub line: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ShutdownResponse {
     pub message: String,
 }
@@ -55,6 +65,7 @@ pub enum RpcRequest {
     Spawn { request: SpawnRequest },
     List { request: ListRequest },
     Delete { request: DeleteRequest },
+    McpBridge { request: McpBridgeRequest },
     Shutdown,
 }
 
@@ -64,6 +75,7 @@ pub enum RpcResponse {
     Spawned { response: SpawnResponse },
     Listed { response: ListResponse },
     Deleted { response: DeleteResponse },
+    McpBridge { response: McpBridgeResponse },
     Shutdown { response: ShutdownResponse },
     Error { message: String },
 }

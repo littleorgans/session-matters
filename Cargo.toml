@@ -24,13 +24,18 @@ sm-cli = { path = "crates/sm-cli" }
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
+indexmap = { version = "2", features = ["serde"] }
 nix = { version = "0.30", features = ["process", "signal", "term"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2.0"
-tokio = { version = "1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "process", "rt-multi-thread", "time"] }
+toml = "0.8"
 uuid = { version = "1.9", features = ["serde", "v7"] }
+
+assert_cmd = "2"
+tempfile = "3"
 
 [profile.release]
 lto = true
