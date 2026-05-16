@@ -1,0 +1,13 @@
+[package]
+name = "sm-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono.workspace = true
+rusqlite.workspace = true
+sm-core.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
