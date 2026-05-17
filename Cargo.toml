@@ -59,9 +59,14 @@ targets = [
     "aarch64-unknown-linux-musl",
     "x86_64-apple-darwin",
     "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc",
+    # Disabled until process, PTY, socket, and identity code has Windows implementations.
+    # "x86_64-pc-windows-msvc",
 ]
-installers = ["shell", "powershell"]
+installers = [
+    "shell",
+    # Re-enable with the Windows target.
+    # "powershell",
+]
 github-attestations = true
 # release-please creates the GitHub Release; cargo-dist only uploads into it.
 create-release = false

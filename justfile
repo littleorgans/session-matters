@@ -1,11 +1,26 @@
 default:
     @just --list
 
+SM_LOCAL_BIN := env_var_or_default("SM_LOCAL_BIN", "/Users/alphab/.cargo/bin/sm")
+
 build:
     cargo build --workspace
 
 release-build:
     cargo build --workspace --release
+
+install-local: release-build
+    @set -eu; \
+    src="$(pwd)/target/release/sm"; \
+    dest="{{SM_LOCAL_BIN}}"; \
+    case "$dest" in /*) ;; *) dest="$(pwd)/$dest";; esac; \
+    if [ "$src" = "$dest" ]; then \
+        echo "Built $src"; \
+    else \
+        mkdir -p "$(dirname "$dest")"; \
+        install -m 755 "$src" "$dest"; \
+        echo "Installed $dest"; \
+    fi
 
 test *ARGS:
     cargo nextest run --workspace {{ARGS}}
