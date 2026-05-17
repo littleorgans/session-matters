@@ -1,0 +1,45 @@
+---
+source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+expression: tool
+---
+{
+  "description": "Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "peek": {
+        "description": "Return unread mail without marking it read.",
+        "type": "boolean"
+      },
+      "selector": {
+        "description": "Inbox owner selector.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector"
+    ],
+    "type": "object"
+  },
+  "name": "mail_read",
+  "outputSchema": {
+    "properties": {
+      "errors": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "mail": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "mail"
+    ],
+    "type": "object"
+  }
+}

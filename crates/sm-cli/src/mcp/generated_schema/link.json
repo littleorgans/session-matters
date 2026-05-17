@@ -1,0 +1,41 @@
+{
+  "description": "Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "runtime_session": {
+        "description": "Runtime session id reported by the SessionStart hook.",
+        "type": "string"
+      },
+      "selector": {
+        "description": "Selector that must match exactly one session when session_id is omitted.",
+        "type": "string"
+      },
+      "session_id": {
+        "description": "Session id to link. CLI defaults to HELIOY_SESSION_ID when omitted.",
+        "type": "string"
+      },
+      "transcript": {
+        "description": "Transcript path reported by the SessionStart hook.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "runtime_session",
+      "transcript"
+    ],
+    "type": "object"
+  },
+  "name": "link",
+  "outputSchema": {
+    "properties": {
+      "session": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "session"
+    ],
+    "type": "object"
+  }
+}

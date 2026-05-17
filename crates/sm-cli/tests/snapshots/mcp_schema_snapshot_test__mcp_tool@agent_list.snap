@@ -1,0 +1,117 @@
+---
+source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+expression: tool
+---
+{
+  "description": "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b).",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "selector": {
+        "description": "Optional session selector. Defaults to all.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "name": "agent_list",
+  "outputSchema": {
+    "properties": {
+      "sessions": {
+        "items": {
+          "properties": {
+            "agent_config": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "runtime": {
+              "enum": [
+                "claude",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "runtime_pid": {
+              "type": "integer"
+            },
+            "runtime_session": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "started_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "SPAWNING",
+                "RUNNING",
+                "TERMINATED",
+                "LOST"
+              ],
+              "type": "string"
+            },
+            "terminated_at": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "transcript_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "workspace": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "runtime",
+            "role",
+            "workspace",
+            "state",
+            "runtime_pid",
+            "created_at",
+            "started_at",
+            "updated_at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "sessions"
+    ],
+    "type": "object"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "description": "Send durable mail to sessions selected by selector.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "content": {
+        "description": "Message content.",
+        "type": "string"
+      },
+      "from": {
+        "description": "Sender session id. Defaults to HELIOY_SESSION_ID when set; otherwise smd records the controller sender.",
+        "type": "string"
+      },
+      "to": {
+        "description": "Recipient selector.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "to",
+      "content"
+    ],
+    "type": "object"
+  },
+  "name": "mail_send",
+  "outputSchema": {
+    "properties": {
+      "errors": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "mail": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "mail"
+    ],
+    "type": "object"
+  }
+}

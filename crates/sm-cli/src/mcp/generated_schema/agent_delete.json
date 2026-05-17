@@ -1,0 +1,46 @@
+{
+  "description": "Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "grace_secs": {
+        "description": "Seconds to wait before SIGKILL. Defaults to 5.",
+        "type": "integer"
+      },
+      "selector": {
+        "description": "Session selector to terminate.",
+        "type": "string"
+      },
+      "signal": {
+        "description": "Signal to send. Defaults to SIGTERM.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector"
+    ],
+    "type": "object"
+  },
+  "name": "agent_delete",
+  "outputSchema": {
+    "properties": {
+      "errors": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "sessions": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "sessions",
+      "errors"
+    ],
+    "type": "object"
+  }
+}

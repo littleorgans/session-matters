@@ -1,0 +1,33 @@
+use std::str::FromStr;
+
+use anyhow::{Result, bail};
+use sm_core::{RpcRequest, RpcResponse, Selector, SmPaths, WaitCondition, WaitRequest};
+
+use crate::cli::cli_def::WaitArgs;
+use crate::cli::output::print_session_table;
+
+pub async fn run(args: WaitArgs) -> Result<()> {
+    let paths = SmPaths::from_env()?;
+    let condition = WaitCondition::from_str(&args.condition)?;
+    let response = sm_daemon::send_request(
+        &paths.socket,
+        &RpcRequest::Wait {
+            request: WaitRequest {
+                selector: Selector::from_str(&args.selector)?,
+                condition,
+                timeout_secs: args.timeout_secs,
+            },
+        },
+    )
+    .await?;
+
+    match response {
+        RpcResponse::Wait { response } if response.matched => {
+            print_session_table(&response.sessions);
+            Ok(())
+        }
+        RpcResponse::Wait { .. } => bail!("wait timed out"),
+        RpcResponse::Error { message } => bail!(message),
+        other => bail!("unexpected daemon response: {other:?}"),
+    }
+}
