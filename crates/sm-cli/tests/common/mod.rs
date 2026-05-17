@@ -151,6 +151,29 @@ fn wait_for_socket(dir: &Path, child: &mut Child) {
     panic!("daemon socket did not become ready");
 }
 
+pub fn fake_runtime_path(command: &str) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().expect("runtime path tempdir creates");
+    let runtime = dir.path().join(command);
+    std::fs::write(
+        &runtime,
+        "#!/bin/sh\ntrap 'exit 0' TERM INT\nwhile :; do sleep 60; done\n",
+    )
+    .expect("fake runtime writes");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(&runtime)
+            .expect("fake runtime metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&runtime, permissions).expect("fake runtime is executable");
+    }
+
+    dir
+}
+
 fn path_with_prefix(prefix: &Path) -> std::ffi::OsString {
     let paths = std::iter::once(prefix.to_path_buf()).chain(
         std::env::var_os("PATH")

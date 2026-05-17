@@ -56,7 +56,8 @@ fn initialize_and_tools_list_follow_mcp_shape() {
 
 #[tokio::test]
 async fn tools_call_can_run_list_get_and_delete_agent() {
-    let daemon = DaemonFixture::start();
+    let runtime_path = common::fake_runtime_path("codex");
+    let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
@@ -171,7 +172,8 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
 
 #[tokio::test]
 async fn tools_call_can_select_and_label_agents() {
-    let daemon = DaemonFixture::start();
+    let runtime_path = common::fake_runtime_path("codex");
+    let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
@@ -216,7 +218,8 @@ async fn tools_call_can_select_and_label_agents() {
 
 #[tokio::test]
 async fn tools_call_can_send_read_check_mail_and_nudge() {
-    let daemon = DaemonFixture::start();
+    let runtime_path = common::fake_runtime_path("codex");
+    let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
