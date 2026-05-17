@@ -24,4 +24,14 @@ CREATE TABLE IF NOT EXISTS mail (
 
 CREATE INDEX IF NOT EXISTS idx_mail_recipient_unread
     ON mail(recipient_id, read_at, sent_at);
+
+CREATE TABLE IF NOT EXISTS labels (
+    session_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (session_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_labels_key_value_session
+    ON labels(key, value, session_id);
 "#;

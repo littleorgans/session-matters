@@ -8,6 +8,8 @@ pub enum SmError {
     UnsupportedRuntime(String),
     #[error("home directory is not available")]
     MissingHome,
+    #[error(transparent)]
+    Uuid(#[from] uuid::Error),
     #[error("{0}")]
     Message(String),
 }

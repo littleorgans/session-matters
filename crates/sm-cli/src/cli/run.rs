@@ -1,5 +1,7 @@
 use anyhow::{Result, bail};
-use sm_core::{RpcRequest, RpcResponse, SmPaths, SpawnRequest};
+use std::str::FromStr;
+
+use sm_core::{Label, RpcRequest, RpcResponse, SmPaths, SpawnRequest};
 
 use crate::cli::cli_def::RunArgs;
 use crate::cli::output::print_session_line;
@@ -17,6 +19,11 @@ pub async fn run(args: RunArgs) -> Result<()> {
                 runtime: args.runtime,
                 role: args.role,
                 workspace: args.workspace,
+                labels: args
+                    .labels
+                    .iter()
+                    .map(|label| Label::from_str(label))
+                    .collect::<Result<Vec<_>, _>>()?,
             },
         },
     )

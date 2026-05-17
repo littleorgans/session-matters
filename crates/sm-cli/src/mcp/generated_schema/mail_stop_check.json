@@ -3,19 +3,25 @@
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
-      "from": {
-        "description": "Inbox owner session id.",
+      "selector": {
+        "description": "Inbox owner selector.",
         "type": "string"
       }
     },
     "required": [
-      "from"
+      "selector"
     ],
     "type": "object"
   },
   "name": "mail_stop_check",
   "outputSchema": {
     "properties": {
+      "counts": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
       "unread": {
         "type": "integer"
       }

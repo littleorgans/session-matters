@@ -15,6 +15,7 @@ pub async fn run() -> anyhow::Result<()> {
         Command::Get(args) => cli::get::run(args).await,
         Command::Delete(args) => cli::delete::run(args).await,
         Command::Mail(args) => cli::mail::run(args).await,
+        Command::Label(args) => cli::label::run(args).await,
         Command::Nudge(args) => cli::nudge::run(args).await,
         Command::Mcp(args) => cli::mcp::run(args).await,
         Command::InternalDaemon => sm_daemon::run_daemon(sm_core::SmPaths::from_env()?).await,

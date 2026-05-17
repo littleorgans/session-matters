@@ -3,6 +3,7 @@ pub mod daemon;
 pub mod delete;
 pub mod generated_help;
 pub mod get;
+pub mod label;
 pub mod mail;
 pub mod mcp;
 pub mod nudge;

@@ -1,3 +1,4 @@
+mod labels;
 mod mail;
 mod sessions;
 mod time;

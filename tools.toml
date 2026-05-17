@@ -10,13 +10,14 @@ Use `agent_run` to start a local agent runtime through the session-matters daemo
 Use `agent_list` to inspect live and terminated sessions.
 Use `agent_get` before acting on one session id.
 Use `agent_delete` to terminate daemon owned sessions.
+Use `agent_label` to add or remove labels on selected sessions.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
 Use `nudge` for the ephemeral notification surface.
 """
 
 [tools.agent_run]
 cli_name        = "run"
-mcp_description = "Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, and a workspace. The tool returns the persisted session record."
+mcp_description = "Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, a workspace, and labels. The tool returns the persisted session record."
 cli_about       = "Start an agent runtime through the session-matters daemon."
 output_schema   = '''
 {
@@ -69,9 +70,18 @@ mcp_description = "Workspace path or name recorded on the session."
 cli_help        = "Workspace path or name recorded on the session."
 cli_flag        = "--workspace"
 
+[[tools.agent_run.params]]
+name            = "labels"
+type            = "array"
+items_type      = "string"
+required        = false
+mcp_description = "Optional session labels as key=value strings."
+cli_help        = "Session label as key=value."
+cli_flag        = "--label"
+
 [tools.agent_list]
 cli_name        = "get agents"
-mcp_description = "List session records known to the session-matters daemon. Pass an id only when a narrow list response is useful; use agent_get when exactly one session is required."
+mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b)."
 cli_about       = "List session records known to the session-matters daemon."
 output_schema   = '''
 {
@@ -103,12 +113,12 @@ output_schema   = '''
 '''
 
 [[tools.agent_list.params]]
-name            = "id"
+name            = "selector"
 type            = "string"
 required        = false
-mcp_description = "Optional session id filter."
-cli_help        = "Optional session id filter."
-cli_flag        = "--id"
+mcp_description = "Optional session selector. Defaults to all."
+cli_help        = "Optional session selector."
+cli_flag        = "--selector"
 
 [tools.agent_get]
 cli_name        = "get agent"
@@ -150,41 +160,26 @@ cli_flag        = "id"
 
 [tools.agent_delete]
 cli_name        = "delete agent"
-mcp_description = "Terminate one daemon owned agent runtime by id and return the updated session record. Defaults to SIGTERM with a five second grace period."
-cli_about       = "Terminate one daemon owned agent runtime by id."
+mcp_description = "Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period."
+cli_about       = "Terminate daemon owned agent runtimes by selector."
 output_schema   = '''
 {
   "type": "object",
-  "required": ["session"],
+  "required": ["sessions", "errors"],
   "properties": {
-    "session": {
-      "type": "object",
-      "required": ["id", "runtime", "role", "workspace", "state", "runtime_pid", "created_at", "started_at", "terminated_at", "updated_at"],
-      "properties": {
-        "id": {"type": "string", "format": "uuid"},
-        "runtime": {"type": "string", "enum": ["claude", "codex"]},
-        "role": {"type": "string"},
-        "workspace": {"type": "string"},
-        "state": {"type": "string", "enum": ["SPAWNING", "RUNNING", "TERMINATED"]},
-        "runtime_pid": {"type": "integer"},
-        "created_at": {"type": "string", "format": "date-time"},
-        "started_at": {"type": "string", "format": "date-time"},
-        "terminated_at": {"type": ["string", "null"], "format": "date-time"},
-        "exit_code": {"type": ["integer", "null"]},
-        "updated_at": {"type": "string", "format": "date-time"}
-      }
-    }
+    "sessions": {"type": "array", "items": {"type": "object"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
 
 [[tools.agent_delete.params]]
-name            = "id"
+name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Session id to terminate."
-cli_help        = "Session id to terminate."
-cli_flag        = "id"
+mcp_description = "Session selector to terminate."
+cli_help        = "Session selector to terminate."
+cli_flag        = "selector"
 
 [[tools.agent_delete.params]]
 name            = "signal"
@@ -202,27 +197,48 @@ mcp_description = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_help        = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_flag        = "--grace"
 
+[tools.agent_label]
+cli_name        = "label"
+mcp_description = "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
+cli_about       = "Add or remove labels on selected sessions."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["sessions", "errors"],
+  "properties": {
+    "sessions": {"type": "array", "items": {"type": "object"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
+  }
+}
+'''
+
+[[tools.agent_label.params]]
+name            = "selector"
+type            = "string"
+required        = true
+mcp_description = "Session selector to mutate."
+cli_help        = "Session selector to mutate."
+cli_flag        = "selector"
+
+[[tools.agent_label.params]]
+name            = "mutation"
+type            = "string"
+required        = true
+mcp_description = "Label mutation as key=value or key-."
+cli_help        = "Label mutation as key=value or key-."
+cli_flag        = "mutation"
+
 [tools.mail_send]
 cli_name        = "mail send"
-mcp_description = "Send durable mail to one session id. Selector addressing lands in a later pass."
-cli_about       = "Send durable mail to one session id."
+mcp_description = "Send durable mail to sessions selected by selector."
+cli_about       = "Send durable mail to selected sessions."
 output_schema   = '''
 {
   "type": "object",
   "required": ["mail"],
   "properties": {
-    "mail": {
-      "type": "object",
-      "required": ["id", "sender_id", "recipient_id", "content", "sent_at"],
-      "properties": {
-        "id": {"type": "string", "format": "uuid"},
-        "sender_id": {"type": "string", "format": "uuid"},
-        "recipient_id": {"type": "string", "format": "uuid"},
-        "content": {"type": "string"},
-        "sent_at": {"type": "string", "format": "date-time"},
-        "read_at": {"type": ["string", "null"], "format": "date-time"}
-      }
-    }
+    "mail": {"type": "array", "items": {"type": "object"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
@@ -231,8 +247,8 @@ output_schema   = '''
 name            = "to"
 type            = "string"
 required        = true
-mcp_description = "Recipient session id."
-cli_help        = "Recipient session id."
+mcp_description = "Recipient selector."
+cli_help        = "Recipient selector."
 cli_flag        = "--to"
 
 [[tools.mail_send.params]]
@@ -253,39 +269,26 @@ cli_flag        = "--content"
 
 [tools.mail_read]
 cli_name        = "mail read"
-mcp_description = "Read unread mail for one session id. Reads mark messages read unless peek is true."
-cli_about       = "Read unread mail for one session id."
+mcp_description = "Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true."
+cli_about       = "Read unread mail for selected sessions."
 output_schema   = '''
 {
   "type": "object",
   "required": ["mail"],
   "properties": {
-    "mail": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "sender_id", "recipient_id", "content", "sent_at"],
-        "properties": {
-          "id": {"type": "string", "format": "uuid"},
-          "sender_id": {"type": "string", "format": "uuid"},
-          "recipient_id": {"type": "string", "format": "uuid"},
-          "content": {"type": "string"},
-          "sent_at": {"type": "string", "format": "date-time"},
-          "read_at": {"type": ["string", "null"], "format": "date-time"}
-        }
-      }
-    }
+    "mail": {"type": "array", "items": {"type": "object"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
 
 [[tools.mail_read.params]]
-name            = "from"
+name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Inbox owner session id."
-cli_help        = "Inbox owner session id."
-cli_flag        = "--from"
+mcp_description = "Inbox owner selector."
+cli_help        = "Inbox owner selector."
+cli_flag        = "--selector"
 
 [[tools.mail_read.params]]
 name            = "peek"
@@ -297,25 +300,26 @@ cli_flag        = "--peek"
 
 [tools.mail_check]
 cli_name        = "mail check"
-mcp_description = "Return the unread mail count for one session id without draining mail."
-cli_about       = "Return unread mail count for one session id."
+mcp_description = "Return the unread mail count for sessions selected by selector without draining mail."
+cli_about       = "Return unread mail count for selected sessions."
 output_schema   = '''
 {
   "type": "object",
   "required": ["unread"],
   "properties": {
-    "unread": {"type": "integer"}
+    "unread": {"type": "integer"},
+    "counts": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
 
 [[tools.mail_check.params]]
-name            = "from"
+name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Inbox owner session id."
-cli_help        = "Inbox owner session id."
-cli_flag        = "--from"
+mcp_description = "Inbox owner selector."
+cli_help        = "Inbox owner selector."
+cli_flag        = "--selector"
 
 [tools.mail_stop_check]
 cli_name        = "mail stop-check"
@@ -326,31 +330,31 @@ output_schema   = '''
   "type": "object",
   "required": ["unread"],
   "properties": {
-    "unread": {"type": "integer"}
+    "unread": {"type": "integer"},
+    "counts": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
 
 [[tools.mail_stop_check.params]]
-name            = "from"
+name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Inbox owner session id."
-cli_help        = "Inbox owner session id."
-cli_flag        = "--from"
+mcp_description = "Inbox owner selector."
+cli_help        = "Inbox owner selector."
+cli_flag        = "--selector"
 
 [tools.nudge]
 cli_name        = "nudge"
-mcp_description = "Send an ephemeral nudge to one session id. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver."
-cli_about       = "Send an ephemeral nudge to one session id."
+mcp_description = "Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver."
+cli_about       = "Send an ephemeral nudge to selected sessions."
 output_schema   = '''
 {
   "type": "object",
-  "required": ["to", "delivered", "message"],
+  "required": ["nudges", "errors"],
   "properties": {
-    "to": {"type": "string", "format": "uuid"},
-    "delivered": {"type": "boolean"},
-    "message": {"type": "string"}
+    "nudges": {"type": "array", "items": {"type": "object"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
   }
 }
 '''
@@ -359,8 +363,8 @@ output_schema   = '''
 name            = "to"
 type            = "string"
 required        = true
-mcp_description = "Recipient session id."
-cli_help        = "Recipient session id."
+mcp_description = "Recipient selector."
+cli_help        = "Recipient selector."
 cli_flag        = "--to"
 
 [[tools.nudge.params]]

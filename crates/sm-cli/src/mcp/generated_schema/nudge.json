@@ -1,5 +1,5 @@
 {
-  "description": "Send an ephemeral nudge to one session id. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.",
+  "description": "Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -8,7 +8,7 @@
         "type": "string"
       },
       "to": {
-        "description": "Recipient session id.",
+        "description": "Recipient selector.",
         "type": "string"
       }
     },
@@ -21,21 +21,22 @@
   "name": "nudge",
   "outputSchema": {
     "properties": {
-      "delivered": {
-        "type": "boolean"
+      "errors": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
       },
-      "message": {
-        "type": "string"
-      },
-      "to": {
-        "format": "uuid",
-        "type": "string"
+      "nudges": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
       }
     },
     "required": [
-      "to",
-      "delivered",
-      "message"
+      "nudges",
+      "errors"
     ],
     "type": "object"
   }

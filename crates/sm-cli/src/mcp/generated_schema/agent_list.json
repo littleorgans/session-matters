@@ -1,10 +1,10 @@
 {
-  "description": "List session records known to the session-matters daemon. Pass an id only when a narrow list response is useful; use agent_get when exactly one session is required.",
+  "description": "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b).",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
-      "id": {
-        "description": "Optional session id filter.",
+      "selector": {
+        "description": "Optional session selector. Defaults to all.",
         "type": "string"
       }
     },

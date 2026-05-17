@@ -1,5 +1,5 @@
 {
-  "description": "Send durable mail to one session id. Selector addressing lands in a later pass.",
+  "description": "Send durable mail to sessions selected by selector.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -12,7 +12,7 @@
         "type": "string"
       },
       "to": {
-        "description": "Recipient session id.",
+        "description": "Recipient selector.",
         "type": "string"
       }
     },
@@ -25,43 +25,17 @@
   "name": "mail_send",
   "outputSchema": {
     "properties": {
-      "mail": {
-        "properties": {
-          "content": {
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "read_at": {
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "recipient_id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "sender_id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "sent_at": {
-            "format": "date-time",
-            "type": "string"
-          }
+      "errors": {
+        "items": {
+          "type": "object"
         },
-        "required": [
-          "id",
-          "sender_id",
-          "recipient_id",
-          "content",
-          "sent_at"
-        ],
-        "type": "object"
+        "type": "array"
+      },
+      "mail": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
       }
     },
     "required": [

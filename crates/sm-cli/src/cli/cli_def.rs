@@ -18,6 +18,8 @@ pub enum Command {
     Get(GetArgs),
     Delete(DeleteArgs),
     Mail(MailArgs),
+    #[command(about = "Add or remove labels on selected sessions")]
+    Label(LabelArgs),
     #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
     Nudge(NudgeArgs),
     #[command(about = "Bridge MCP stdio to the session-matters daemon")]
@@ -47,6 +49,8 @@ pub struct RunArgs {
     pub role: String,
     #[arg(long, help = generated_help::AGENT_RUN_WORKSPACE_HELP)]
     pub workspace: String,
+    #[arg(long = "label", help = "Session label as key=value")]
+    pub labels: Vec<String>,
     #[arg(long)]
     pub detach: bool,
 }
@@ -54,8 +58,8 @@ pub struct RunArgs {
 #[derive(Debug, Args)]
 pub struct GetArgs {
     pub resource: GetResource,
-    #[arg(long, help = generated_help::AGENT_LIST_ID_HELP)]
-    pub id: Option<String>,
+    #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
+    pub selector: Option<String>,
     #[arg(long)]
     pub json: bool,
 }
@@ -68,8 +72,8 @@ pub enum GetResource {
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
     pub resource: DeleteResource,
-    #[arg(help = generated_help::AGENT_DELETE_ID_HELP)]
-    pub id: String,
+    #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
+    pub selector: String,
     #[arg(long, default_value = "SIGTERM", help = generated_help::AGENT_DELETE_SIGNAL_HELP)]
     pub signal: String,
     #[arg(long, default_value_t = 5, help = generated_help::AGENT_DELETE_GRACE_SECS_HELP)]
@@ -111,22 +115,28 @@ pub struct MailSendArgs {
 
 #[derive(Debug, Args)]
 pub struct MailReadArgs {
-    #[arg(long, help = generated_help::MAIL_READ_FROM_HELP)]
-    pub from: String,
+    #[arg(long, alias = "from", help = generated_help::MAIL_READ_SELECTOR_HELP)]
+    pub selector: String,
     #[arg(long, help = generated_help::MAIL_READ_PEEK_HELP)]
     pub peek: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct MailCheckArgs {
-    #[arg(long, help = generated_help::MAIL_CHECK_FROM_HELP)]
-    pub from: String,
+    #[arg(long, alias = "from", help = generated_help::MAIL_CHECK_SELECTOR_HELP)]
+    pub selector: String,
 }
 
 #[derive(Debug, Args)]
 pub struct MailStopCheckArgs {
-    #[arg(long, help = generated_help::MAIL_STOP_CHECK_FROM_HELP)]
-    pub from: String,
+    #[arg(long, alias = "from", help = generated_help::MAIL_STOP_CHECK_SELECTOR_HELP)]
+    pub selector: String,
+}
+
+#[derive(Debug, Args)]
+pub struct LabelArgs {
+    pub selector: String,
+    pub mutation: String,
 }
 
 #[derive(Debug, Args)]

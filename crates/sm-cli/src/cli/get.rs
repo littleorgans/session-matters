@@ -1,5 +1,7 @@
 use anyhow::{Result, bail};
-use sm_core::{ListRequest, RpcRequest, RpcResponse, SmPaths};
+use std::str::FromStr;
+
+use sm_core::{ListRequest, RpcRequest, RpcResponse, Selector, SmPaths};
 
 use crate::cli::cli_def::{GetArgs, GetResource};
 use crate::cli::output::print_session_table;
@@ -15,7 +17,13 @@ async fn list_agents(args: GetArgs) -> Result<()> {
     let response = sm_daemon::send_request(
         &paths.socket,
         &RpcRequest::List {
-            request: ListRequest { id: args.id },
+            request: ListRequest {
+                selector: args
+                    .selector
+                    .as_deref()
+                    .map(Selector::from_str)
+                    .transpose()?,
+            },
         },
     )
     .await?;

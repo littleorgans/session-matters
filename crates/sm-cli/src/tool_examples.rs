@@ -13,12 +13,15 @@ pub fn examples() -> Vec<ToolExample> {
             arguments: json!({
                 "runtime": "claude",
                 "role": "engineer",
-                "workspace": "session-matters"
+                "workspace": "session-matters",
+                "labels": ["area=auth", "pri=high"]
             }),
         },
         ToolExample {
             tool: "agent_list",
-            arguments: json!({}),
+            arguments: json!({
+                "selector": "role:engineer"
+            }),
         },
         ToolExample {
             tool: "agent_get",
@@ -29,7 +32,7 @@ pub fn examples() -> Vec<ToolExample> {
         ToolExample {
             tool: "agent_delete",
             arguments: json!({
-                "id": "019e32e3-0000-7000-8000-000000000000",
+                "selector": "id:019e32e3-0000-7000-8000-000000000000",
                 "signal": "SIGTERM",
                 "grace_secs": 5
             }),

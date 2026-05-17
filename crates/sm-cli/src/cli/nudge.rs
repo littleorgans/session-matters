@@ -1,5 +1,7 @@
 use anyhow::{Result, bail};
-use sm_core::{NudgeRequest, RpcRequest, RpcResponse, SmPaths};
+use std::str::FromStr;
+
+use sm_core::{NudgeRequest, RpcRequest, RpcResponse, Selector, SmPaths};
 
 use crate::cli::cli_def::NudgeArgs;
 
@@ -9,7 +11,7 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
         &paths.socket,
         &RpcRequest::Nudge {
             request: NudgeRequest {
-                to: args.to,
+                to: Selector::from_str(&args.to)?,
                 content: args.content,
             },
         },
@@ -18,7 +20,12 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
 
     match response {
         RpcResponse::Nudged { response } => {
-            println!("{}", response.message);
+            for nudge in response.nudges {
+                println!("{}", nudge.message);
+            }
+            for error in response.errors {
+                eprintln!("{} {}", error.target, error.message);
+            }
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),

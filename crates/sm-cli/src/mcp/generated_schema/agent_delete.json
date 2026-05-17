@@ -1,5 +1,5 @@
 {
-  "description": "Terminate one daemon owned agent runtime by id and return the updated session record. Defaults to SIGTERM with a five second grace period.",
+  "description": "Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -7,8 +7,8 @@
         "description": "Seconds to wait before SIGKILL. Defaults to 5.",
         "type": "integer"
       },
-      "id": {
-        "description": "Session id to terminate.",
+      "selector": {
+        "description": "Session selector to terminate.",
         "type": "string"
       },
       "signal": {
@@ -17,86 +17,29 @@
       }
     },
     "required": [
-      "id"
+      "selector"
     ],
     "type": "object"
   },
   "name": "agent_delete",
   "outputSchema": {
     "properties": {
-      "session": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "exit_code": {
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "runtime": {
-            "enum": [
-              "claude",
-              "codex"
-            ],
-            "type": "string"
-          },
-          "runtime_pid": {
-            "type": "integer"
-          },
-          "started_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "state": {
-            "enum": [
-              "SPAWNING",
-              "RUNNING",
-              "TERMINATED"
-            ],
-            "type": "string"
-          },
-          "terminated_at": {
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "workspace": {
-            "type": "string"
-          }
+      "errors": {
+        "items": {
+          "type": "object"
         },
-        "required": [
-          "id",
-          "runtime",
-          "role",
-          "workspace",
-          "state",
-          "runtime_pid",
-          "created_at",
-          "started_at",
-          "terminated_at",
-          "updated_at"
-        ],
-        "type": "object"
+        "type": "array"
+      },
+      "sessions": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
       }
     },
     "required": [
-      "session"
+      "sessions",
+      "errors"
     ],
     "type": "object"
   }

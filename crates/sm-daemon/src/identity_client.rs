@@ -64,7 +64,11 @@ pub fn spawn_resource(request: &SpawnRequest, session_id: Uuid) -> ResourceSpec 
         role: Some(request.role.clone()),
         runtime: Some(identity_runtime(request.runtime)),
         session_id: Some(session_id),
-        labels: Default::default(),
+        labels: request
+            .labels
+            .iter()
+            .map(|label| (label.key.clone(), label.value.clone()))
+            .collect(),
     }
 }
 

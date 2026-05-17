@@ -40,6 +40,7 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "agent_list",
             "agent_get",
             "agent_delete",
+            "agent_label",
             "mail_send",
             "mail_read",
             "mail_check",
@@ -92,20 +93,65 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         &mut mcp,
         5,
         "agent_delete",
-        json!({ "id": id, "signal": "SIGTERM", "grace_secs": 1 }),
+        json!({ "selector": format!("id:{id}"), "signal": "SIGTERM", "grace_secs": 1 }),
     );
     assert!(deleted["error"].is_null());
     assert_eq!(
-        deleted["result"]["structuredContent"]["session"]["state"],
+        deleted["result"]["structuredContent"]["sessions"][0]["state"],
         "TERMINATED"
     );
 
-    let rows = im_store::query_audit(daemon.audit_path())
+    let rows = im_store::query_audit(daemon.audit_path(), im_store::AuditFilters::default())
         .await
         .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(actions, vec![Action::Spawn, Action::Kill]);
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
+}
+
+#[tokio::test]
+async fn tools_call_can_select_and_label_agents() {
+    let daemon = DaemonFixture::start();
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let auth = spawn_agent_with_labels(&mut mcp, 2, "engineer", json!(["area=auth"]));
+    let ui = spawn_agent_with_labels(&mut mcp, 3, "engineer", json!(["area=ui"]));
+
+    let selected = call_tool(
+        &mut mcp,
+        4,
+        "agent_list",
+        json!({ "selector": "label:area=auth" }),
+    );
+    assert!(selected["error"].is_null());
+    assert_eq!(
+        selected["result"]["structuredContent"]["sessions"][0]["id"],
+        auth
+    );
+
+    let labeled = call_tool(
+        &mut mcp,
+        5,
+        "agent_label",
+        json!({ "selector": format!("id:{ui}"), "mutation": "area=auth" }),
+    );
+    assert!(labeled["error"].is_null());
+
+    let selected = call_tool(
+        &mut mcp,
+        6,
+        "agent_list",
+        json!({ "selector": "label:area=auth" }),
+    );
+    assert!(selected["error"].is_null());
+    assert_eq!(
+        selected["result"]["structuredContent"]["sessions"]
+            .as_array()
+            .expect("sessions is array")
+            .len(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -129,7 +175,7 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
     );
     assert!(sent["error"].is_null());
     assert_eq!(
-        sent["result"]["structuredContent"]["mail"]["content"],
+        sent["result"]["structuredContent"]["mail"][0]["content"],
         "review the spec"
     );
 
@@ -137,16 +183,24 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
         &mut mcp,
         5,
         "mail_check",
-        json!({ "from": recipient.clone() }),
+        json!({ "selector": format!("id:{recipient}") }),
     );
     assert!(checked["error"].is_null());
     assert_eq!(checked["result"]["structuredContent"]["unread"], 1);
+    assert_eq!(
+        checked["result"]["structuredContent"]["counts"][0]["unread"],
+        1
+    );
+    assert_eq!(
+        checked["result"]["structuredContent"]["counts"][0]["session_id"],
+        recipient
+    );
 
     let read = call_tool(
         &mut mcp,
         6,
         "mail_read",
-        json!({ "from": recipient.clone() }),
+        json!({ "selector": format!("id:{recipient}") }),
     );
     assert!(read["error"].is_null());
     assert_eq!(
@@ -158,10 +212,14 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
         &mut mcp,
         7,
         "mail_stop_check",
-        json!({ "from": recipient.clone() }),
+        json!({ "selector": format!("id:{recipient}") }),
     );
     assert!(checked["error"].is_null());
     assert_eq!(checked["result"]["structuredContent"]["unread"], 0);
+    assert_eq!(
+        checked["result"]["structuredContent"]["counts"][0]["unread"],
+        0
+    );
 
     let nudged = call_tool(
         &mut mcp,
@@ -170,13 +228,16 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
         json!({ "to": recipient.clone(), "content": "ping" }),
     );
     assert!(nudged["error"].is_null());
-    assert_eq!(nudged["result"]["structuredContent"]["delivered"], false);
     assert_eq!(
-        nudged["result"]["structuredContent"]["message"],
+        nudged["result"]["structuredContent"]["nudges"][0]["delivered"],
+        false
+    );
+    assert_eq!(
+        nudged["result"]["structuredContent"]["nudges"][0]["message"],
         "nudge: tmux gateway not available; nudge skipped"
     );
 
-    let rows = im_store::query_audit(daemon.audit_path())
+    let rows = im_store::query_audit(daemon.audit_path(), im_store::AuditFilters::default())
         .await
         .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
@@ -214,6 +275,15 @@ fn call_tool(mcp: &mut common::McpFixture, id: u64, name: &str, arguments: Value
 }
 
 fn spawn_agent(mcp: &mut common::McpFixture, id: u64, role: &str) -> String {
+    spawn_agent_with_labels(mcp, id, role, json!([]))
+}
+
+fn spawn_agent_with_labels(
+    mcp: &mut common::McpFixture,
+    id: u64,
+    role: &str,
+    labels: Value,
+) -> String {
     let spawned = call_tool(
         mcp,
         id,
@@ -221,7 +291,8 @@ fn spawn_agent(mcp: &mut common::McpFixture, id: u64, role: &str) -> String {
         json!({
             "runtime": "codex",
             "role": role,
-            "workspace": "mcp-mail-test"
+            "workspace": "mcp-mail-test",
+            "labels": labels
         }),
     );
     assert!(spawned["error"].is_null());

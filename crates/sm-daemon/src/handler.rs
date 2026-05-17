@@ -5,10 +5,11 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use im_core::Action;
 use sm_core::{
-    DeleteRequest, DeleteResponse, ListRequest, ListResponse, Mail, MailCheckRequest,
-    MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse,
-    MailStopCheckRequest, MailStopCheckResponse, McpBridgeResponse, NudgeRequest, NudgeResponse,
-    RpcRequest, RpcResponse, Session, SessionState, ShutdownResponse, SpawnResponse,
+    DeleteRequest, DeleteResponse, LabelRequest, LabelResponse, ListRequest, ListResponse, Mail,
+    MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest,
+    MailSendResponse, MailStopCheckRequest, MailStopCheckResponse, MailUnreadCount,
+    McpBridgeResponse, NudgeDelivery, NudgeRequest, NudgeResponse, RpcRequest, RpcResponse,
+    Selector, Session, SessionState, ShutdownResponse, SpawnResponse, TargetError,
 };
 use sm_driver::SpawnDriver;
 use sm_store::SqliteStore;
@@ -72,6 +73,7 @@ impl DaemonState {
             RpcRequest::MailCheck { request } => response(self.mail_check(request), false),
             RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
             RpcRequest::Nudge { request } => response(self.nudge(&context, request).await, false),
+            RpcRequest::Label { request } => response(self.label(&context, request).await, false),
             RpcRequest::McpBridge { .. } => response(
                 Err(anyhow::anyhow!(
                     "nested MCP bridge requests are not supported"
@@ -88,6 +90,8 @@ impl DaemonState {
         request: sm_core::SpawnRequest,
     ) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
+        let mut labels = request.labels.clone();
+        labels.sort();
         self.identity
             .authorize(
                 &context.principal,
@@ -105,6 +109,7 @@ impl DaemonState {
             runtime: request.runtime,
             role: request.role,
             workspace: request.workspace,
+            labels,
             state: SessionState::Running,
             runtime_pid: spawned.runtime_pid,
             created_at: now,
@@ -127,11 +132,12 @@ impl DaemonState {
 
     fn list(&self, request: ListRequest) -> Result<RpcResponse> {
         crate::lifecycle::refresh_exits(self)?;
+        let selector = request.selector.unwrap_or_default();
         let sessions = self
             .store
             .lock()
             .expect("store lock poisoned")
-            .list_sessions(request.id.as_deref())
+            .list_sessions_by_selector(&selector)
             .context("failed to list sessions")?;
 
         Ok(RpcResponse::Listed {
@@ -144,44 +150,18 @@ impl DaemonState {
         context: &RequestContext,
         request: DeleteRequest,
     ) -> Result<RpcResponse> {
-        let id = Uuid::parse_str(&request.id).context("invalid session id")?;
-        self.identity
-            .authorize(&context.principal, Action::Kill, &session_resource(id))
-            .await?;
-        crate::lifecycle::refresh_exits(self)?;
-        let session = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .get_session(&id)
-            .context("failed to load session")?
-            .with_context(|| format!("unknown session: {}", request.id))?;
-
-        if session.state == SessionState::Terminated {
-            return Ok(RpcResponse::Deleted {
-                response: DeleteResponse { session },
-            });
+        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let mut sessions = Vec::new();
+        let mut errors = Vec::new();
+        for target in targets {
+            match self.delete_one(context, &request, target.id).await {
+                Ok(session) => sessions.push(session),
+                Err(error) => errors.push(target_error(target.id, error)),
+            }
         }
 
-        let exit = self
-            .driver
-            .terminate(
-                &request.id,
-                &request.signal,
-                Duration::from_secs(request.grace_secs),
-            )
-            .context("failed to terminate runtime")?
-            .with_context(|| format!("session is not owned by this daemon: {}", request.id))?;
-        let session = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .mark_session_terminated(&id, exit.exit_code, Utc::now())
-            .context("failed to persist terminated session")?
-            .with_context(|| format!("unknown session: {}", request.id))?;
-
         Ok(RpcResponse::Deleted {
-            response: DeleteResponse { session },
+            response: DeleteResponse { sessions, errors },
         })
     }
 
@@ -190,8 +170,7 @@ impl DaemonState {
         context: &RequestContext,
         request: MailSendRequest,
     ) -> Result<RpcResponse> {
-        let recipient_id = Uuid::parse_str(&request.to).context("invalid recipient session id")?;
-        self.require_session(&recipient_id, "recipient")?;
+        let recipients = self.resolve_selector(&request.to, "recipient")?;
         let sender_id = match request.from {
             Some(from) => {
                 let id = Uuid::parse_str(&from).context("invalid sender session id")?;
@@ -200,6 +179,141 @@ impl DaemonState {
             }
             None => Uuid::nil(),
         };
+        let mut mail = Vec::new();
+        let mut errors = Vec::new();
+        for recipient in recipients {
+            match self
+                .mail_send_one(context, sender_id, recipient.id, &request.content)
+                .await
+            {
+                Ok(item) => mail.push(item),
+                Err(error) => errors.push(target_error(recipient.id, error)),
+            }
+        }
+
+        Ok(RpcResponse::MailSent {
+            response: MailSendResponse { mail, errors },
+        })
+    }
+
+    async fn mail_read(
+        &self,
+        context: &RequestContext,
+        request: MailReadRequest,
+    ) -> Result<RpcResponse> {
+        let recipients = self.resolve_selector(&request.selector, "recipient")?;
+        let mut mail = Vec::new();
+        let mut errors = Vec::new();
+        for recipient in recipients {
+            match self
+                .mail_read_one(context, recipient.id, request.peek)
+                .await
+            {
+                Ok(mut items) => mail.append(&mut items),
+                Err(error) => errors.push(target_error(recipient.id, error)),
+            }
+        }
+
+        Ok(RpcResponse::MailRead {
+            response: MailReadResponse { mail, errors },
+        })
+    }
+
+    fn mail_check(&self, request: MailCheckRequest) -> Result<RpcResponse> {
+        let counts = self.mail_counts(&request.selector)?;
+        let unread = total_unread(&counts);
+        Ok(RpcResponse::MailChecked {
+            response: MailCheckResponse { unread, counts },
+        })
+    }
+
+    fn mail_stop_check(&self, request: MailStopCheckRequest) -> Result<RpcResponse> {
+        let counts = self.mail_counts(&request.selector)?;
+        let unread = total_unread(&counts);
+        Ok(RpcResponse::MailStopChecked {
+            response: MailStopCheckResponse { unread, counts },
+        })
+    }
+
+    async fn nudge(&self, context: &RequestContext, request: NudgeRequest) -> Result<RpcResponse> {
+        let recipients = self.resolve_selector(&request.to, "recipient")?;
+        let mut nudges = Vec::new();
+        let mut errors = Vec::new();
+        for recipient in recipients {
+            match self
+                .nudge_one(context, recipient.id, &request.content)
+                .await
+            {
+                Ok(nudge) => nudges.push(nudge),
+                Err(error) => errors.push(target_error(recipient.id, error)),
+            }
+        }
+
+        Ok(RpcResponse::Nudged {
+            response: NudgeResponse { nudges, errors },
+        })
+    }
+
+    async fn label(&self, context: &RequestContext, request: LabelRequest) -> Result<RpcResponse> {
+        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let mut sessions = Vec::new();
+        let mut errors = Vec::new();
+        for target in targets {
+            match self.label_one(context, target.id, &request).await {
+                Ok(session) => sessions.push(session),
+                Err(error) => errors.push(target_error(target.id, error)),
+            }
+        }
+        Ok(RpcResponse::Labeled {
+            response: LabelResponse { sessions, errors },
+        })
+    }
+
+    async fn delete_one(
+        &self,
+        context: &RequestContext,
+        request: &DeleteRequest,
+        id: Uuid,
+    ) -> Result<Session> {
+        self.identity
+            .authorize(&context.principal, Action::Kill, &session_resource(id))
+            .await?;
+        crate::lifecycle::refresh_exits(self)?;
+        let id_string = id.to_string();
+        let session = self
+            .store
+            .lock()
+            .expect("store lock poisoned")
+            .get_session(&id)
+            .context("failed to load session")?
+            .with_context(|| format!("unknown session: {id}"))?;
+        if session.state == SessionState::Terminated {
+            return Ok(session);
+        }
+        let exit = self
+            .driver
+            .terminate(
+                &id_string,
+                &request.signal,
+                Duration::from_secs(request.grace_secs),
+            )
+            .context("failed to terminate runtime")?
+            .with_context(|| format!("session is not owned by this daemon: {id}"))?;
+        self.store
+            .lock()
+            .expect("store lock poisoned")
+            .mark_session_terminated(&id, exit.exit_code, Utc::now())
+            .context("failed to persist terminated session")?
+            .with_context(|| format!("unknown session: {id}"))
+    }
+
+    async fn mail_send_one(
+        &self,
+        context: &RequestContext,
+        sender_id: Uuid,
+        recipient_id: Uuid,
+        content: &str,
+    ) -> Result<Mail> {
         self.identity
             .authorize(
                 &context.principal,
@@ -211,7 +325,7 @@ impl DaemonState {
             id: Uuid::now_v7(),
             sender_id,
             recipient_id,
-            content: request.content,
+            content: content.to_string(),
             sent_at: Utc::now(),
             read_at: None,
         };
@@ -220,19 +334,15 @@ impl DaemonState {
             .expect("store lock poisoned")
             .insert_mail(&mail)
             .context("failed to persist mail")?;
-
-        Ok(RpcResponse::MailSent {
-            response: MailSendResponse { mail },
-        })
+        Ok(mail)
     }
 
-    async fn mail_read(
+    async fn mail_read_one(
         &self,
         context: &RequestContext,
-        request: MailReadRequest,
-    ) -> Result<RpcResponse> {
-        let recipient_id = Uuid::parse_str(&request.from).context("invalid session id")?;
-        self.require_session(&recipient_id, "recipient")?;
+        recipient_id: Uuid,
+        peek: bool,
+    ) -> Result<Vec<Mail>> {
         self.identity
             .authorize(
                 &context.principal,
@@ -240,35 +350,32 @@ impl DaemonState {
                 &session_resource(recipient_id),
             )
             .await?;
-        let mail = self
-            .store
+        self.store
             .lock()
             .expect("store lock poisoned")
-            .read_unread_mail(&recipient_id, Utc::now(), request.peek)
-            .context("failed to read mail")?;
-
-        Ok(RpcResponse::MailRead {
-            response: MailReadResponse { mail },
-        })
+            .read_unread_mail(&recipient_id, Utc::now(), peek)
+            .context("failed to read mail")
     }
 
-    fn mail_check(&self, request: MailCheckRequest) -> Result<RpcResponse> {
-        let unread = self.unread_mail_count(&request.from)?;
-        Ok(RpcResponse::MailChecked {
-            response: MailCheckResponse { unread },
-        })
+    fn mail_counts(&self, selector: &Selector) -> Result<Vec<MailUnreadCount>> {
+        let recipients = self.resolve_selector(selector, "recipient")?;
+        recipients
+            .iter()
+            .map(|session| {
+                Ok(MailUnreadCount {
+                    session_id: session.id.to_string(),
+                    unread: self.unread_mail_count(&session.id)?,
+                })
+            })
+            .collect()
     }
 
-    fn mail_stop_check(&self, request: MailStopCheckRequest) -> Result<RpcResponse> {
-        let unread = self.unread_mail_count(&request.from)?;
-        Ok(RpcResponse::MailStopChecked {
-            response: MailStopCheckResponse { unread },
-        })
-    }
-
-    async fn nudge(&self, context: &RequestContext, request: NudgeRequest) -> Result<RpcResponse> {
-        let recipient_id = Uuid::parse_str(&request.to).context("invalid recipient session id")?;
-        self.require_session(&recipient_id, "recipient")?;
+    async fn nudge_one(
+        &self,
+        context: &RequestContext,
+        recipient_id: Uuid,
+        content: &str,
+    ) -> Result<NudgeDelivery> {
         self.identity
             .authorize(
                 &context.principal,
@@ -276,18 +383,37 @@ impl DaemonState {
                 &session_resource(recipient_id),
             )
             .await?;
+        let to = recipient_id.to_string();
         let result = self
             .driver
-            .nudge(&request.to, &request.content)
+            .nudge(&to, content)
             .context("nudge driver failed")?;
-
-        Ok(RpcResponse::Nudged {
-            response: NudgeResponse {
-                to: request.to,
-                delivered: result.delivered,
-                message: result.message,
-            },
+        Ok(NudgeDelivery {
+            to,
+            delivered: result.delivered,
+            message: result.message,
         })
+    }
+
+    async fn label_one(
+        &self,
+        context: &RequestContext,
+        target_id: Uuid,
+        request: &LabelRequest,
+    ) -> Result<Session> {
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::Link,
+                &session_resource(target_id),
+            )
+            .await?;
+        self.store
+            .lock()
+            .expect("store lock poisoned")
+            .apply_label_mutation(&target_id, &request.mutation)
+            .context("failed to persist label")?
+            .with_context(|| format!("unknown session: {target_id}"))
     }
 
     async fn shutdown(&self, context: &RequestContext) -> Result<RpcResponse> {
@@ -301,14 +427,29 @@ impl DaemonState {
         })
     }
 
-    fn unread_mail_count(&self, session_id: &str) -> Result<usize> {
-        let recipient_id = Uuid::parse_str(session_id).context("invalid session id")?;
-        self.require_session(&recipient_id, "recipient")?;
+    fn unread_mail_count(&self, recipient_id: &Uuid) -> Result<usize> {
+        self.require_session(recipient_id, "recipient")?;
         self.store
             .lock()
             .expect("store lock poisoned")
-            .count_unread_mail(&recipient_id)
+            .count_unread_mail(recipient_id)
             .context("failed to count unread mail")
+    }
+
+    fn resolve_selector(&self, selector: &Selector, label: &str) -> Result<Vec<Session>> {
+        let sessions = self
+            .store
+            .lock()
+            .expect("store lock poisoned")
+            .list_sessions_by_selector(selector)
+            .context("failed to resolve selector")?;
+        if !sessions.is_empty() {
+            return Ok(sessions);
+        }
+        match selector {
+            Selector::Id { id } => anyhow::bail!("unknown {label} session: {id}"),
+            _ => anyhow::bail!("{label} selector matched no sessions: {selector:?}"),
+        }
     }
 
     fn require_session(&self, id: &Uuid, label: &str) -> Result<()> {
@@ -322,6 +463,17 @@ impl DaemonState {
         anyhow::ensure!(exists, "unknown {label} session: {id}");
         Ok(())
     }
+}
+
+fn target_error(id: Uuid, error: anyhow::Error) -> TargetError {
+    TargetError {
+        target: id.to_string(),
+        message: format!("{error:#}"),
+    }
+}
+
+fn total_unread(counts: &[MailUnreadCount]) -> usize {
+    counts.iter().map(|count| count.unread).sum()
 }
 
 fn response(result: Result<RpcResponse>, shutdown_on_success: bool) -> HandlerResult {

@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Mail, RuntimeKind, Session};
+use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
     pub workspace: String,
+    #[serde(default)]
+    pub labels: Vec<crate::Label>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -16,7 +18,7 @@ pub struct SpawnResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ListRequest {
-    pub id: Option<String>,
+    pub selector: Option<Selector>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -26,69 +28,109 @@ pub struct ListResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeleteRequest {
-    pub id: String,
+    pub selector: Selector,
     pub signal: String,
     pub grace_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeleteResponse {
-    pub session: Session,
+    pub sessions: Vec<Session>,
+    #[serde(default)]
+    pub errors: Vec<TargetError>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailSendRequest {
     pub from: Option<String>,
-    pub to: String,
+    pub to: Selector,
     pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailSendResponse {
-    pub mail: Mail,
+    pub mail: Vec<Mail>,
+    #[serde(default)]
+    pub errors: Vec<TargetError>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailReadRequest {
-    pub from: String,
+    pub selector: Selector,
     pub peek: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailReadResponse {
     pub mail: Vec<Mail>,
+    #[serde(default)]
+    pub errors: Vec<TargetError>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailCheckRequest {
-    pub from: String,
+    pub selector: Selector,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailCheckResponse {
     pub unread: usize,
+    pub counts: Vec<MailUnreadCount>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailStopCheckRequest {
-    pub from: String,
+    pub selector: Selector,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MailStopCheckResponse {
     pub unread: usize,
+    pub counts: Vec<MailUnreadCount>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NudgeRequest {
-    pub to: String,
+    pub to: Selector,
     pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NudgeResponse {
+    pub nudges: Vec<NudgeDelivery>,
+    #[serde(default)]
+    pub errors: Vec<TargetError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NudgeDelivery {
     pub to: String,
     pub delivered: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MailUnreadCount {
+    pub session_id: String,
+    pub unread: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LabelRequest {
+    pub selector: Selector,
+    pub mutation: LabelMutation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LabelResponse {
+    pub sessions: Vec<Session>,
+    #[serde(default)]
+    pub errors: Vec<TargetError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TargetError {
+    pub target: String,
     pub message: String,
 }
 
@@ -126,6 +168,7 @@ pub enum RpcRequest {
     MailCheck { request: MailCheckRequest },
     MailStopCheck { request: MailStopCheckRequest },
     Nudge { request: NudgeRequest },
+    Label { request: LabelRequest },
     McpBridge { request: McpBridgeRequest },
     Shutdown,
 }
@@ -141,6 +184,7 @@ pub enum RpcResponse {
     MailChecked { response: MailCheckResponse },
     MailStopChecked { response: MailStopCheckResponse },
     Nudged { response: NudgeResponse },
+    Labeled { response: LabelResponse },
     McpBridge { response: McpBridgeResponse },
     Shutdown { response: ShutdownResponse },
     Error { message: String },
@@ -157,6 +201,7 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                labels: Vec::new(),
             },
         };
 
@@ -170,7 +215,9 @@ mod tests {
     fn delete_request_round_trips_as_tagged_json() {
         let request = RpcRequest::Delete {
             request: DeleteRequest {
-                id: "019e32e3-0000-7000-8000-000000000000".to_string(),
+                selector: Selector::Id {
+                    id: "019e32e3-0000-7000-8000-000000000000".parse().unwrap(),
+                },
                 signal: "SIGTERM".to_string(),
                 grace_secs: 5,
             },
@@ -187,7 +234,9 @@ mod tests {
         let request = RpcRequest::MailSend {
             request: MailSendRequest {
                 from: Some("019e32e3-0000-7000-8000-000000000000".to_string()),
-                to: "019e32e3-0000-7000-8000-000000000001".to_string(),
+                to: Selector::Id {
+                    id: "019e32e3-0000-7000-8000-000000000001".parse().unwrap(),
+                },
                 content: "review the spec".to_string(),
             },
         };
@@ -202,7 +251,9 @@ mod tests {
     fn nudge_request_round_trips_as_tagged_json() {
         let request = RpcRequest::Nudge {
             request: NudgeRequest {
-                to: "019e32e3-0000-7000-8000-000000000001".to_string(),
+                to: Selector::Id {
+                    id: "019e32e3-0000-7000-8000-000000000001".parse().unwrap(),
+                },
                 content: "ping".to_string(),
             },
         };

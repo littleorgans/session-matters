@@ -11,9 +11,14 @@ pub use mcp::{
 };
 pub use paths::SmPaths;
 pub use proto::{
-    DaemonStatus, DeleteRequest, DeleteResponse, ListRequest, ListResponse, MailCheckRequest,
-    MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse,
-    MailStopCheckRequest, MailStopCheckResponse, McpBridgeRequest, McpBridgeResponse, NudgeRequest,
+    DaemonStatus, DeleteRequest, DeleteResponse, LabelRequest, LabelResponse, ListRequest,
+    ListResponse, MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse,
+    MailSendRequest, MailSendResponse, MailStopCheckRequest, MailStopCheckResponse,
+    MailUnreadCount, McpBridgeRequest, McpBridgeResponse, NudgeDelivery, NudgeRequest,
     NudgeResponse, RpcRequest, RpcResponse, ShutdownResponse, SpawnRequest, SpawnResponse,
+    TargetError,
 };
-pub use types::{Channel, Mail, MailStatus, RuntimeKind, Session, SessionState};
+pub use types::{
+    Channel, Label, LabelMutation, LabelOp, Mail, MailStatus, RuntimeKind, Selector, Session,
+    SessionState,
+};

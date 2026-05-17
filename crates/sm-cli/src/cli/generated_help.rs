@@ -8,11 +8,13 @@ pub const AGENT_RUN_RUNTIME_HELP: &str = "Runtime to launch.";
 pub const AGENT_RUN_ROLE_HELP: &str = "Role label recorded on the session.";
 #[rustfmt::skip]
 pub const AGENT_RUN_WORKSPACE_HELP: &str = "Workspace path or name recorded on the session.";
+#[rustfmt::skip]
+pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
 
 #[rustfmt::skip]
 pub const AGENT_LIST_ABOUT: &str = "List session records known to the session-matters daemon.";
 #[rustfmt::skip]
-pub const AGENT_LIST_ID_HELP: &str = "Optional session id filter.";
+pub const AGENT_LIST_SELECTOR_HELP: &str = "Optional session selector.";
 
 #[rustfmt::skip]
 pub const AGENT_GET_ABOUT: &str = "Get one session record by id.";
@@ -20,43 +22,50 @@ pub const AGENT_GET_ABOUT: &str = "Get one session record by id.";
 pub const AGENT_GET_ID_HELP: &str = "Session id to load.";
 
 #[rustfmt::skip]
-pub const AGENT_DELETE_ABOUT: &str = "Terminate one daemon owned agent runtime by id.";
+pub const AGENT_DELETE_ABOUT: &str = "Terminate daemon owned agent runtimes by selector.";
 #[rustfmt::skip]
-pub const AGENT_DELETE_ID_HELP: &str = "Session id to terminate.";
+pub const AGENT_DELETE_SELECTOR_HELP: &str = "Session selector to terminate.";
 #[rustfmt::skip]
 pub const AGENT_DELETE_SIGNAL_HELP: &str = "Signal to send. Defaults to SIGTERM.";
 #[rustfmt::skip]
 pub const AGENT_DELETE_GRACE_SECS_HELP: &str = "Seconds to wait before SIGKILL. Defaults to 5.";
 
 #[rustfmt::skip]
-pub const MAIL_SEND_ABOUT: &str = "Send durable mail to one session id.";
+pub const AGENT_LABEL_ABOUT: &str = "Add or remove labels on selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_SEND_TO_HELP: &str = "Recipient session id.";
+pub const AGENT_LABEL_SELECTOR_HELP: &str = "Session selector to mutate.";
+#[rustfmt::skip]
+pub const AGENT_LABEL_MUTATION_HELP: &str = "Label mutation as key=value or key-.";
+
+#[rustfmt::skip]
+pub const MAIL_SEND_ABOUT: &str = "Send durable mail to selected sessions.";
+#[rustfmt::skip]
+pub const MAIL_SEND_TO_HELP: &str = "Recipient selector.";
 #[rustfmt::skip]
 pub const MAIL_SEND_FROM_HELP: &str = "Sender session id. Defaults to HELIOY_SESSION_ID when set.";
 #[rustfmt::skip]
 pub const MAIL_SEND_CONTENT_HELP: &str = "Message content.";
 
 #[rustfmt::skip]
-pub const MAIL_READ_ABOUT: &str = "Read unread mail for one session id.";
+pub const MAIL_READ_ABOUT: &str = "Read unread mail for selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_READ_FROM_HELP: &str = "Inbox owner session id.";
+pub const MAIL_READ_SELECTOR_HELP: &str = "Inbox owner selector.";
 #[rustfmt::skip]
 pub const MAIL_READ_PEEK_HELP: &str = "Return unread mail without marking it read.";
 
 #[rustfmt::skip]
-pub const MAIL_CHECK_ABOUT: &str = "Return unread mail count for one session id.";
+pub const MAIL_CHECK_ABOUT: &str = "Return unread mail count for selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_CHECK_FROM_HELP: &str = "Inbox owner session id.";
+pub const MAIL_CHECK_SELECTOR_HELP: &str = "Inbox owner selector.";
 
 #[rustfmt::skip]
 pub const MAIL_STOP_CHECK_ABOUT: &str = "Check unread mail for stop-hook decisions.";
 #[rustfmt::skip]
-pub const MAIL_STOP_CHECK_FROM_HELP: &str = "Inbox owner session id.";
+pub const MAIL_STOP_CHECK_SELECTOR_HELP: &str = "Inbox owner selector.";
 
 #[rustfmt::skip]
-pub const NUDGE_ABOUT: &str = "Send an ephemeral nudge to one session id.";
+pub const NUDGE_ABOUT: &str = "Send an ephemeral nudge to selected sessions.";
 #[rustfmt::skip]
-pub const NUDGE_TO_HELP: &str = "Recipient session id.";
+pub const NUDGE_TO_HELP: &str = "Recipient selector.";
 #[rustfmt::skip]
 pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";

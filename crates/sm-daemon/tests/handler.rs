@@ -5,8 +5,8 @@ use std::time::Duration;
 use anyhow::Result;
 use im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, MailCheckRequest, MailReadRequest, MailSendRequest, NudgeRequest, RpcRequest,
-    RpcResponse, RuntimeKind, Session, SessionState, SpawnRequest,
+    DeleteRequest, Label, MailCheckRequest, MailReadRequest, MailSendRequest, NudgeRequest,
+    RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SessionState, SpawnRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
@@ -111,7 +111,7 @@ async fn drives_session_through_delete_lifecycle() {
             context,
             RpcRequest::Delete {
                 request: DeleteRequest {
-                    id: spawned.id.to_string(),
+                    selector: Selector::Id { id: spawned.id },
                     signal: "SIGTERM".to_string(),
                     grace_secs: 5,
                 },
@@ -122,9 +122,10 @@ async fn drives_session_through_delete_lifecycle() {
         panic!("expected delete response");
     };
 
-    assert_eq!(response.session.state, SessionState::Terminated);
-    assert_eq!(response.session.exit_code, Some(143));
-    assert!(response.session.terminated_at.is_some());
+    assert_eq!(response.sessions.len(), 1);
+    assert_eq!(response.sessions[0].state, SessionState::Terminated);
+    assert_eq!(response.sessions[0].exit_code, Some(143));
+    assert!(response.sessions[0].terminated_at.is_some());
 }
 
 #[tokio::test]
@@ -141,7 +142,7 @@ async fn mail_round_trip_marks_read() {
             RpcRequest::MailSend {
                 request: MailSendRequest {
                     from: Some(sender.id.to_string()),
-                    to: recipient.id.to_string(),
+                    to: Selector::Id { id: recipient.id },
                     content: "review the spec".to_string(),
                 },
             },
@@ -159,7 +160,7 @@ async fn mail_round_trip_marks_read() {
             context.clone(),
             RpcRequest::MailRead {
                 request: MailReadRequest {
-                    from: recipient.id.to_string(),
+                    selector: Selector::Id { id: recipient.id },
                     peek: false,
                 },
             },
@@ -174,6 +175,102 @@ async fn mail_round_trip_marks_read() {
 }
 
 #[tokio::test]
+async fn selector_mail_and_nudge_fan_out_to_matching_sessions() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let sender = spawn_test_session(&daemon.state, &context, "pm").await;
+    let auth_one = spawn_test_session_with_labels(
+        &daemon.state,
+        &context,
+        "engineer",
+        vec![Label {
+            key: "area".to_string(),
+            value: "auth".to_string(),
+        }],
+    )
+    .await;
+    let auth_two = spawn_test_session_with_labels(
+        &daemon.state,
+        &context,
+        "engineer",
+        vec![Label {
+            key: "area".to_string(),
+            value: "auth".to_string(),
+        }],
+    )
+    .await;
+    let ui = spawn_test_session_with_labels(
+        &daemon.state,
+        &context,
+        "engineer",
+        vec![Label {
+            key: "area".to_string(),
+            value: "ui".to_string(),
+        }],
+    )
+    .await;
+
+    let sent = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::MailSend {
+                request: MailSendRequest {
+                    from: Some(sender.id.to_string()),
+                    to: Selector::Label {
+                        key: "area".to_string(),
+                        op: sm_core::LabelOp::Eq {
+                            value: "auth".to_string(),
+                        },
+                    },
+                    content: "merge by Friday".to_string(),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::MailSent { response } = sent.response else {
+        panic!("expected mail sent response");
+    };
+    assert_eq!(response.mail.len(), 2);
+    assert_eq!(
+        response
+            .mail
+            .iter()
+            .map(|mail| mail.recipient_id)
+            .collect::<Vec<_>>(),
+        vec![auth_one.id, auth_two.id]
+    );
+    assert_eq!(
+        mail_count(&daemon.state, context.clone(), auth_one.id).await,
+        1
+    );
+    assert_eq!(
+        mail_count(&daemon.state, context.clone(), auth_two.id).await,
+        1
+    );
+    assert_eq!(mail_count(&daemon.state, context.clone(), ui.id).await, 0);
+
+    let nudged = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Nudge {
+                request: NudgeRequest {
+                    to: Selector::Role {
+                        name: "engineer".to_string(),
+                    },
+                    content: "review PRs".to_string(),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Nudged { response } = nudged.response else {
+        panic!("expected nudge response");
+    };
+    assert_eq!(response.nudges.len(), 3);
+}
+
+#[tokio::test]
 async fn mail_send_rejects_unknown_recipient() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let sent = daemon
@@ -183,7 +280,7 @@ async fn mail_send_rejects_unknown_recipient() {
             RpcRequest::MailSend {
                 request: MailSendRequest {
                     from: None,
-                    to: Uuid::now_v7().to_string(),
+                    to: Selector::Id { id: Uuid::now_v7() },
                     content: "review the spec".to_string(),
                 },
             },
@@ -207,7 +304,7 @@ async fn nudge_delegates_to_driver_stub() {
             context,
             RpcRequest::Nudge {
                 request: NudgeRequest {
-                    to: recipient.id.to_string(),
+                    to: Selector::Id { id: recipient.id },
                     content: "ping".to_string(),
                 },
             },
@@ -217,8 +314,9 @@ async fn nudge_delegates_to_driver_stub() {
     let RpcResponse::Nudged { response } = nudged.response else {
         panic!("expected nudge response");
     };
-    assert!(!response.delivered);
-    assert_eq!(response.message, "nudge skipped");
+    assert_eq!(response.nudges.len(), 1);
+    assert!(!response.nudges[0].delivered);
+    assert_eq!(response.nudges[0].message, "nudge skipped");
 }
 
 #[tokio::test]
@@ -230,7 +328,7 @@ async fn successful_mutations_write_allow_audit_rows() {
 
     send_read_nudge_delete(&daemon.state, context, sender.id, recipient.id).await;
 
-    let rows = im_store::query_audit(&daemon.audit_path)
+    let rows = im_store::query_audit(&daemon.audit_path, im_store::AuditFilters::default())
         .await
         .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
@@ -261,6 +359,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
                     workspace: "test".to_string(),
+                    labels: Vec::new(),
                 },
             },
         )
@@ -271,7 +370,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
     };
     assert!(message.contains("unknown principal"));
 
-    let rows = im_store::query_audit(&daemon.audit_path)
+    let rows = im_store::query_audit(&daemon.audit_path, im_store::AuditFilters::default())
         .await
         .expect("audit query succeeds");
     assert_eq!(rows.len(), 1);
@@ -302,25 +401,25 @@ async fn send_read_nudge_delete(
         RpcRequest::MailSend {
             request: MailSendRequest {
                 from: Some(sender_id.to_string()),
-                to: recipient_id.to_string(),
+                to: Selector::Id { id: recipient_id },
                 content: "review the spec".to_string(),
             },
         },
         RpcRequest::MailRead {
             request: MailReadRequest {
-                from: recipient_id.to_string(),
+                selector: Selector::Id { id: recipient_id },
                 peek: false,
             },
         },
         RpcRequest::Nudge {
             request: NudgeRequest {
-                to: recipient_id.to_string(),
+                to: Selector::Id { id: recipient_id },
                 content: "ping".to_string(),
             },
         },
         RpcRequest::Delete {
             request: DeleteRequest {
-                id: recipient_id.to_string(),
+                selector: Selector::Id { id: recipient_id },
                 signal: "SIGTERM".to_string(),
                 grace_secs: 5,
             },
@@ -334,6 +433,15 @@ async fn send_read_nudge_delete(
 }
 
 async fn spawn_test_session(state: &DaemonState, context: &RequestContext, role: &str) -> Session {
+    spawn_test_session_with_labels(state, context, role, Vec::new()).await
+}
+
+async fn spawn_test_session_with_labels(
+    state: &DaemonState,
+    context: &RequestContext,
+    role: &str,
+    labels: Vec<Label>,
+) -> Session {
     let spawned = state
         .handle(
             context.clone(),
@@ -342,6 +450,7 @@ async fn spawn_test_session(state: &DaemonState, context: &RequestContext, role:
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
                     workspace: "test".to_string(),
+                    labels,
                 },
             },
         )
@@ -358,7 +467,7 @@ async fn mail_count(state: &DaemonState, context: RequestContext, session_id: Uu
             context,
             RpcRequest::MailCheck {
                 request: MailCheckRequest {
-                    from: session_id.to_string(),
+                    selector: Selector::Id { id: session_id },
                 },
             },
         )

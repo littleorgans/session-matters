@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Row, params, params_from_iter};
-use sm_core::{RuntimeKind, Session, SessionState};
+use sm_core::{LabelOp, RuntimeKind, Selector, Session, SessionState};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -46,6 +46,7 @@ impl SqliteStore {
                 session.updated_at.to_rfc3339(),
             ],
         )?;
+        self.insert_session_labels(&session.id, &session.labels)?;
         Ok(())
     }
 
@@ -59,21 +60,93 @@ impl SqliteStore {
 
     pub fn list_sessions(&self, id: Option<&str>) -> Result<Vec<Session>, SessionRowError> {
         match id {
-            Some(id) => self.query_sessions("SELECT * FROM sessions WHERE id = ?1", [id]),
-            None => self.query_sessions("SELECT * FROM sessions ORDER BY created_at", []),
+            Some(id) => {
+                let id = Uuid::parse_str(id)?;
+                self.list_sessions_by_selector(&Selector::Id { id })
+            }
+            None => self.list_sessions_by_selector(&Selector::All),
         }
     }
 
-    fn query_sessions<const N: usize>(
+    pub fn list_sessions_by_selector(
         &self,
-        sql: &str,
-        params: [&str; N],
+        selector: &Selector,
     ) -> Result<Vec<Session>, SessionRowError> {
+        match selector {
+            Selector::All => self.query_sessions(
+                "SELECT * FROM sessions ORDER BY created_at",
+                std::iter::empty::<String>(),
+            ),
+            Selector::Id { id } => self.query_sessions(
+                "SELECT * FROM sessions WHERE id = ?1 ORDER BY created_at",
+                [id.to_string()],
+            ),
+            Selector::Role { name } => self.query_sessions(
+                "SELECT * FROM sessions WHERE role = ?1 ORDER BY created_at",
+                [name.clone()],
+            ),
+            Selector::Workspace { name } => self.query_sessions(
+                "SELECT * FROM sessions WHERE workspace = ?1 ORDER BY created_at",
+                [name.clone()],
+            ),
+            Selector::Label {
+                key,
+                op: LabelOp::Eq { value },
+            } => self.query_sessions(
+                "SELECT s.*
+                 FROM sessions s
+                 JOIN labels l ON l.session_id = s.id
+                 WHERE l.key = ?1 AND l.value = ?2
+                 ORDER BY s.created_at",
+                [key.clone(), value.clone()],
+            ),
+            Selector::Label {
+                key,
+                op: LabelOp::In { values },
+            } => self.query_label_in_sessions(key, values),
+        }
+    }
+
+    fn query_label_in_sessions(
+        &self,
+        key: &str,
+        values: &[String],
+    ) -> Result<Vec<Session>, SessionRowError> {
+        if values.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = (2..values.len() + 2)
+            .map(|index| format!("?{index}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT s.*
+             FROM sessions s
+             JOIN labels l ON l.session_id = s.id
+             WHERE l.key = ?1 AND l.value IN ({placeholders})
+             ORDER BY s.created_at"
+        );
+        let params = std::iter::once(key.to_string())
+            .chain(values.iter().cloned())
+            .collect::<Vec<_>>();
+        self.query_sessions(&sql, params)
+    }
+
+    fn query_sessions<P>(&self, sql: &str, params: P) -> Result<Vec<Session>, SessionRowError>
+    where
+        P: IntoIterator,
+        P::Item: rusqlite::ToSql,
+    {
         let mut statement = self.connection.prepare(sql)?;
         let mut rows = statement.query(params_from_iter(params))?;
         let mut sessions = Vec::new();
         while let Some(row) = rows.next()? {
             sessions.push(session_from_row(row)?);
+        }
+        drop(rows);
+        drop(statement);
+        for session in &mut sessions {
+            session.labels = self.labels_for_session(&session.id)?;
         }
         Ok(sessions)
     }
@@ -117,6 +190,7 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         terminated_at: parse_optional_timestamp(row.get::<_, Option<String>>("terminated_at")?)?,
         exit_code: optional_i32(row, "exit_code")?,
         updated_at: parse_timestamp(&row.get::<_, String>("updated_at")?)?,
+        labels: Vec::new(),
     })
 }
 
@@ -133,6 +207,8 @@ fn integer_out_of_range(field: &'static str, value: i64) -> SessionRowError {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
+
+    use sm_core::{Label, LabelOp, Selector};
 
     use super::*;
 
@@ -152,6 +228,7 @@ mod tests {
             terminated_at: None,
             exit_code: None,
             updated_at: now,
+            labels: Vec::new(),
         };
 
         store.insert_session(&session).expect("session inserts");
@@ -178,6 +255,7 @@ mod tests {
             terminated_at: None,
             exit_code: None,
             updated_at: now,
+            labels: Vec::new(),
         };
         store.insert_session(&session).expect("session inserts");
 
@@ -190,6 +268,90 @@ mod tests {
         assert_eq!(terminated.state, SessionState::Terminated);
         assert_eq!(terminated.exit_code, Some(137));
         assert_eq!(terminated.terminated_at, Some(terminated_at));
+    }
+
+    #[test]
+    fn selector_queries_return_sessions_with_labels() {
+        let store = SqliteStore::open_in_memory().expect("store opens");
+        let auth_pm = test_session(
+            "pm",
+            "test",
+            vec![
+                Label {
+                    key: "area".to_string(),
+                    value: "auth".to_string(),
+                },
+                Label {
+                    key: "pri".to_string(),
+                    value: "high".to_string(),
+                },
+            ],
+        );
+        let auth_engineer = test_session(
+            "engineer",
+            "test",
+            vec![Label {
+                key: "area".to_string(),
+                value: "auth".to_string(),
+            }],
+        );
+        let ui_engineer = test_session(
+            "engineer",
+            "test",
+            vec![Label {
+                key: "area".to_string(),
+                value: "ui".to_string(),
+            }],
+        );
+        for session in [&auth_pm, &auth_engineer, &ui_engineer] {
+            store.insert_session(session).expect("session inserts");
+        }
+
+        let engineers = store
+            .list_sessions_by_selector(&Selector::Role {
+                name: "engineer".to_string(),
+            })
+            .expect("role selector resolves");
+        assert_eq!(
+            session_ids(&engineers),
+            vec![auth_engineer.id, ui_engineer.id]
+        );
+
+        let auth_area = store
+            .list_sessions_by_selector(&Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::Eq {
+                    value: "auth".to_string(),
+                },
+            })
+            .expect("label selector resolves");
+        assert_eq!(session_ids(&auth_area), vec![auth_pm.id, auth_engineer.id]);
+        assert_eq!(
+            auth_area[0].labels,
+            vec![
+                Label {
+                    key: "area".to_string(),
+                    value: "auth".to_string(),
+                },
+                Label {
+                    key: "pri".to_string(),
+                    value: "high".to_string(),
+                },
+            ]
+        );
+
+        let in_area = store
+            .list_sessions_by_selector(&Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::In {
+                    values: vec!["auth".to_string(), "ui".to_string()],
+                },
+            })
+            .expect("label in selector resolves");
+        assert_eq!(
+            session_ids(&in_area),
+            vec![auth_pm.id, auth_engineer.id, ui_engineer.id]
+        );
     }
 
     #[test]
@@ -239,5 +401,27 @@ mod tests {
         assert_eq!(sessions[0].terminated_at, None);
         assert_eq!(sessions[0].exit_code, None);
         let _ = std::fs::remove_file(path);
+    }
+
+    fn test_session(role: &str, workspace: &str, labels: Vec<Label>) -> Session {
+        let now = Utc::now();
+        Session {
+            id: Uuid::now_v7(),
+            runtime: RuntimeKind::Claude,
+            role: role.to_string(),
+            workspace: workspace.to_string(),
+            state: SessionState::Running,
+            runtime_pid: 42,
+            created_at: now,
+            started_at: now,
+            terminated_at: None,
+            exit_code: None,
+            updated_at: now,
+            labels,
+        }
+    }
+
+    fn session_ids(sessions: &[Session]) -> Vec<Uuid> {
+        sessions.iter().map(|session| session.id).collect()
     }
 }

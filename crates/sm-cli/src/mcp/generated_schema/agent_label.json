@@ -1,23 +1,24 @@
 {
-  "description": "Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true.",
+  "description": "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
-      "peek": {
-        "description": "Return unread mail without marking it read.",
-        "type": "boolean"
+      "mutation": {
+        "description": "Label mutation as key=value or key-.",
+        "type": "string"
       },
       "selector": {
-        "description": "Inbox owner selector.",
+        "description": "Session selector to mutate.",
         "type": "string"
       }
     },
     "required": [
-      "selector"
+      "selector",
+      "mutation"
     ],
     "type": "object"
   },
-  "name": "mail_read",
+  "name": "agent_label",
   "outputSchema": {
     "properties": {
       "errors": {
@@ -26,7 +27,7 @@
         },
         "type": "array"
       },
-      "mail": {
+      "sessions": {
         "items": {
           "type": "object"
         },
@@ -34,7 +35,8 @@
       }
     },
     "required": [
-      "mail"
+      "sessions",
+      "errors"
     ],
     "type": "object"
   }

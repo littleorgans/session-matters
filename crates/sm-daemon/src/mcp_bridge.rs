@@ -3,10 +3,10 @@ use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    DeleteRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, ListRequest,
-    MCP_PROTOCOL_VERSION, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
-    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, SpawnRequest,
-    tool_contracts::contract_registry, tool_error, tool_success,
+    DeleteRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Label, LabelMutation,
+    LabelRequest, ListRequest, MCP_PROTOCOL_VERSION, MailCheckRequest, MailReadRequest,
+    MailSendRequest, MailStopCheckRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind,
+    Selector, SpawnRequest, tool_contracts::contract_registry, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -97,6 +97,7 @@ async fn call_tool(
         "agent_list" => agent_list(state, context, arguments).await,
         "agent_get" => agent_get(state, context, arguments).await,
         "agent_delete" => agent_delete(state, context, arguments).await,
+        "agent_label" => agent_label(state, context, arguments).await,
         "mail_send" => mail_send(state, context, arguments).await,
         "mail_read" => mail_read(state, context, arguments).await,
         "mail_check" => mail_check(state, context, arguments).await,
@@ -114,6 +115,7 @@ async fn agent_run(
     let runtime = RuntimeKind::from_str(required_string(arguments, "runtime")?)?;
     let role = required_string(arguments, "role")?.to_string();
     let workspace = required_string(arguments, "workspace")?.to_string();
+    let labels = optional_labels(arguments)?;
     let response = state
         .handle_direct(
             context.clone(),
@@ -122,6 +124,7 @@ async fn agent_run(
                     runtime,
                     role,
                     workspace,
+                    labels,
                 },
             },
         )
@@ -141,12 +144,13 @@ async fn agent_list(
     context: &RequestContext,
     arguments: &Value,
 ) -> Result<Value> {
-    let id = optional_string(arguments, "id").map(ToString::to_string);
+    let selector = optional_selector(arguments, "selector")?
+        .or_else(|| optional_string(arguments, "id").and_then(|id| selector_from_id(id).ok()));
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::List {
-                request: ListRequest { id },
+                request: ListRequest { selector },
             },
         )
         .await;
@@ -169,12 +173,15 @@ async fn agent_get(
     arguments: &Value,
 ) -> Result<Value> {
     let id = required_string(arguments, "id")?.to_string();
+    let selector = Selector::Id {
+        id: uuid::Uuid::parse_str(&id)?,
+    };
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::List {
                 request: ListRequest {
-                    id: Some(id.clone()),
+                    selector: Some(selector),
                 },
             },
         )
@@ -201,7 +208,8 @@ async fn agent_delete(
     context: &RequestContext,
     arguments: &Value,
 ) -> Result<Value> {
-    let id = required_string(arguments, "id")?.to_string();
+    let selector = required_selector(arguments, "selector")
+        .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
     let signal = optional_string(arguments, "signal")
         .unwrap_or("SIGTERM")
         .to_string();
@@ -211,7 +219,7 @@ async fn agent_delete(
             context.clone(),
             RpcRequest::Delete {
                 request: DeleteRequest {
-                    id,
+                    selector,
                     signal,
                     grace_secs,
                 },
@@ -220,9 +228,37 @@ async fn agent_delete(
         .await;
     match response.response {
         RpcResponse::Deleted { response } => {
-            let text = format!("deleted {} {}", response.session.id, response.session.state);
-            Ok(tool_success(text, &json!({ "session": response.session })))
+            let text = format!("deleted {} session(s)", response.sessions.len());
+            Ok(tool_success(
+                text,
+                &json!({ "sessions": response.sessions, "errors": response.errors }),
+            ))
         }
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn agent_label(
+    state: &DaemonState,
+    context: &RequestContext,
+    arguments: &Value,
+) -> Result<Value> {
+    let selector = required_selector(arguments, "selector")?;
+    let mutation = LabelMutation::from_str(required_string(arguments, "mutation")?)?;
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Label {
+                request: LabelRequest { selector, mutation },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Labeled { response } => Ok(tool_success(
+            format!("labeled {} session(s)", response.sessions.len()),
+            &json!({ "sessions": response.sessions, "errors": response.errors }),
+        )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
         other => Err(anyhow!("unexpected daemon response: {other:?}")),
     }
@@ -239,7 +275,7 @@ async fn mail_send(
             RpcRequest::MailSend {
                 request: MailSendRequest {
                     from: optional_string(arguments, "from").map(ToString::to_string),
-                    to: required_string(arguments, "to")?.to_string(),
+                    to: required_selector(arguments, "to")?,
                     content: required_string(arguments, "content")?.to_string(),
                 },
             },
@@ -247,8 +283,8 @@ async fn mail_send(
         .await;
     match response.response {
         RpcResponse::MailSent { response } => Ok(tool_success(
-            format!("sent {}", response.mail.id),
-            &json!({ "mail": response.mail }),
+            format!("sent {} mail item(s)", response.mail.len()),
+            &json!({ "mail": response.mail, "errors": response.errors }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
         other => Err(anyhow!("unexpected daemon response: {other:?}")),
@@ -265,7 +301,8 @@ async fn mail_read(
             context.clone(),
             RpcRequest::MailRead {
                 request: MailReadRequest {
-                    from: required_string(arguments, "from")?.to_string(),
+                    selector: required_selector(arguments, "selector")
+                        .or_else(|_| required_selector(arguments, "from"))?,
                     peek: optional_bool(arguments, "peek").unwrap_or(false),
                 },
             },
@@ -276,7 +313,7 @@ async fn mail_read(
             let count = response.mail.len();
             Ok(tool_success(
                 format!("{count} mail item(s)"),
-                &json!({ "mail": response.mail }),
+                &json!({ "mail": response.mail, "errors": response.errors }),
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
@@ -294,7 +331,8 @@ async fn mail_check(
         context,
         RpcRequest::MailCheck {
             request: MailCheckRequest {
-                from: required_string(arguments, "from")?.to_string(),
+                selector: required_selector(arguments, "selector")
+                    .or_else(|_| required_selector(arguments, "from"))?,
             },
         },
     )
@@ -311,7 +349,8 @@ async fn mail_stop_check(
         context,
         RpcRequest::MailStopCheck {
             request: MailStopCheckRequest {
-                from: required_string(arguments, "from")?.to_string(),
+                selector: required_selector(arguments, "selector")
+                    .or_else(|_| required_selector(arguments, "from"))?,
             },
         },
     )
@@ -324,7 +363,7 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
             context.clone(),
             RpcRequest::Nudge {
                 request: NudgeRequest {
-                    to: required_string(arguments, "to")?.to_string(),
+                    to: required_selector(arguments, "to")?,
                     content: required_string(arguments, "content")?.to_string(),
                 },
             },
@@ -332,11 +371,10 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
         .await;
     match response.response {
         RpcResponse::Nudged { response } => Ok(tool_success(
-            response.message.clone(),
+            format!("nudged {} session(s)", response.nudges.len()),
             &json!({
-                "to": response.to,
-                "delivered": response.delivered,
-                "message": response.message
+                "nudges": response.nudges,
+                "errors": response.errors
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
@@ -350,15 +388,22 @@ async fn mail_count_tool(
     request: RpcRequest,
 ) -> Result<Value> {
     match state.handle_direct(context.clone(), request).await.response {
-        RpcResponse::MailChecked { response } => Ok(unread_tool_response(response.unread)),
-        RpcResponse::MailStopChecked { response } => Ok(unread_tool_response(response.unread)),
+        RpcResponse::MailChecked { response } => {
+            Ok(unread_tool_response(response.unread, &response.counts))
+        }
+        RpcResponse::MailStopChecked { response } => {
+            Ok(unread_tool_response(response.unread, &response.counts))
+        }
         RpcResponse::Error { message } => Err(anyhow!(message)),
         other => Err(anyhow!("unexpected daemon response: {other:?}")),
     }
 }
 
-fn unread_tool_response(unread: usize) -> Value {
-    tool_success(format!("{unread} unread"), &json!({ "unread": unread }))
+fn unread_tool_response(unread: usize, counts: &[sm_core::MailUnreadCount]) -> Value {
+    tool_success(
+        format!("{unread} unread"),
+        &json!({ "unread": unread, "counts": counts }),
+    )
 }
 
 fn required_string<'a>(arguments: &'a Value, field: &str) -> Result<&'a str> {
@@ -375,6 +420,41 @@ fn optional_u64(arguments: &Value, field: &str) -> Option<u64> {
 
 fn optional_bool(arguments: &Value, field: &str) -> Option<bool> {
     arguments.get(field).and_then(Value::as_bool)
+}
+
+fn required_selector(arguments: &Value, field: &str) -> Result<Selector> {
+    Selector::from_str(required_string(arguments, field)?).map_err(Into::into)
+}
+
+fn optional_selector(arguments: &Value, field: &str) -> Result<Option<Selector>> {
+    optional_string(arguments, field)
+        .map(Selector::from_str)
+        .transpose()
+        .map_err(Into::into)
+}
+
+fn selector_from_id(id: &str) -> Result<Selector> {
+    Ok(Selector::Id {
+        id: uuid::Uuid::parse_str(id)?,
+    })
+}
+
+fn optional_labels(arguments: &Value) -> Result<Vec<Label>> {
+    let Some(value) = arguments.get("labels") else {
+        return Ok(Vec::new());
+    };
+    let labels = value
+        .as_array()
+        .ok_or_else(|| anyhow!("`labels` must be an array of key=value strings"))?
+        .iter()
+        .map(|value| {
+            let label = value
+                .as_str()
+                .ok_or_else(|| anyhow!("`labels` entries must be strings"))?;
+            Label::from_str(label).map_err(Into::into)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(labels)
 }
 
 fn json_rpc_result(id: Value, result: Value) -> JsonRpcResponse {

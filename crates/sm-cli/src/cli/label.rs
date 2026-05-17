@@ -1,33 +1,26 @@
-use anyhow::{Result, bail};
 use std::str::FromStr;
 
-use sm_core::{DeleteRequest, RpcRequest, RpcResponse, Selector, SmPaths};
+use anyhow::{Result, bail};
+use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, Selector, SmPaths};
 
-use crate::cli::cli_def::{DeleteArgs, DeleteResource};
+use crate::cli::cli_def::LabelArgs;
 use crate::cli::output::print_session_line;
 
-pub async fn run(args: DeleteArgs) -> Result<()> {
-    match args.resource {
-        DeleteResource::Agent => delete_agent(args).await,
-    }
-}
-
-async fn delete_agent(args: DeleteArgs) -> Result<()> {
+pub async fn run(args: LabelArgs) -> Result<()> {
     let paths = SmPaths::from_env()?;
     let response = sm_daemon::send_request(
         &paths.socket,
-        &RpcRequest::Delete {
-            request: DeleteRequest {
+        &RpcRequest::Label {
+            request: LabelRequest {
                 selector: Selector::from_str(&args.selector)?,
-                signal: args.signal,
-                grace_secs: args.grace,
+                mutation: LabelMutation::from_str(&args.mutation)?,
             },
         },
     )
     .await?;
 
     match response {
-        RpcResponse::Deleted { response } => {
+        RpcResponse::Labeled { response } => {
             for session in response.sessions {
                 print_session_line(&session);
             }
