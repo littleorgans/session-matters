@@ -1,0 +1,38 @@
+---
+source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+expression: tool
+---
+{
+  "description": "Return the unread mail count for sessions selected by selector without draining mail.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "selector": {
+        "description": "Inbox owner selector.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector"
+    ],
+    "type": "object"
+  },
+  "name": "mail_check",
+  "outputSchema": {
+    "properties": {
+      "counts": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "unread": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "unread"
+    ],
+    "type": "object"
+  }
+}

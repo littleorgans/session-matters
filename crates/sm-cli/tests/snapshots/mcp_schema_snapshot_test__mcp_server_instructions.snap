@@ -1,0 +1,34 @@
+---
+source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+expression: "sm_cli::mcp::instructions::SERVER_INSTRUCTIONS"
+---
+session-matters controls local Helioy agent sessions through smd.
+
+Use agent_run to spawn a session, agent_list to inspect sessions, agent_get before acting on one id, and agent_delete to terminate a session.
+
+Tools:
+- agent_run: Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
+- agent_list: List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b).
+- agent_get: Get one session record by id. The tool returns an error envelope when the id is unknown.
+- agent_delete: Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.
+- agent_label: Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.
+- mail_send: Send durable mail to sessions selected by selector.
+- mail_read: Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true.
+- mail_check: Return the unread mail count for sessions selected by selector without draining mail.
+- mail_stop_check: Return the unread mail count for stop-hook decisions without draining mail.
+- nudge: Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.
+- link: Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent.
+- logs: Read the transcript linked to one selected session.
+- wait: Wait until a selector satisfies running, terminated, or count=N.
+- doctor: Report session-matters daemon health, LOST sessions, and v1 runtime driver status.
+
+## Session Control Workflow
+
+Use `agent_run` to start a local agent runtime through the session-matters daemon.
+Use `agent_list` to inspect live and terminated sessions.
+Use `agent_get` before acting on one session id.
+Use `agent_delete` to terminate daemon owned sessions.
+Use `agent_label` to add or remove labels on selected sessions.
+Use `link`, `logs`, `wait`, and `doctor` for runtime linkback and diagnostics.
+Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
+Use `nudge` for the ephemeral notification surface.

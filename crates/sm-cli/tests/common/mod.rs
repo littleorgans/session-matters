@@ -14,11 +14,24 @@ pub struct DaemonFixture {
 
 impl DaemonFixture {
     pub fn start() -> Self {
+        Self::start_with_path_prefix(None)
+    }
+
+    pub fn start_with_runtime_path(path_prefix: &Path) -> Self {
+        Self::start_with_path_prefix(Some(path_prefix))
+    }
+
+    fn start_with_path_prefix(path_prefix: Option<&Path>) -> Self {
         let dir = tempfile::tempdir().expect("tempdir creates");
-        let mut child = Command::new(sm_bin())
+        let mut command = Command::new(sm_bin());
+        command
             .arg("__smd")
             .env("SM_HOME", dir.path())
-            .env("HOME", dir.path())
+            .env("HOME", dir.path());
+        if let Some(prefix) = path_prefix {
+            command.env("PATH", path_with_prefix(prefix));
+        }
+        let mut child = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -29,10 +42,9 @@ impl DaemonFixture {
     }
 
     pub fn spawn_mcp(&self) -> McpFixture {
-        let child = Command::new(sm_bin())
+        let child = self
+            .command()
             .arg("mcp")
-            .env("SM_HOME", self.dir.path())
-            .env("HOME", self.dir.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -50,11 +62,22 @@ impl DaemonFixture {
         self.dir.path().join(".im").join("audit.sqlite")
     }
 
-    fn stop(&mut self) {
-        let _ = Command::new(sm_bin())
-            .args(["daemon", "stop"])
+    pub fn socket_path(&self) -> PathBuf {
+        self.dir.path().join("sock")
+    }
+
+    pub fn command(&self) -> Command {
+        let mut command = Command::new(sm_bin());
+        command
             .env("SM_HOME", self.dir.path())
-            .env("HOME", self.dir.path())
+            .env("HOME", self.dir.path());
+        command
+    }
+
+    fn stop(&mut self) {
+        let _ = self
+            .command()
+            .args(["daemon", "stop"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
@@ -107,6 +130,9 @@ impl Drop for McpFixture {
 }
 
 pub fn sm_bin() -> PathBuf {
+    if let Some(path) = std::env::var_os("SM_BENCH_BIN") {
+        return PathBuf::from(path);
+    }
     assert_cmd::cargo::cargo_bin("sm")
 }
 
@@ -123,4 +149,13 @@ fn wait_for_socket(dir: &Path, child: &mut Child) {
         std::thread::sleep(Duration::from_millis(50));
     }
     panic!("daemon socket did not become ready");
+}
+
+fn path_with_prefix(prefix: &Path) -> std::ffi::OsString {
+    let paths = std::iter::once(prefix.to_path_buf()).chain(
+        std::env::var_os("PATH")
+            .into_iter()
+            .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>()),
+    );
+    std::env::join_paths(paths).expect("PATH can be joined")
 }

@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.dist]
+dist = true
+
 [lib]
 name = "sm_cli"
 path = "src/lib.rs"
@@ -29,6 +32,12 @@ sm-core.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+criterion.workspace = true
 im-core = { path = "../../../identity-matters/crates/im-core" }
 im-store = { path = "../../../identity-matters/crates/im-store" }
+insta.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "hot_path"
+harness = false
