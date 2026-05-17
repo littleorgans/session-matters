@@ -1,11 +1,23 @@
 use std::time::Duration;
 
-use sm_core::SpawnRequest;
+use sm_core::RuntimeKind;
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnedProcess {
     pub runtime_pid: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchEnv {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpawnLaunch {
+    pub runtime: RuntimeKind,
+    pub env: Vec<LaunchEnv>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,14 +27,24 @@ pub struct ChildExit {
     pub exit_code: Option<i32>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverProbe {
+    pub verified: bool,
+    pub evidence: String,
+}
+
 #[derive(Debug, Error)]
 pub enum DriverError {
     #[error(transparent)]
     Nix(#[from] nix::Error),
     #[error("runtime pid out of range: {0}")]
     PidOutOfRange(i32),
+    #[error("stored runtime pid out of range: {0}")]
+    StoredPidOutOfRange(u32),
     #[error("runtime command contains a null byte")]
     InvalidRuntimeCommand,
+    #[error("launch environment contains a null byte")]
+    InvalidEnvironment,
     #[error("unsupported signal: {0}")]
     InvalidSignal(String),
     #[error("runtime process did not terminate after SIGKILL")]
@@ -36,13 +58,12 @@ pub struct NudgeResult {
 }
 
 pub trait SpawnDriver: Send + Sync {
-    fn spawn(
-        &self,
-        session_id: &str,
-        request: &SpawnRequest,
-    ) -> Result<SpawnedProcess, DriverError>;
+    fn spawn(&self, session_id: &str, launch: &SpawnLaunch) -> Result<SpawnedProcess, DriverError>;
 
     fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
+
+    fn probe_session(&self, session_id: &str, runtime_pid: u32)
+    -> Result<DriverProbe, DriverError>;
 
     fn terminate(
         &self,

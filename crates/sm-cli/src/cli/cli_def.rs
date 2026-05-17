@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use sm_core::RuntimeKind;
 
@@ -17,9 +19,17 @@ pub enum Command {
     Run(RunArgs),
     Get(GetArgs),
     Delete(DeleteArgs),
+    #[command(about = generated_help::DOCTOR_ABOUT, long_about = generated_help::DOCTOR_ABOUT)]
+    Doctor(DoctorArgs),
     Mail(MailArgs),
     #[command(about = "Add or remove labels on selected sessions")]
     Label(LabelArgs),
+    #[command(about = generated_help::LINK_ABOUT, long_about = generated_help::LINK_ABOUT)]
+    Link(LinkArgs),
+    #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT)]
+    Logs(LogsArgs),
+    #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT)]
+    Wait(WaitArgs),
     #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
     Nudge(NudgeArgs),
     #[command(about = "Bridge MCP stdio to the session-matters daemon")]
@@ -51,6 +61,8 @@ pub struct RunArgs {
     pub workspace: String,
     #[arg(long = "label", help = "Session label as key=value")]
     pub labels: Vec<String>,
+    #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]
+    pub agent_config: Option<String>,
     #[arg(long)]
     pub detach: bool,
 }
@@ -58,6 +70,7 @@ pub struct RunArgs {
 #[derive(Debug, Args)]
 pub struct GetArgs {
     pub resource: GetResource,
+    pub id: Option<String>,
     #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
     pub selector: Option<String>,
     #[arg(long)]
@@ -66,6 +79,7 @@ pub struct GetArgs {
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum GetResource {
+    Agent,
     Agents,
 }
 
@@ -83,6 +97,41 @@ pub struct DeleteArgs {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum DeleteResource {
     Agent,
+}
+
+#[derive(Debug, Args)]
+pub struct DoctorArgs {}
+
+#[derive(Debug, Args)]
+pub struct LinkArgs {
+    #[arg(long, help = generated_help::LINK_SESSION_ID_HELP)]
+    pub session_id: Option<String>,
+    #[arg(long, help = generated_help::LINK_SELECTOR_HELP)]
+    pub selector: Option<String>,
+    #[arg(long = "runtime-session", help = generated_help::LINK_RUNTIME_SESSION_HELP)]
+    pub runtime_session: String,
+    #[arg(long, help = generated_help::LINK_TRANSCRIPT_HELP)]
+    pub transcript: PathBuf,
+}
+
+#[derive(Debug, Args)]
+pub struct LogsArgs {
+    #[arg(help = generated_help::LOGS_SELECTOR_HELP)]
+    pub selector: String,
+    #[arg(short = 'f', long, help = generated_help::LOGS_FOLLOW_HELP)]
+    pub follow: bool,
+    #[arg(long = "max-bytes", help = generated_help::LOGS_MAX_BYTES_HELP)]
+    pub max_bytes: Option<u64>,
+}
+
+#[derive(Debug, Args)]
+pub struct WaitArgs {
+    #[arg(help = generated_help::WAIT_SELECTOR_HELP)]
+    pub selector: String,
+    #[arg(long = "for", help = generated_help::WAIT_FOR_HELP)]
+    pub condition: String,
+    #[arg(long, default_value_t = 30, help = generated_help::WAIT_TIMEOUT_SECS_HELP)]
+    pub timeout_secs: u64,
 }
 
 #[derive(Debug, Args)]

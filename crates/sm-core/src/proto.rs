@@ -1,12 +1,17 @@
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session};
+use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
     pub workspace: String,
+    #[serde(default)]
+    pub agent_config: Option<String>,
     #[serde(default)]
     pub labels: Vec<crate::Label>,
 }
@@ -129,6 +134,93 @@ pub struct LabelResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LinkRequest {
+    pub session_id: Option<uuid::Uuid>,
+    pub selector: Option<Selector>,
+    pub runtime_session: String,
+    pub transcript_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LinkResponse {
+    pub session: Session,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LogsRequest {
+    pub selector: Selector,
+    pub max_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LogsResponse {
+    pub session: Session,
+    pub transcript_path: PathBuf,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct DoctorRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DoctorResponse {
+    pub status: String,
+    pub runtime: String,
+    pub findings: Vec<DoctorFinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DoctorFinding {
+    pub severity: String,
+    pub session_id: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WaitRequest {
+    pub selector: Selector,
+    pub condition: WaitCondition,
+    pub timeout_secs: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WaitCondition {
+    Running,
+    Terminated,
+    Count { count: usize },
+}
+
+impl FromStr for WaitCondition {
+    type Err = SmError;
+
+    fn from_str(value: &str) -> SmResult<Self> {
+        match value {
+            "running" => Ok(Self::Running),
+            "terminated" => Ok(Self::Terminated),
+            raw => {
+                let Some(count) = raw.strip_prefix("count=") else {
+                    return Err(SmError::Message(format!(
+                        "unsupported wait condition: {raw}"
+                    )));
+                };
+                Ok(Self::Count {
+                    count: count
+                        .parse()
+                        .map_err(|_| SmError::Message(format!("invalid wait count: {count}")))?,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WaitResponse {
+    pub matched: bool,
+    pub sessions: Vec<Session>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TargetError {
     pub target: String,
     pub message: String,
@@ -169,6 +261,10 @@ pub enum RpcRequest {
     MailStopCheck { request: MailStopCheckRequest },
     Nudge { request: NudgeRequest },
     Label { request: LabelRequest },
+    Link { request: LinkRequest },
+    Logs { request: LogsRequest },
+    Doctor { request: DoctorRequest },
+    Wait { request: WaitRequest },
     McpBridge { request: McpBridgeRequest },
     Shutdown,
 }
@@ -185,6 +281,10 @@ pub enum RpcResponse {
     MailStopChecked { response: MailStopCheckResponse },
     Nudged { response: NudgeResponse },
     Labeled { response: LabelResponse },
+    Linked { response: LinkResponse },
+    Logs { response: LogsResponse },
+    Doctor { response: DoctorResponse },
+    Wait { response: WaitResponse },
     McpBridge { response: McpBridgeResponse },
     Shutdown { response: ShutdownResponse },
     Error { message: String },
@@ -201,6 +301,7 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                agent_config: None,
                 labels: Vec::new(),
             },
         };

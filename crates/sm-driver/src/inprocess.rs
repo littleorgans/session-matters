@@ -11,9 +11,10 @@ use nix::pty::{ForkptyResult, forkpty};
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, kill, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{Pid, execvp};
-use sm_core::SpawnRequest;
 
-use crate::driver::{ChildExit, DriverError, NudgeResult, SpawnDriver, SpawnedProcess};
+use crate::driver::{
+    ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch, SpawnedProcess,
+};
 
 pub struct InProcessDriver {
     children: Mutex<HashMap<String, SpawnHandle>>,
@@ -37,12 +38,9 @@ impl InProcessDriver {
 }
 
 impl SpawnDriver for InProcessDriver {
-    fn spawn(
-        &self,
-        session_id: &str,
-        request: &SpawnRequest,
-    ) -> Result<SpawnedProcess, DriverError> {
-        let command = CString::new(request.runtime.command())
+    fn spawn(&self, session_id: &str, launch: &SpawnLaunch) -> Result<SpawnedProcess, DriverError> {
+        validate_env(launch)?;
+        let command = CString::new(launch.runtime.command())
             .map_err(|_| DriverError::InvalidRuntimeCommand)?;
 
         match unsafe { forkpty(None, None)? } {
@@ -59,6 +57,11 @@ impl SpawnDriver for InProcessDriver {
                 Ok(SpawnedProcess { runtime_pid })
             }
             ForkptyResult::Child => {
+                for item in &launch.env {
+                    unsafe {
+                        std::env::set_var(&item.key, &item.value);
+                    }
+                }
                 let args = [command.as_c_str()];
                 let _ = execvp(&command, &args);
                 std::process::exit(127);
@@ -86,6 +89,39 @@ impl SpawnDriver for InProcessDriver {
         }
 
         Ok(exits)
+    }
+
+    fn probe_session(&self, session_id: &str, stored_pid: u32) -> Result<DriverProbe, DriverError> {
+        let children = self
+            .children
+            .lock()
+            .expect("driver child registry poisoned");
+        let Some(handle) = children.get(session_id) else {
+            return Ok(DriverProbe {
+                verified: false,
+                evidence: "session is not owned by this daemon".to_string(),
+            });
+        };
+        if runtime_pid(handle.pid)? != stored_pid {
+            return Ok(DriverProbe {
+                verified: false,
+                evidence: format!(
+                    "stored runtime pid {stored_pid} does not match driver pid {}",
+                    handle.pid
+                ),
+            });
+        }
+        let raw_pid =
+            i32::try_from(stored_pid).map_err(|_| DriverError::StoredPidOutOfRange(stored_pid))?;
+        let verified = kill(Pid::from_raw(raw_pid), None).is_ok();
+        Ok(DriverProbe {
+            verified,
+            evidence: if verified {
+                "runtime process is alive and owned by this daemon".to_string()
+            } else {
+                "runtime process is not alive".to_string()
+            },
+        })
     }
 
     fn terminate(
@@ -154,6 +190,17 @@ impl SpawnDriver for InProcessDriver {
 
 fn runtime_pid(pid: Pid) -> Result<u32, DriverError> {
     u32::try_from(pid.as_raw()).map_err(|_| DriverError::PidOutOfRange(pid.as_raw()))
+}
+
+fn validate_env(launch: &SpawnLaunch) -> Result<(), DriverError> {
+    if launch
+        .env
+        .iter()
+        .any(|item| item.key.contains('\0') || item.value.contains('\0'))
+    {
+        return Err(DriverError::InvalidEnvironment);
+    }
+    Ok(())
 }
 
 fn install_sigchld_handler() {

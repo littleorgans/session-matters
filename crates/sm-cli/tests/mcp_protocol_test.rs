@@ -45,7 +45,11 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "mail_read",
             "mail_check",
             "mail_stop_check",
-            "nudge"
+            "nudge",
+            "link",
+            "logs",
+            "wait",
+            "doctor"
         ]
     );
 }
@@ -89,9 +93,55 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         "mcp-test"
     );
 
-    let deleted = call_tool(
+    let transcript = daemon.dir.path().join("transcript.jsonl");
+    std::fs::write(&transcript, "hello transcript\n").expect("transcript writes");
+    let linked = call_tool(
         &mut mcp,
         5,
+        "link",
+        json!({
+            "session_id": id.clone(),
+            "runtime_session": "runtime-mcp-1",
+            "transcript": transcript.display().to_string()
+        }),
+    );
+    assert!(linked["error"].is_null());
+    assert_eq!(
+        linked["result"]["structuredContent"]["session"]["runtime_session"],
+        "runtime-mcp-1"
+    );
+
+    let logs = call_tool(
+        &mut mcp,
+        6,
+        "logs",
+        json!({ "selector": format!("id:{id}") }),
+    );
+    assert!(logs["error"].is_null());
+    assert_eq!(
+        logs["result"]["structuredContent"]["content"],
+        "hello transcript\n"
+    );
+
+    let waited = call_tool(
+        &mut mcp,
+        7,
+        "wait",
+        json!({ "selector": format!("id:{id}"), "for": "running", "timeout_secs": 0 }),
+    );
+    assert!(waited["error"].is_null());
+    assert_eq!(waited["result"]["structuredContent"]["matched"], true);
+
+    let doctor = call_tool(&mut mcp, 8, "doctor", json!({}));
+    assert!(doctor["error"].is_null());
+    assert_eq!(
+        doctor["result"]["structuredContent"]["runtime"],
+        "in-process driver active"
+    );
+
+    let deleted = call_tool(
+        &mut mcp,
+        9,
         "agent_delete",
         json!({ "selector": format!("id:{id}"), "signal": "SIGTERM", "grace_secs": 1 }),
     );
@@ -105,7 +155,16 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         .await
         .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
-    assert_eq!(actions, vec![Action::Spawn, Action::Kill]);
+    assert_eq!(
+        actions,
+        vec![
+            Action::Spawn,
+            Action::Link,
+            Action::Logs,
+            Action::Doctor,
+            Action::Kill
+        ]
+    );
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
 }
 

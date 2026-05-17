@@ -1,0 +1,44 @@
+{
+  "description": "Wait until a selector satisfies running, terminated, or count=N.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "for": {
+        "description": "Condition to wait for: running, terminated, or count=N.",
+        "type": "string"
+      },
+      "selector": {
+        "description": "Session selector to observe.",
+        "type": "string"
+      },
+      "timeout_secs": {
+        "description": "Seconds to wait before timing out. Defaults to 30.",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "selector",
+      "for"
+    ],
+    "type": "object"
+  },
+  "name": "wait",
+  "outputSchema": {
+    "properties": {
+      "matched": {
+        "type": "boolean"
+      },
+      "sessions": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "matched",
+      "sessions"
+    ],
+    "type": "object"
+  }
+}

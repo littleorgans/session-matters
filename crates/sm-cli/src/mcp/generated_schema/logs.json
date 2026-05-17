@@ -1,0 +1,44 @@
+{
+  "description": "Read the transcript linked to one selected session.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "follow": {
+        "description": "CLI only: follow appended transcript bytes.",
+        "type": "boolean"
+      },
+      "max_bytes": {
+        "description": "Maximum bytes to return from the end of the transcript.",
+        "type": "integer"
+      },
+      "selector": {
+        "description": "Selector that must match exactly one linked session.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector"
+    ],
+    "type": "object"
+  },
+  "name": "logs",
+  "outputSchema": {
+    "properties": {
+      "content": {
+        "type": "string"
+      },
+      "session": {
+        "type": "object"
+      },
+      "transcript_path": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "session",
+      "transcript_path",
+      "content"
+    ],
+    "type": "object"
+  }
+}

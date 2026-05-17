@@ -17,6 +17,7 @@ sm-core.workspace = true
 sm-driver.workspace = true
 sm-store.workspace = true
 tokio.workspace = true
+toml.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

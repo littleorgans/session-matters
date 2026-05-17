@@ -9,18 +9,19 @@ use sm_core::{
     MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest,
     MailSendResponse, MailStopCheckRequest, MailStopCheckResponse, MailUnreadCount,
     McpBridgeResponse, NudgeDelivery, NudgeRequest, NudgeResponse, RpcRequest, RpcResponse,
-    Selector, Session, SessionState, ShutdownResponse, SpawnResponse, TargetError,
+    Selector, Session, SessionState, ShutdownResponse, SpawnRequest, SpawnResponse, TargetError,
 };
-use sm_driver::SpawnDriver;
+use sm_driver::{LaunchEnv, SpawnDriver, SpawnLaunch};
 use sm_store::SqliteStore;
 use uuid::Uuid;
 
+use crate::agent_config::{ResolvedAgentConfig, resolve_agent_config};
 use crate::identity_client::{IdentityClient, RequestContext, session_resource, spawn_resource};
 
 pub struct DaemonState {
     pub store: Mutex<SqliteStore>,
     pub driver: Arc<dyn SpawnDriver>,
-    identity: Arc<IdentityClient>,
+    pub(crate) identity: Arc<IdentityClient>,
 }
 
 pub struct HandlerResult {
@@ -74,6 +75,10 @@ impl DaemonState {
             RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
             RpcRequest::Nudge { request } => response(self.nudge(&context, request).await, false),
             RpcRequest::Label { request } => response(self.label(&context, request).await, false),
+            RpcRequest::Link { request } => response(self.link(&context, request).await, false),
+            RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
+            RpcRequest::Doctor { request } => response(self.doctor(&context, request).await, false),
+            RpcRequest::Wait { request } => response(self.wait(request), false),
             RpcRequest::McpBridge { .. } => response(
                 Err(anyhow::anyhow!(
                     "nested MCP bridge requests are not supported"
@@ -84,12 +89,10 @@ impl DaemonState {
         }
     }
 
-    async fn spawn(
-        &self,
-        context: &RequestContext,
-        request: sm_core::SpawnRequest,
-    ) -> Result<RpcResponse> {
+    async fn spawn(&self, context: &RequestContext, request: SpawnRequest) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
+        let agent_config = resolve_agent_config(request.agent_config.as_deref())?;
+        let launch = spawn_launch(id, &request, agent_config.as_ref());
         let mut labels = request.labels.clone();
         labels.sort();
         self.identity
@@ -101,7 +104,7 @@ impl DaemonState {
             .await?;
         let spawned = self
             .driver
-            .spawn(&id.to_string(), &request)
+            .spawn(&id.to_string(), &launch)
             .context("spawn driver failed")?;
         let now = Utc::now();
         let session = Session {
@@ -112,6 +115,9 @@ impl DaemonState {
             labels,
             state: SessionState::Running,
             runtime_pid: spawned.runtime_pid,
+            runtime_session: None,
+            transcript_path: None,
+            agent_config: request.agent_config,
             created_at: now,
             started_at: now,
             terminated_at: None,
@@ -436,7 +442,11 @@ impl DaemonState {
             .context("failed to count unread mail")
     }
 
-    fn resolve_selector(&self, selector: &Selector, label: &str) -> Result<Vec<Session>> {
+    pub(crate) fn resolve_selector(
+        &self,
+        selector: &Selector,
+        label: &str,
+    ) -> Result<Vec<Session>> {
         let sessions = self
             .store
             .lock()
@@ -474,6 +484,33 @@ fn target_error(id: Uuid, error: anyhow::Error) -> TargetError {
 
 fn total_unread(counts: &[MailUnreadCount]) -> usize {
     counts.iter().map(|count| count.unread).sum()
+}
+
+fn spawn_launch(
+    id: Uuid,
+    request: &SpawnRequest,
+    agent_config: Option<&ResolvedAgentConfig>,
+) -> SpawnLaunch {
+    let mut env = agent_config
+        .map(|config| config.env.clone())
+        .unwrap_or_default();
+    env.retain(|item| !item.key.starts_with("HELIOY_SESSION_"));
+    env.push(LaunchEnv {
+        key: "HELIOY_SESSION_ID".to_string(),
+        value: id.to_string(),
+    });
+    env.push(LaunchEnv {
+        key: "HELIOY_SESSION_ROLE".to_string(),
+        value: request.role.clone(),
+    });
+    env.push(LaunchEnv {
+        key: "HELIOY_SESSION_WORKSPACE".to_string(),
+        value: request.workspace.clone(),
+    });
+    SpawnLaunch {
+        runtime: request.runtime,
+        env,
+    }
 }
 
 fn response(result: Result<RpcResponse>, shutdown_on_success: bool) -> HandlerResult {

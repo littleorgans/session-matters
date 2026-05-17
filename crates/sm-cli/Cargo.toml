@@ -21,6 +21,7 @@ serde_json.workspace = true
 sm-core.workspace = true
 sm-daemon.workspace = true
 tokio.workspace = true
+uuid.workspace = true
 
 [build-dependencies]
 serde_json.workspace = true

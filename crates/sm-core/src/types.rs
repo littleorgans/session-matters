@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
@@ -47,6 +48,7 @@ pub enum SessionState {
     Spawning,
     Running,
     Terminated,
+    Lost,
 }
 
 impl fmt::Display for SessionState {
@@ -55,6 +57,7 @@ impl fmt::Display for SessionState {
             Self::Spawning => f.write_str("SPAWNING"),
             Self::Running => f.write_str("RUNNING"),
             Self::Terminated => f.write_str("TERMINATED"),
+            Self::Lost => f.write_str("LOST"),
         }
     }
 }
@@ -67,6 +70,7 @@ impl FromStr for SessionState {
             "SPAWNING" => Ok(Self::Spawning),
             "RUNNING" => Ok(Self::Running),
             "TERMINATED" => Ok(Self::Terminated),
+            "LOST" => Ok(Self::Lost),
             other => Err(SmError::Message(format!(
                 "unsupported session state: {other}"
             ))),
@@ -84,6 +88,9 @@ pub struct Session {
     pub labels: Vec<Label>,
     pub state: SessionState,
     pub runtime_pid: u32,
+    pub runtime_session: Option<String>,
+    pub transcript_path: Option<PathBuf>,
+    pub agent_config: Option<String>,
     pub created_at: DateTime<Utc>,
     pub started_at: DateTime<Utc>,
     pub terminated_at: Option<DateTime<Utc>>,

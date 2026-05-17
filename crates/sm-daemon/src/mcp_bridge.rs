@@ -3,10 +3,11 @@ use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    DeleteRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Label, LabelMutation,
-    LabelRequest, ListRequest, MCP_PROTOCOL_VERSION, MailCheckRequest, MailReadRequest,
-    MailSendRequest, MailStopCheckRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind,
-    Selector, SpawnRequest, tool_contracts::contract_registry, tool_error, tool_success,
+    DeleteRequest, DoctorRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Label,
+    LabelMutation, LabelRequest, LinkRequest, ListRequest, LogsRequest, MCP_PROTOCOL_VERSION,
+    MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest, NudgeRequest,
+    RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest,
+    tool_contracts::contract_registry, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -103,6 +104,10 @@ async fn call_tool(
         "mail_check" => mail_check(state, context, arguments).await,
         "mail_stop_check" => mail_stop_check(state, context, arguments).await,
         "nudge" => nudge(state, context, arguments).await,
+        "link" => link(state, context, arguments).await,
+        "logs" => logs(state, context, arguments).await,
+        "wait" => wait(state, context, arguments).await,
+        "doctor" => doctor(state, context, arguments).await,
         other => Ok(tool_error(format!("Unknown tool: {other}"))),
     }
 }
@@ -116,6 +121,7 @@ async fn agent_run(
     let role = required_string(arguments, "role")?.to_string();
     let workspace = required_string(arguments, "workspace")?.to_string();
     let labels = optional_labels(arguments)?;
+    let agent_config = optional_string(arguments, "agent_config").map(ToString::to_string);
     let response = state
         .handle_direct(
             context.clone(),
@@ -124,6 +130,7 @@ async fn agent_run(
                     runtime,
                     role,
                     workspace,
+                    agent_config,
                     labels,
                 },
             },
@@ -375,6 +382,113 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
             &json!({
                 "nudges": response.nudges,
                 "errors": response.errors
+            }),
+        )),
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn link(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
+    let session_id = optional_string(arguments, "session_id")
+        .map(uuid::Uuid::parse_str)
+        .transpose()?;
+    let selector = optional_selector(arguments, "selector")?;
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Link {
+                request: LinkRequest {
+                    session_id,
+                    selector,
+                    runtime_session: required_string(arguments, "runtime_session")?.to_string(),
+                    transcript_path: required_string(arguments, "transcript")?.into(),
+                },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Linked { response } => Ok(tool_success(
+            format!("linked {}", response.session.id),
+            &json!({ "session": response.session }),
+        )),
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn logs(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
+    let selector = required_selector(arguments, "selector")
+        .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Logs {
+                request: LogsRequest {
+                    selector,
+                    max_bytes: optional_u64(arguments, "max_bytes"),
+                },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Logs { response } => Ok(tool_success(
+            format!("logs {}", response.session.id),
+            &json!({
+                "session": response.session,
+                "transcript_path": response.transcript_path,
+                "content": response.content
+            }),
+        )),
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn wait(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
+    let condition = WaitCondition::from_str(required_string(arguments, "for")?)?;
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Wait {
+                request: WaitRequest {
+                    selector: required_selector(arguments, "selector")?,
+                    condition,
+                    timeout_secs: optional_u64(arguments, "timeout_secs").unwrap_or(30),
+                },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Wait { response } => Ok(tool_success(
+            format!("wait matched: {}", response.matched),
+            &json!({ "matched": response.matched, "sessions": response.sessions }),
+        )),
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn doctor(
+    state: &DaemonState,
+    context: &RequestContext,
+    _arguments: &Value,
+) -> Result<Value> {
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Doctor { response } => Ok(tool_success(
+            format!("doctor {}", response.status),
+            &json!({
+                "status": response.status,
+                "runtime": response.runtime,
+                "findings": response.findings
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),

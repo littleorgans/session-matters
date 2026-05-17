@@ -16,6 +16,12 @@
       "sessions": {
         "items": {
           "properties": {
+            "agent_config": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "created_at": {
               "format": "date-time",
               "type": "string"
@@ -43,6 +49,12 @@
             "runtime_pid": {
               "type": "integer"
             },
+            "runtime_session": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "started_at": {
               "format": "date-time",
               "type": "string"
@@ -51,12 +63,19 @@
               "enum": [
                 "SPAWNING",
                 "RUNNING",
-                "TERMINATED"
+                "TERMINATED",
+                "LOST"
               ],
               "type": "string"
             },
             "terminated_at": {
               "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "transcript_path": {
               "type": [
                 "string",
                 "null"

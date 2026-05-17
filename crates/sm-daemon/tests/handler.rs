@@ -5,12 +5,15 @@ use std::time::Duration;
 use anyhow::Result;
 use im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, Label, MailCheckRequest, MailReadRequest, MailSendRequest, NudgeRequest,
-    RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SessionState, SpawnRequest,
+    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, MailCheckRequest,
+    MailReadRequest, MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
+    Session, SessionState, SpawnRequest, WaitCondition, WaitRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
-use sm_driver::{ChildExit, DriverError, SpawnDriver, SpawnedProcess};
+use sm_driver::{
+    ChildExit, DriverError, DriverProbe, LaunchEnv, SpawnDriver, SpawnLaunch, SpawnedProcess,
+};
 use sm_store::SqliteStore;
 use uuid::Uuid;
 
@@ -18,13 +21,28 @@ const LOCAL_UID: u32 = 42;
 
 struct MockDriver {
     exits: Mutex<Vec<ChildExit>>,
+    launches: Mutex<Vec<SpawnLaunch>>,
+    probe_verified: Mutex<bool>,
 }
 
 impl MockDriver {
     fn new() -> Self {
         Self {
             exits: Mutex::new(Vec::new()),
+            launches: Mutex::new(Vec::new()),
+            probe_verified: Mutex::new(true),
         }
+    }
+
+    fn launches(&self) -> Vec<SpawnLaunch> {
+        self.launches
+            .lock()
+            .expect("launches lock poisoned")
+            .clone()
+    }
+
+    fn set_probe_verified(&self, verified: bool) {
+        *self.probe_verified.lock().expect("probe lock poisoned") = verified;
     }
 }
 
@@ -32,8 +50,12 @@ impl SpawnDriver for MockDriver {
     fn spawn(
         &self,
         _session_id: &str,
-        _request: &SpawnRequest,
+        launch: &SpawnLaunch,
     ) -> Result<SpawnedProcess, DriverError> {
+        self.launches
+            .lock()
+            .expect("launches lock poisoned")
+            .push(launch.clone());
         Ok(SpawnedProcess { runtime_pid: 42 })
     }
 
@@ -44,6 +66,22 @@ impl SpawnDriver for MockDriver {
             .expect("exits lock poisoned")
             .drain(..)
             .collect())
+    }
+
+    fn probe_session(
+        &self,
+        _session_id: &str,
+        _runtime_pid: u32,
+    ) -> Result<DriverProbe, DriverError> {
+        let verified = *self.probe_verified.lock().expect("probe lock poisoned");
+        Ok(DriverProbe {
+            verified,
+            evidence: if verified {
+                "verified".to_string()
+            } else {
+                "probe failed".to_string()
+            },
+        })
     }
 
     fn terminate(
@@ -75,6 +113,7 @@ impl SpawnDriver for MockDriver {
 
 struct TestDaemon {
     state: DaemonState,
+    driver: Arc<MockDriver>,
     audit_path: PathBuf,
     _dir: tempfile::TempDir,
 }
@@ -86,13 +125,15 @@ impl TestDaemon {
         let identity = IdentityClient::connect(&audit_path, local_uid)
             .await
             .expect("identity client connects");
+        let driver = Arc::new(MockDriver::new());
         let state = DaemonState::new(
             SqliteStore::open_in_memory().expect("store opens"),
-            Arc::new(MockDriver::new()),
+            driver.clone(),
             Arc::new(identity),
         );
         Self {
             state,
+            driver,
             audit_path,
             _dir: dir,
         }
@@ -126,6 +167,160 @@ async fn drives_session_through_delete_lifecycle() {
     assert_eq!(response.sessions[0].state, SessionState::Terminated);
     assert_eq!(response.sessions[0].exit_code, Some(143));
     assert!(response.sessions[0].terminated_at.is_some());
+}
+
+#[tokio::test]
+async fn agent_config_env_reaches_spawn_driver() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let config = daemon._dir.path().join("agent.toml");
+    std::fs::write(
+        &config,
+        "claude_config_dir = \"/tmp/demo-claude\"\n[env]\nHELIOY_AGENT_NAME = \"demo\"\n",
+    )
+    .expect("agent config writes");
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: "test".to_string(),
+                    agent_config: Some(config.display().to_string()),
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { response } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    assert_eq!(
+        response.session.agent_config,
+        Some(config.display().to_string())
+    );
+    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert!(launch.env.contains(&LaunchEnv {
+        key: "CLAUDE_CONFIG_DIR".to_string(),
+        value: "/tmp/demo-claude".to_string(),
+    }));
+    assert!(launch.env.contains(&LaunchEnv {
+        key: "HELIOY_AGENT_NAME".to_string(),
+        value: "demo".to_string(),
+    }));
+    assert!(launch.env.contains(&LaunchEnv {
+        key: "HELIOY_SESSION_ID".to_string(),
+        value: response.session.id.to_string(),
+    }));
+}
+
+#[tokio::test]
+async fn link_logs_wait_and_doctor_polish_paths_work() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let session = spawn_test_session(&daemon.state, &context, "engineer").await;
+    let transcript = daemon._dir.path().join("transcript.jsonl");
+    std::fs::write(&transcript, "first\nsecond\n").expect("transcript writes");
+
+    let linked = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Link {
+                request: LinkRequest {
+                    session_id: Some(session.id),
+                    selector: None,
+                    runtime_session: "runtime-1".to_string(),
+                    transcript_path: transcript.clone(),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Linked { response } = linked.response else {
+        panic!("expected link response");
+    };
+    assert_eq!(
+        response.session.runtime_session.as_deref(),
+        Some("runtime-1")
+    );
+
+    let relinked = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Link {
+                request: LinkRequest {
+                    session_id: None,
+                    selector: None,
+                    runtime_session: "runtime-1".to_string(),
+                    transcript_path: transcript.clone(),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Linked { response } = relinked.response else {
+        panic!("expected idempotent link response");
+    };
+    assert_eq!(response.session.id, session.id);
+
+    let logs = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Logs {
+                request: LogsRequest {
+                    selector: Selector::Id { id: session.id },
+                    max_bytes: None,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Logs { response } = logs.response else {
+        panic!("expected logs response");
+    };
+    assert_eq!(response.content, "first\nsecond\n");
+
+    let waited = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Wait {
+                request: WaitRequest {
+                    selector: Selector::Id { id: session.id },
+                    condition: WaitCondition::Running,
+                    timeout_secs: 0,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Wait { response } = waited.response else {
+        panic!("expected wait response");
+    };
+    assert!(response.matched);
+
+    daemon.driver.set_probe_verified(false);
+    let doctor = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    let RpcResponse::Doctor { response } = doctor.response else {
+        panic!("expected doctor response");
+    };
+    assert_eq!(response.status, "degraded");
+    assert_eq!(
+        response.findings[0].session_id,
+        Some(session.id.to_string())
+    );
+    assert!(response.findings[0].message.contains("probe failed"));
 }
 
 #[tokio::test]
@@ -359,6 +554,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
                     workspace: "test".to_string(),
+                    agent_config: None,
                     labels: Vec::new(),
                 },
             },
@@ -450,6 +646,7 @@ async fn spawn_test_session_with_labels(
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
                     workspace: "test".to_string(),
+                    agent_config: None,
                     labels,
                 },
             },

@@ -740,6 +740,7 @@ dependencies = [
  "sm-daemon",
  "tempfile",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -771,6 +772,7 @@ dependencies = [
  "sm-store",
  "tempfile",
  "tokio",
+ "toml",
  "uuid",
 ]
 

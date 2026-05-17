@@ -27,9 +27,10 @@ impl SqliteStore {
     pub fn insert_session(&self, session: &Session) -> Result<(), SessionRowError> {
         self.connection.execute(
             "INSERT INTO sessions
-                (id, runtime, role, workspace, state, runtime_pid, created_at,
-                 started_at, terminated_at, exit_code, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                (id, runtime, role, workspace, state, runtime_pid, runtime_session,
+                 transcript_path, agent_config, created_at, started_at, terminated_at,
+                 exit_code, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 session.id.to_string(),
                 session.runtime.to_string(),
@@ -37,6 +38,12 @@ impl SqliteStore {
                 &session.workspace,
                 session.state.to_string(),
                 session.runtime_pid,
+                session.runtime_session.as_deref(),
+                session
+                    .transcript_path
+                    .as_ref()
+                    .map(|path| path.display().to_string()),
+                session.agent_config.as_deref(),
                 session.created_at.to_rfc3339(),
                 session.started_at.to_rfc3339(),
                 session
@@ -171,6 +178,58 @@ impl SqliteStore {
         )?;
         self.get_session(id)
     }
+
+    pub fn mark_session_lost(
+        &self,
+        id: &Uuid,
+        updated_at: DateTime<Utc>,
+    ) -> Result<Option<Session>, SessionRowError> {
+        self.connection.execute(
+            "UPDATE sessions
+             SET state = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![
+                SessionState::Lost.to_string(),
+                updated_at.to_rfc3339(),
+                id.to_string(),
+            ],
+        )?;
+        self.get_session(id)
+    }
+
+    pub fn link_session(
+        &self,
+        id: &Uuid,
+        runtime_session: &str,
+        transcript_path: &std::path::Path,
+        updated_at: DateTime<Utc>,
+    ) -> Result<Option<Session>, SessionRowError> {
+        self.connection.execute(
+            "UPDATE sessions
+             SET runtime_session = ?1, transcript_path = ?2, updated_at = ?3
+             WHERE id = ?4",
+            params![
+                runtime_session,
+                transcript_path.display().to_string(),
+                updated_at.to_rfc3339(),
+                id.to_string(),
+            ],
+        )?;
+        self.get_session(id)
+    }
+
+    pub fn get_session_by_runtime_session(
+        &self,
+        runtime_session: &str,
+    ) -> Result<Option<Session>, SessionRowError> {
+        Ok(self
+            .query_sessions(
+                "SELECT * FROM sessions WHERE runtime_session = ?1 ORDER BY created_at",
+                [runtime_session.to_string()],
+            )?
+            .into_iter()
+            .next())
+    }
 }
 
 fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
@@ -185,6 +244,11 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         workspace: row.get("workspace")?,
         state: SessionState::from_str(&row.get::<_, String>("state")?)?,
         runtime_pid,
+        runtime_session: row.get("runtime_session")?,
+        transcript_path: row
+            .get::<_, Option<String>>("transcript_path")?
+            .map(Into::into),
+        agent_config: row.get("agent_config")?,
         created_at: parse_timestamp(&row.get::<_, String>("created_at")?)?,
         started_at: parse_timestamp(&row.get::<_, String>("started_at")?)?,
         terminated_at: parse_optional_timestamp(row.get::<_, Option<String>>("terminated_at")?)?,
@@ -223,6 +287,9 @@ mod tests {
             workspace: "test".to_string(),
             state: SessionState::Running,
             runtime_pid: 42,
+            runtime_session: None,
+            transcript_path: None,
+            agent_config: None,
             created_at: now,
             started_at: now,
             terminated_at: None,
@@ -250,6 +317,9 @@ mod tests {
             workspace: "test".to_string(),
             state: SessionState::Running,
             runtime_pid: 42,
+            runtime_session: None,
+            transcript_path: None,
+            agent_config: None,
             created_at: now,
             started_at: now,
             terminated_at: None,
@@ -268,6 +338,36 @@ mod tests {
         assert_eq!(terminated.state, SessionState::Terminated);
         assert_eq!(terminated.exit_code, Some(137));
         assert_eq!(terminated.terminated_at, Some(terminated_at));
+    }
+
+    #[test]
+    fn links_runtime_metadata_and_marks_lost() {
+        let store = SqliteStore::open_in_memory().expect("store opens");
+        let session = test_session("engineer", "test", Vec::new());
+        store.insert_session(&session).expect("session inserts");
+        let transcript = std::path::Path::new("/tmp/session.jsonl");
+
+        let linked = store
+            .link_session(&session.id, "runtime-1", transcript, Utc::now())
+            .expect("session links")
+            .expect("session exists");
+
+        assert_eq!(linked.runtime_session.as_deref(), Some("runtime-1"));
+        assert_eq!(linked.transcript_path.as_deref(), Some(transcript));
+        assert_eq!(
+            store
+                .get_session_by_runtime_session("runtime-1")
+                .expect("runtime session loads")
+                .expect("runtime session exists")
+                .id,
+            session.id
+        );
+
+        let lost = store
+            .mark_session_lost(&session.id, Utc::now())
+            .expect("session marks lost")
+            .expect("session exists");
+        assert_eq!(lost.state, SessionState::Lost);
     }
 
     #[test]
@@ -400,6 +500,9 @@ mod tests {
         assert_eq!(sessions[0].started_at, sessions[0].created_at);
         assert_eq!(sessions[0].terminated_at, None);
         assert_eq!(sessions[0].exit_code, None);
+        assert_eq!(sessions[0].runtime_session, None);
+        assert_eq!(sessions[0].transcript_path, None);
+        assert_eq!(sessions[0].agent_config, None);
         let _ = std::fs::remove_file(path);
     }
 
@@ -412,6 +515,9 @@ mod tests {
             workspace: workspace.to_string(),
             state: SessionState::Running,
             runtime_pid: 42,
+            runtime_session: None,
+            transcript_path: None,
+            agent_config: None,
             created_at: now,
             started_at: now,
             terminated_at: None,

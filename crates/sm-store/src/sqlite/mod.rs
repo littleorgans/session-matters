@@ -50,6 +50,15 @@ fn migrate_sessions(connection: &Connection) -> Result<()> {
     if !columns.contains("exit_code") {
         connection.execute("ALTER TABLE sessions ADD COLUMN exit_code INTEGER", [])?;
     }
+    if !columns.contains("runtime_session") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN runtime_session TEXT", [])?;
+    }
+    if !columns.contains("transcript_path") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN transcript_path TEXT", [])?;
+    }
+    if !columns.contains("agent_config") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN agent_config TEXT", [])?;
+    }
     Ok(())
 }
 

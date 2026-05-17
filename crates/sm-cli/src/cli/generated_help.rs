@@ -10,6 +10,8 @@ pub const AGENT_RUN_ROLE_HELP: &str = "Role label recorded on the session.";
 pub const AGENT_RUN_WORKSPACE_HELP: &str = "Workspace path or name recorded on the session.";
 #[rustfmt::skip]
 pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
+#[rustfmt::skip]
+pub const AGENT_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
 
 #[rustfmt::skip]
 pub const AGENT_LIST_ABOUT: &str = "List session records known to the session-matters daemon.";
@@ -69,3 +71,35 @@ pub const NUDGE_ABOUT: &str = "Send an ephemeral nudge to selected sessions.";
 pub const NUDGE_TO_HELP: &str = "Recipient selector.";
 #[rustfmt::skip]
 pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";
+
+#[rustfmt::skip]
+pub const LINK_ABOUT: &str = "Attach runtime linkback metadata to one session.";
+#[rustfmt::skip]
+pub const LINK_SESSION_ID_HELP: &str = "Session id to link. Defaults to HELIOY_SESSION_ID.";
+#[rustfmt::skip]
+pub const LINK_SELECTOR_HELP: &str = "Selector that must match exactly one session.";
+#[rustfmt::skip]
+pub const LINK_RUNTIME_SESSION_HELP: &str = "Runtime session id reported by the SessionStart hook.";
+#[rustfmt::skip]
+pub const LINK_TRANSCRIPT_HELP: &str = "Transcript path reported by the SessionStart hook.";
+
+#[rustfmt::skip]
+pub const LOGS_ABOUT: &str = "Read linked transcript logs for one session.";
+#[rustfmt::skip]
+pub const LOGS_SELECTOR_HELP: &str = "Selector that must match exactly one linked session.";
+#[rustfmt::skip]
+pub const LOGS_FOLLOW_HELP: &str = "Follow appended transcript bytes.";
+#[rustfmt::skip]
+pub const LOGS_MAX_BYTES_HELP: &str = "Maximum bytes to return from the end of the transcript.";
+
+#[rustfmt::skip]
+pub const WAIT_ABOUT: &str = "Wait until a selector satisfies a condition.";
+#[rustfmt::skip]
+pub const WAIT_SELECTOR_HELP: &str = "Session selector to observe.";
+#[rustfmt::skip]
+pub const WAIT_FOR_HELP: &str = "Condition to wait for: running, terminated, or count=N.";
+#[rustfmt::skip]
+pub const WAIT_TIMEOUT_SECS_HELP: &str = "Seconds to wait before timing out. Defaults to 30.";
+
+#[rustfmt::skip]
+pub const DOCTOR_ABOUT: &str = "Report session-matters daemon health.";

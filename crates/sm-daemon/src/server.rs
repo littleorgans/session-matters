@@ -11,6 +11,7 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::handler::DaemonState;
 use crate::identity_client::{IdentityClient, RequestContext};
 use crate::lifecycle::LifecycleTask;
+use crate::reconcile::ReconcileTask;
 
 pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::create_dir_all(&paths.dir).context("failed to create runtime directory")?;
@@ -29,9 +30,12 @@ pub async fn run_daemon(paths: SmPaths) -> Result<()> {
         Arc::new(driver),
         Arc::new(identity),
     ));
+    crate::reconcile::reconcile_once(&state).context("failed to reconcile sessions on startup")?;
     let lifecycle = LifecycleTask::spawn(Arc::clone(&state));
+    let reconcile = ReconcileTask::spawn(Arc::clone(&state));
 
     let result = serve(listener, &state).await;
+    drop(reconcile);
     drop(lifecycle);
     state.driver.terminate_all();
     cleanup_paths(&paths);
