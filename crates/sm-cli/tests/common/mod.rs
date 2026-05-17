@@ -18,6 +18,7 @@ impl DaemonFixture {
         let mut child = Command::new(sm_bin())
             .arg("__smd")
             .env("SM_HOME", dir.path())
+            .env("HOME", dir.path())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -31,6 +32,7 @@ impl DaemonFixture {
         let child = Command::new(sm_bin())
             .arg("mcp")
             .env("SM_HOME", self.dir.path())
+            .env("HOME", self.dir.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -44,10 +46,15 @@ impl DaemonFixture {
         .with_pipes()
     }
 
+    pub fn audit_path(&self) -> PathBuf {
+        self.dir.path().join(".im").join("audit.sqlite")
+    }
+
     fn stop(&mut self) {
         let _ = Command::new(sm_bin())
             .args(["daemon", "stop"])
             .env("SM_HOME", self.dir.path())
+            .env("HOME", self.dir.path())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();

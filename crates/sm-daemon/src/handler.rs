@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
+use im_core::Action;
 use sm_core::{
     DeleteRequest, DeleteResponse, ListRequest, ListResponse, Mail, MailCheckRequest,
     MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse,
@@ -13,9 +14,12 @@ use sm_driver::SpawnDriver;
 use sm_store::SqliteStore;
 use uuid::Uuid;
 
+use crate::identity_client::{IdentityClient, RequestContext, session_resource, spawn_resource};
+
 pub struct DaemonState {
     pub store: Mutex<SqliteStore>,
     pub driver: Arc<dyn SpawnDriver>,
+    identity: Arc<IdentityClient>,
 }
 
 pub struct HandlerResult {
@@ -24,44 +28,73 @@ pub struct HandlerResult {
 }
 
 impl DaemonState {
-    pub fn new(store: SqliteStore, driver: Arc<dyn SpawnDriver>) -> Self {
+    pub fn new(
+        store: SqliteStore,
+        driver: Arc<dyn SpawnDriver>,
+        identity: Arc<IdentityClient>,
+    ) -> Self {
         Self {
             store: Mutex::new(store),
             driver,
+            identity,
         }
     }
 
-    pub fn handle(&self, request: RpcRequest) -> HandlerResult {
+    pub async fn handle(&self, context: RequestContext, request: RpcRequest) -> HandlerResult {
         match request {
-            RpcRequest::Spawn { request } => response(self.spawn(request), false),
-            RpcRequest::List { request } => response(self.list(request), false),
-            RpcRequest::Delete { request } => response(self.delete(request), false),
-            RpcRequest::MailSend { request } => response(self.mail_send(request), false),
-            RpcRequest::MailRead { request } => response(self.mail_read(request), false),
-            RpcRequest::MailCheck { request } => response(self.mail_check(request), false),
-            RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
-            RpcRequest::Nudge { request } => response(self.nudge(request), false),
             RpcRequest::McpBridge { request } => HandlerResult {
                 response: RpcResponse::McpBridge {
                     response: McpBridgeResponse {
-                        line: crate::mcp_bridge::handle_line(self, &request.line),
+                        line: crate::mcp_bridge::handle_line(self, &context, &request.line).await,
                     },
                 },
                 shutdown: false,
             },
-            RpcRequest::Shutdown => HandlerResult {
-                response: RpcResponse::Shutdown {
-                    response: ShutdownResponse {
-                        message: "stopping".to_string(),
-                    },
-                },
-                shutdown: true,
-            },
+            request => self.handle_direct(context, request).await,
         }
     }
 
-    fn spawn(&self, request: sm_core::SpawnRequest) -> Result<RpcResponse> {
+    pub(crate) async fn handle_direct(
+        &self,
+        context: RequestContext,
+        request: RpcRequest,
+    ) -> HandlerResult {
+        match request {
+            RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
+            RpcRequest::List { request } => response(self.list(request), false),
+            RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
+            RpcRequest::MailSend { request } => {
+                response(self.mail_send(&context, request).await, false)
+            }
+            RpcRequest::MailRead { request } => {
+                response(self.mail_read(&context, request).await, false)
+            }
+            RpcRequest::MailCheck { request } => response(self.mail_check(request), false),
+            RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
+            RpcRequest::Nudge { request } => response(self.nudge(&context, request).await, false),
+            RpcRequest::McpBridge { .. } => response(
+                Err(anyhow::anyhow!(
+                    "nested MCP bridge requests are not supported"
+                )),
+                false,
+            ),
+            RpcRequest::Shutdown => response(self.shutdown(&context).await, true),
+        }
+    }
+
+    async fn spawn(
+        &self,
+        context: &RequestContext,
+        request: sm_core::SpawnRequest,
+    ) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::Spawn,
+                &spawn_resource(&request, id),
+            )
+            .await?;
         let spawned = self
             .driver
             .spawn(&id.to_string(), &request)
@@ -106,9 +139,16 @@ impl DaemonState {
         })
     }
 
-    fn delete(&self, request: DeleteRequest) -> Result<RpcResponse> {
-        crate::lifecycle::refresh_exits(self)?;
+    async fn delete(
+        &self,
+        context: &RequestContext,
+        request: DeleteRequest,
+    ) -> Result<RpcResponse> {
         let id = Uuid::parse_str(&request.id).context("invalid session id")?;
+        self.identity
+            .authorize(&context.principal, Action::Kill, &session_resource(id))
+            .await?;
+        crate::lifecycle::refresh_exits(self)?;
         let session = self
             .store
             .lock()
@@ -145,7 +185,11 @@ impl DaemonState {
         })
     }
 
-    fn mail_send(&self, request: MailSendRequest) -> Result<RpcResponse> {
+    async fn mail_send(
+        &self,
+        context: &RequestContext,
+        request: MailSendRequest,
+    ) -> Result<RpcResponse> {
         let recipient_id = Uuid::parse_str(&request.to).context("invalid recipient session id")?;
         self.require_session(&recipient_id, "recipient")?;
         let sender_id = match request.from {
@@ -156,6 +200,13 @@ impl DaemonState {
             }
             None => Uuid::nil(),
         };
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::MailSend,
+                &session_resource(recipient_id),
+            )
+            .await?;
         let mail = Mail {
             id: Uuid::now_v7(),
             sender_id,
@@ -175,9 +226,20 @@ impl DaemonState {
         })
     }
 
-    fn mail_read(&self, request: MailReadRequest) -> Result<RpcResponse> {
+    async fn mail_read(
+        &self,
+        context: &RequestContext,
+        request: MailReadRequest,
+    ) -> Result<RpcResponse> {
         let recipient_id = Uuid::parse_str(&request.from).context("invalid session id")?;
         self.require_session(&recipient_id, "recipient")?;
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::MailRead,
+                &session_resource(recipient_id),
+            )
+            .await?;
         let mail = self
             .store
             .lock()
@@ -204,9 +266,16 @@ impl DaemonState {
         })
     }
 
-    fn nudge(&self, request: NudgeRequest) -> Result<RpcResponse> {
+    async fn nudge(&self, context: &RequestContext, request: NudgeRequest) -> Result<RpcResponse> {
         let recipient_id = Uuid::parse_str(&request.to).context("invalid recipient session id")?;
         self.require_session(&recipient_id, "recipient")?;
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::Nudge,
+                &session_resource(recipient_id),
+            )
+            .await?;
         let result = self
             .driver
             .nudge(&request.to, &request.content)
@@ -217,6 +286,17 @@ impl DaemonState {
                 to: request.to,
                 delivered: result.delivered,
                 message: result.message,
+            },
+        })
+    }
+
+    async fn shutdown(&self, context: &RequestContext) -> Result<RpcResponse> {
+        self.identity
+            .authorize(&context.principal, Action::Daemon, &Default::default())
+            .await?;
+        Ok(RpcResponse::Shutdown {
+            response: ShutdownResponse {
+                message: "stopping".to_string(),
             },
         })
     }
@@ -244,219 +324,17 @@ impl DaemonState {
     }
 }
 
-fn response(result: Result<RpcResponse>, shutdown: bool) -> HandlerResult {
-    HandlerResult {
-        response: result.unwrap_or_else(|error| RpcResponse::Error {
-            message: format!("{error:#}"),
-        }),
-        shutdown,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Mutex;
-    use std::time::Duration;
-
-    use sm_core::{RuntimeKind, SpawnRequest};
-    use sm_driver::{ChildExit, DriverError, SpawnDriver, SpawnedProcess};
-
-    use super::*;
-
-    struct MockDriver {
-        exits: Mutex<Vec<ChildExit>>,
-    }
-
-    impl MockDriver {
-        fn new() -> Self {
-            Self {
-                exits: Mutex::new(Vec::new()),
-            }
-        }
-    }
-
-    impl SpawnDriver for MockDriver {
-        fn spawn(
-            &self,
-            _session_id: &str,
-            _request: &SpawnRequest,
-        ) -> Result<SpawnedProcess, DriverError> {
-            Ok(SpawnedProcess { runtime_pid: 42 })
-        }
-
-        fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
-            Ok(self
-                .exits
-                .lock()
-                .expect("exits lock poisoned")
-                .drain(..)
-                .collect())
-        }
-
-        fn terminate(
-            &self,
-            session_id: &str,
-            _signal: &str,
-            _grace: Duration,
-        ) -> Result<Option<ChildExit>, DriverError> {
-            Ok(Some(ChildExit {
-                session_id: session_id.to_string(),
-                runtime_pid: 42,
-                exit_code: Some(143),
-            }))
-        }
-
-        fn nudge(
-            &self,
-            _session_id: &str,
-            _content: &str,
-        ) -> Result<sm_driver::NudgeResult, DriverError> {
-            Ok(sm_driver::NudgeResult {
-                delivered: false,
-                message: "nudge skipped".to_string(),
-            })
-        }
-
-        fn terminate_all(&self) {}
-    }
-
-    #[test]
-    fn drives_session_through_delete_lifecycle() {
-        let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
-            Arc::new(MockDriver::new()),
-        );
-        let spawned = state.handle(RpcRequest::Spawn {
-            request: SpawnRequest {
-                runtime: RuntimeKind::Claude,
-                role: "general".to_string(),
-                workspace: "test".to_string(),
+fn response(result: Result<RpcResponse>, shutdown_on_success: bool) -> HandlerResult {
+    match result {
+        Ok(response) => HandlerResult {
+            response,
+            shutdown: shutdown_on_success,
+        },
+        Err(error) => HandlerResult {
+            response: RpcResponse::Error {
+                message: format!("{error:#}"),
             },
-        });
-        let RpcResponse::Spawned { response } = spawned.response else {
-            panic!("expected spawn response");
-        };
-        assert_eq!(response.session.state, SessionState::Running);
-
-        let deleted = state.handle(RpcRequest::Delete {
-            request: DeleteRequest {
-                id: response.session.id.to_string(),
-                signal: "SIGTERM".to_string(),
-                grace_secs: 5,
-            },
-        });
-        let RpcResponse::Deleted { response } = deleted.response else {
-            panic!("expected delete response");
-        };
-
-        assert_eq!(response.session.state, SessionState::Terminated);
-        assert_eq!(response.session.exit_code, Some(143));
-        assert!(response.session.terminated_at.is_some());
-    }
-
-    #[test]
-    fn mail_round_trip_marks_read() {
-        let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
-            Arc::new(MockDriver::new()),
-        );
-        let sender = spawn_test_session(&state, "pm");
-        let recipient = spawn_test_session(&state, "engineer");
-
-        let sent = state.handle(RpcRequest::MailSend {
-            request: MailSendRequest {
-                from: Some(sender.id.to_string()),
-                to: recipient.id.to_string(),
-                content: "review the spec".to_string(),
-            },
-        });
-        assert!(matches!(sent.response, RpcResponse::MailSent { .. }));
-
-        let checked = state.handle(RpcRequest::MailCheck {
-            request: MailCheckRequest {
-                from: recipient.id.to_string(),
-            },
-        });
-        let RpcResponse::MailChecked { response } = checked.response else {
-            panic!("expected mail check response");
-        };
-        assert_eq!(response.unread, 1);
-
-        let read = state.handle(RpcRequest::MailRead {
-            request: MailReadRequest {
-                from: recipient.id.to_string(),
-                peek: false,
-            },
-        });
-        let RpcResponse::MailRead { response } = read.response else {
-            panic!("expected mail read response");
-        };
-        assert_eq!(response.mail.len(), 1);
-        assert_eq!(response.mail[0].content, "review the spec");
-
-        let checked = state.handle(RpcRequest::MailCheck {
-            request: MailCheckRequest {
-                from: recipient.id.to_string(),
-            },
-        });
-        let RpcResponse::MailChecked { response } = checked.response else {
-            panic!("expected mail check response");
-        };
-        assert_eq!(response.unread, 0);
-    }
-
-    #[test]
-    fn mail_send_rejects_unknown_recipient() {
-        let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
-            Arc::new(MockDriver::new()),
-        );
-        let sent = state.handle(RpcRequest::MailSend {
-            request: MailSendRequest {
-                from: None,
-                to: Uuid::now_v7().to_string(),
-                content: "review the spec".to_string(),
-            },
-        });
-
-        let RpcResponse::Error { message } = sent.response else {
-            panic!("expected error response");
-        };
-        assert!(message.contains("unknown recipient session"));
-    }
-
-    #[test]
-    fn nudge_delegates_to_driver_stub() {
-        let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
-            Arc::new(MockDriver::new()),
-        );
-        let recipient = spawn_test_session(&state, "engineer");
-        let nudged = state.handle(RpcRequest::Nudge {
-            request: NudgeRequest {
-                to: recipient.id.to_string(),
-                content: "ping".to_string(),
-            },
-        });
-
-        let RpcResponse::Nudged { response } = nudged.response else {
-            panic!("expected nudge response");
-        };
-        assert!(!response.delivered);
-        assert_eq!(response.message, "nudge skipped");
-    }
-
-    fn spawn_test_session(state: &DaemonState, role: &str) -> Session {
-        let spawned = state.handle(RpcRequest::Spawn {
-            request: SpawnRequest {
-                runtime: RuntimeKind::Claude,
-                role: role.to_string(),
-                workspace: "test".to_string(),
-            },
-        });
-        let RpcResponse::Spawned { response } = spawned.response else {
-            panic!("expected spawn response");
-        };
-        response.session
+            shutdown: false,
+        },
     }
 }

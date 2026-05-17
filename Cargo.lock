@@ -83,6 +83,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.89"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -355,6 +366,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
 
 [[package]]
+name = "im-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "nix",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "im-store"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "im-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "im-stub"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "im-core",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -432,6 +480,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "memoffset"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "mio"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -452,6 +509,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -674,6 +732,8 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "clap",
+ "im-core",
+ "im-store",
  "nix",
  "serde_json",
  "sm-core",
@@ -701,10 +761,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "im-core",
+ "im-store",
+ "im-stub",
+ "nix",
  "serde_json",
  "sm-core",
  "sm-driver",
  "sm-store",
+ "tempfile",
  "tokio",
  "uuid",
 ]

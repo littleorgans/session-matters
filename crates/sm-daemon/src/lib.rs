@@ -1,4 +1,5 @@
 pub mod handler;
+pub mod identity_client;
 pub mod lifecycle;
 pub mod mcp_bridge;
 pub mod server;

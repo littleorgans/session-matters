@@ -9,6 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
 use crate::handler::DaemonState;
+use crate::identity_client::{IdentityClient, RequestContext};
 use crate::lifecycle::LifecycleTask;
 
 pub async fn run_daemon(paths: SmPaths) -> Result<()> {
@@ -20,7 +21,14 @@ pub async fn run_daemon(paths: SmPaths) -> Result<()> {
 
     let store = SqliteStore::open(&paths.database).context("failed to open sqlite store")?;
     let driver = InProcessDriver::new().context("failed to initialize in-process driver")?;
-    let state = Arc::new(DaemonState::new(store, Arc::new(driver)));
+    let identity = IdentityClient::connect_default()
+        .await
+        .context("failed to initialize identity client")?;
+    let state = Arc::new(DaemonState::new(
+        store,
+        Arc::new(driver),
+        Arc::new(identity),
+    ));
     let lifecycle = LifecycleTask::spawn(Arc::clone(&state));
 
     let result = serve(listener, &state).await;
@@ -40,6 +48,22 @@ async fn serve(listener: UnixListener, state: &DaemonState) -> Result<()> {
 }
 
 async fn handle_connection(mut stream: UnixStream, state: &DaemonState) -> Result<bool> {
+    let principal = match im_core::peer_creds::extract(&stream).await {
+        Ok(principal) => principal,
+        Err(error) => {
+            return write_response(
+                stream,
+                crate::handler::HandlerResult {
+                    response: RpcResponse::Error {
+                        message: error.to_string(),
+                    },
+                    shutdown: false,
+                },
+            )
+            .await;
+        }
+    };
+
     let mut request_bytes = Vec::new();
     stream
         .read_to_end(&mut request_bytes)
@@ -47,7 +71,7 @@ async fn handle_connection(mut stream: UnixStream, state: &DaemonState) -> Resul
         .context("failed to read request")?;
 
     let result = match serde_json::from_slice::<RpcRequest>(&request_bytes) {
-        Ok(request) => state.handle(request),
+        Ok(request) => state.handle(RequestContext::new(principal), request).await,
         Err(error) => crate::handler::HandlerResult {
             response: RpcResponse::Error {
                 message: error.to_string(),
@@ -56,6 +80,13 @@ async fn handle_connection(mut stream: UnixStream, state: &DaemonState) -> Resul
         },
     };
 
+    write_response(stream, result).await
+}
+
+async fn write_response(
+    mut stream: UnixStream,
+    result: crate::handler::HandlerResult,
+) -> Result<bool> {
     let response = serde_json::to_vec(&result.response).context("failed to encode response")?;
     stream
         .write_all(&response)

@@ -28,4 +28,6 @@ sm-core.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+im-core = { path = "../../../identity-matters/crates/im-core" }
+im-store = { path = "../../../identity-matters/crates/im-store" }
 tempfile.workspace = true

@@ -8,9 +8,16 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
+im-core = { path = "../../../identity-matters/crates/im-core" }
+im-store = { path = "../../../identity-matters/crates/im-store" }
+im-stub = { path = "../../../identity-matters/crates/im-stub" }
+nix.workspace = true
 serde_json.workspace = true
 sm-core.workspace = true
 sm-driver.workspace = true
 sm-store.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

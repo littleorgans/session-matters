@@ -1,6 +1,7 @@
 mod common;
 
 use common::DaemonFixture;
+use im_core::{Action, AuditDecision};
 use serde_json::{Value, json};
 
 #[test]
@@ -48,8 +49,8 @@ fn initialize_and_tools_list_follow_mcp_shape() {
     );
 }
 
-#[test]
-fn tools_call_can_run_list_get_and_delete_agent() {
+#[tokio::test]
+async fn tools_call_can_run_list_get_and_delete_agent() {
     let daemon = DaemonFixture::start();
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
@@ -98,10 +99,17 @@ fn tools_call_can_run_list_get_and_delete_agent() {
         deleted["result"]["structuredContent"]["session"]["state"],
         "TERMINATED"
     );
+
+    let rows = im_store::query_audit(daemon.audit_path())
+        .await
+        .expect("audit query succeeds");
+    let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
+    assert_eq!(actions, vec![Action::Spawn, Action::Kill]);
+    assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
 }
 
-#[test]
-fn tools_call_can_send_read_check_mail_and_nudge() {
+#[tokio::test]
+async fn tools_call_can_send_read_check_mail_and_nudge() {
     let daemon = DaemonFixture::start();
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
@@ -167,6 +175,22 @@ fn tools_call_can_send_read_check_mail_and_nudge() {
         nudged["result"]["structuredContent"]["message"],
         "nudge: tmux gateway not available; nudge skipped"
     );
+
+    let rows = im_store::query_audit(daemon.audit_path())
+        .await
+        .expect("audit query succeeds");
+    let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
+    assert_eq!(
+        actions,
+        vec![
+            Action::Spawn,
+            Action::Spawn,
+            Action::MailSend,
+            Action::MailRead,
+            Action::Nudge
+        ]
+    );
+    assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
 }
 
 #[test]
