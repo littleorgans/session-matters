@@ -1,7 +1,7 @@
 mod common;
 
 use common::DaemonFixture;
-use im_core::{Action, AuditDecision};
+use lilo_im_core::{Action, AuditDecision};
 use serde_json::{Value, json};
 
 #[test]
@@ -151,9 +151,10 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         "TERMINATED"
     );
 
-    let rows = im_store::query_audit(daemon.audit_path(), im_store::AuditFilters::default())
-        .await
-        .expect("audit query succeeds");
+    let rows =
+        lilo_im_store::query_audit(daemon.audit_path(), lilo_im_store::AuditFilters::default())
+            .await
+            .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
@@ -296,9 +297,10 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
         "nudge: tmux gateway not available; nudge skipped"
     );
 
-    let rows = im_store::query_audit(daemon.audit_path(), im_store::AuditFilters::default())
-        .await
-        .expect("audit query succeeds");
+    let rows =
+        lilo_im_store::query_audit(daemon.audit_path(), lilo_im_store::AuditFilters::default())
+            .await
+            .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,

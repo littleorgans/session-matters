@@ -569,43 +569,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
 
 [[package]]
-name = "im-core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "nix",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "im-store"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "im-core",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "im-stub"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "im-core",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -697,6 +660,49 @@ dependencies = [
  "cc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "lilo-im-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71c47fc05eeb07cea63ffa65db1ab688c78858389ed4fd37ab0724c82bbe5812"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "nix",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "lilo-im-store"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7789c9ae6244d348b09f8fad6a4238e48f4e1327f282c202006a41717ea7314"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "lilo-im-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "lilo-im-stub"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99d5e49091253c231110d291fff48c7bbfdecb24bbfe8e5f692edaeaf1154cfd"
+dependencies = [
+ "async-trait",
+ "lilo-im-core",
 ]
 
 [[package]]
@@ -1117,9 +1123,9 @@ dependencies = [
  "assert_cmd",
  "clap",
  "criterion",
- "im-core",
- "im-store",
  "insta",
+ "lilo-im-core",
+ "lilo-im-store",
  "nix",
  "serde_json",
  "sm-core",
@@ -1148,9 +1154,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "im-core",
- "im-store",
- "im-stub",
+ "lilo-im-core",
+ "lilo-im-store",
+ "lilo-im-stub",
  "nix",
  "serde_json",
  "sm-core",

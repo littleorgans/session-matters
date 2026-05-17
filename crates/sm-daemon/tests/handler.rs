@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
-use im_core::{Action, AuditDecision, Principal};
+use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
     DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, MailCheckRequest,
     MailReadRequest, MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
@@ -523,9 +523,10 @@ async fn successful_mutations_write_allow_audit_rows() {
 
     send_read_nudge_delete(&daemon.state, context, sender.id, recipient.id).await;
 
-    let rows = im_store::query_audit(&daemon.audit_path, im_store::AuditFilters::default())
-        .await
-        .expect("audit query succeeds");
+    let rows =
+        lilo_im_store::query_audit(&daemon.audit_path, lilo_im_store::AuditFilters::default())
+            .await
+            .expect("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
@@ -566,9 +567,10 @@ async fn denied_mutation_is_audited_without_mutating_store() {
     };
     assert!(message.contains("unknown principal"));
 
-    let rows = im_store::query_audit(&daemon.audit_path, im_store::AuditFilters::default())
-        .await
-        .expect("audit query succeeds");
+    let rows =
+        lilo_im_store::query_audit(&daemon.audit_path, lilo_im_store::AuditFilters::default())
+            .await
+            .expect("audit query succeeds");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].action, Action::Spawn);
     assert_eq!(

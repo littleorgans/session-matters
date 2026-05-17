@@ -1,9 +1,11 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use im_core::{Action, Authorizer, Principal, ResourceSpec, RuntimeKind as IdentityRuntimeKind};
-use im_store::SqliteAuditSink;
-use im_stub::StubAuthorizer;
+use lilo_im_core::{
+    Action, Authorizer, Principal, ResourceSpec, RuntimeKind as IdentityRuntimeKind,
+};
+use lilo_im_store::SqliteAuditSink;
+use lilo_im_stub::StubAuthorizer;
 use sm_core::{RuntimeKind, SpawnRequest};
 use uuid::Uuid;
 
@@ -26,7 +28,7 @@ pub struct IdentityClient {
 
 impl IdentityClient {
     pub async fn connect_default() -> Result<Self> {
-        Self::connect(im_store::default_audit_db_path(), local_uid()).await
+        Self::connect(lilo_im_store::default_audit_db_path(), local_uid()).await
     }
 
     pub async fn connect(path: impl AsRef<Path>, local_uid: u32) -> Result<Self> {

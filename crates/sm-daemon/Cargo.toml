@@ -8,9 +8,9 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
-im-core = { path = "../../../identity-matters/crates/im-core" }
-im-store = { path = "../../../identity-matters/crates/im-store" }
-im-stub = { path = "../../../identity-matters/crates/im-stub" }
+lilo-im-core = "0.1"
+lilo-im-store = "0.1"
+lilo-im-stub = "0.1"
 nix.workspace = true
 serde_json.workspace = true
 sm-core.workspace = true

@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use im_core::Action;
+use lilo_im_core::Action;
 use sm_core::{
     DoctorFinding, DoctorRequest, DoctorResponse, LinkRequest, LinkResponse, LogsRequest,
     LogsResponse, RpcResponse, Selector, Session, SessionState, WaitCondition, WaitRequest,

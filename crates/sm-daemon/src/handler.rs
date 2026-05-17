@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use im_core::Action;
+use lilo_im_core::Action;
 use sm_core::{
     DeleteRequest, DeleteResponse, LabelRequest, LabelResponse, ListRequest, ListResponse, Mail,
     MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest,

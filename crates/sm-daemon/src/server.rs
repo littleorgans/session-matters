@@ -52,7 +52,7 @@ async fn serve(listener: UnixListener, state: &DaemonState) -> Result<()> {
 }
 
 async fn handle_connection(mut stream: UnixStream, state: &DaemonState) -> Result<bool> {
-    let principal = match im_core::peer_creds::extract(&stream).await {
+    let principal = match lilo_im_core::peer_creds::extract(&stream).await {
         Ok(principal) => principal,
         Err(error) => {
             return write_response(
