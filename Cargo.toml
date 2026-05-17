@@ -63,10 +63,10 @@ targets = [
 ]
 installers = ["shell", "powershell"]
 github-attestations = true
+# release-please creates the GitHub Release; cargo-dist only uploads into it.
 create-release = false
 unix-archive = ".tar.gz"
 windows-archive = ".zip"
 include = ["LICENSE", "README.md"]
 auto-includes = false
 pr-run-mode = "skip"
-allow-dirty = ["ci"]
