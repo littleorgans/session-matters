@@ -10,6 +10,7 @@ chrono.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sm-paths.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 uuid.workspace = true

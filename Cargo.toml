@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/sm-paths",
     "crates/sm-core",
     "crates/sm-store",
     "crates/sm-driver",
@@ -15,6 +16,7 @@ license = "MIT"
 repository = "https://github.com/littleorgans/session-matters"
 
 [workspace.dependencies]
+sm-paths = { path = "crates/sm-paths" }
 sm-core = { path = "crates/sm-core" }
 sm-store = { path = "crates/sm-store" }
 sm-driver = { path = "crates/sm-driver" }

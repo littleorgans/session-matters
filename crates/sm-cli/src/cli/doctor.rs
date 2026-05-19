@@ -1,12 +1,12 @@
 use anyhow::{Result, bail};
-use sm_core::{DoctorRequest, RpcRequest, RpcResponse, SmPaths};
+use sm_core::{DoctorRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::DoctorArgs;
 
 pub async fn run(_args: DoctorArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Doctor {
             request: DoctorRequest::default(),
         },

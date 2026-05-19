@@ -2,7 +2,7 @@ use std::fs;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use sm_core::{RpcRequest, RpcResponse, SmPaths};
+use sm_core::{RpcRequest, RpcResponse, SmEndpoint, SmPaths};
 use sm_driver::InProcessDriver;
 use sm_store::SqliteStore;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -15,9 +15,11 @@ use crate::reconcile::ReconcileTask;
 
 pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::create_dir_all(&paths.dir).context("failed to create runtime directory")?;
-    remove_stale_socket(&paths)?;
+    let endpoint = SmEndpoint::from_env().context("failed to resolve daemon endpoint")?;
+    remove_stale_socket(&endpoint)?;
 
-    let listener = UnixListener::bind(&paths.socket).context("failed to bind daemon socket")?;
+    let listener =
+        UnixListener::bind(endpoint.as_path()).context("failed to bind daemon socket")?;
     fs::write(&paths.pidfile, std::process::id().to_string()).context("failed to write pidfile")?;
 
     let store = SqliteStore::open(&paths.database).context("failed to open sqlite store")?;
@@ -38,7 +40,7 @@ pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     drop(reconcile);
     drop(lifecycle);
     state.driver.terminate_all();
-    cleanup_paths(&paths);
+    cleanup_paths(&paths, &endpoint);
     result
 }
 
@@ -104,14 +106,14 @@ async fn write_response(
     Ok(result.shutdown)
 }
 
-fn remove_stale_socket(paths: &SmPaths) -> Result<()> {
-    if paths.socket.exists() {
-        fs::remove_file(&paths.socket).context("failed to remove stale socket")?;
+fn remove_stale_socket(endpoint: &SmEndpoint) -> Result<()> {
+    if endpoint.exists() {
+        fs::remove_file(endpoint.as_path()).context("failed to remove stale socket")?;
     }
     Ok(())
 }
 
-fn cleanup_paths(paths: &SmPaths) {
-    let _ = fs::remove_file(&paths.socket);
+fn cleanup_paths(paths: &SmPaths, endpoint: &SmEndpoint) {
+    let _ = fs::remove_file(endpoint.as_path());
     let _ = fs::remove_file(&paths.pidfile);
 }

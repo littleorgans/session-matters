@@ -78,8 +78,9 @@ fn run_rpc_round_trip(
             selector: Selector::Id { id: session_id },
         },
     };
+    let endpoint = sm_core::SmEndpoint::unix_socket(daemon.socket_path());
     let response = runtime
-        .block_on(sm_daemon::send_request(&daemon.socket_path(), &request))
+        .block_on(sm_daemon::send_request(&endpoint, &request))
         .expect("daemon RPC succeeds");
     match response {
         RpcResponse::MailChecked { response } => response.unread,

@@ -1,10 +1,11 @@
 use anyhow::{Result, bail};
-use sm_core::{McpBridgeRequest, RpcRequest, RpcResponse, SmPaths};
+use sm_core::{McpBridgeRequest, RpcRequest, RpcResponse, SmEndpoint, SmPaths};
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 
 use crate::mcp::transport::write_line;
 
-pub async fn run_stdio_bridge(paths: SmPaths) -> Result<()> {
+pub async fn run_stdio_bridge(_paths: SmPaths) -> Result<()> {
+    let endpoint = SmEndpoint::from_env()?;
     let stdin = BufReader::new(io::stdin());
     let mut lines = stdin.lines();
     let mut stdout = io::stdout();
@@ -14,7 +15,7 @@ pub async fn run_stdio_bridge(paths: SmPaths) -> Result<()> {
             continue;
         }
         let response = sm_daemon::send_request(
-            &paths.socket,
+            &endpoint,
             &RpcRequest::McpBridge {
                 request: McpBridgeRequest { line },
             },

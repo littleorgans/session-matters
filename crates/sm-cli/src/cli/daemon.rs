@@ -6,30 +6,31 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
-use sm_core::{DaemonStatus, RpcRequest, SmPaths};
+use sm_core::{DaemonStatus, RpcRequest, SmEndpoint, SmPaths};
 
 use crate::cli::cli_def::{DaemonAction, DaemonArgs};
 
 pub async fn run(args: DaemonArgs) -> Result<()> {
     let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     match args.action {
-        DaemonAction::Start => start(&paths),
-        DaemonAction::Stop => stop(&paths).await,
+        DaemonAction::Start => start(&paths, &endpoint),
+        DaemonAction::Stop => stop(&paths, &endpoint).await,
         DaemonAction::Status => {
-            print_status(&status(&paths));
+            print_status(&status(&paths, &endpoint));
             Ok(())
         }
     }
 }
 
-fn start(paths: &SmPaths) -> Result<()> {
+fn start(paths: &SmPaths, endpoint: &SmEndpoint) -> Result<()> {
     fs::create_dir_all(&paths.dir).context("failed to create runtime directory")?;
-    let current = status(paths);
+    let current = status(paths, endpoint);
     if current.running {
         print_status(&current);
         return Ok(());
     }
-    remove_stale_files(paths);
+    remove_stale_files(paths, endpoint);
 
     let log = OpenOptions::new()
         .create(true)
@@ -48,7 +49,7 @@ fn start(paths: &SmPaths) -> Result<()> {
 
     let deadline = Instant::now() + Duration::from_secs(5);
     while Instant::now() < deadline {
-        let current = status(paths);
+        let current = status(paths, endpoint);
         if current.running {
             print_status(&current);
             return Ok(());
@@ -62,15 +63,15 @@ fn start(paths: &SmPaths) -> Result<()> {
     bail!("daemon did not become ready within 5s")
 }
 
-async fn stop(paths: &SmPaths) -> Result<()> {
-    let current = status(paths);
+async fn stop(paths: &SmPaths, endpoint: &SmEndpoint) -> Result<()> {
+    let current = status(paths, endpoint);
     if !current.running {
         print_status(&current);
         return Ok(());
     }
 
-    if paths.socket.exists() {
-        let _ = sm_daemon::send_request(&paths.socket, &RpcRequest::Shutdown).await;
+    if endpoint.exists() {
+        let _ = sm_daemon::send_request(endpoint, &RpcRequest::Shutdown).await;
     }
 
     wait_for_stop(current.pid, Duration::from_secs(5));
@@ -92,8 +93,8 @@ async fn stop(paths: &SmPaths) -> Result<()> {
         bail!("daemon process {pid} did not stop");
     }
 
-    remove_stale_files(paths);
-    print_status(&status(paths));
+    remove_stale_files(paths, endpoint);
+    print_status(&status(paths, endpoint));
     Ok(())
 }
 
@@ -107,13 +108,13 @@ fn wait_for_stop(pid: Option<u32>, timeout: Duration) {
     }
 }
 
-fn status(paths: &SmPaths) -> DaemonStatus {
+fn status(paths: &SmPaths, endpoint: &SmEndpoint) -> DaemonStatus {
     let pid = read_pid(paths);
     DaemonStatus {
-        running: pid.is_some_and(process_alive) && paths.socket.exists(),
+        running: pid.is_some_and(process_alive) && endpoint.exists(),
         pid,
         pidfile: paths.pidfile.display().to_string(),
-        socket: paths.socket.display().to_string(),
+        endpoint: endpoint.to_string(),
     }
 }
 
@@ -127,8 +128,8 @@ fn process_alive(pid: u32) -> bool {
     kill(Pid::from_raw(pid as i32), None).is_ok()
 }
 
-fn remove_stale_files(paths: &SmPaths) {
-    let _ = fs::remove_file(&paths.socket);
+fn remove_stale_files(paths: &SmPaths, endpoint: &SmEndpoint) {
+    let _ = fs::remove_file(endpoint.as_path());
     let _ = fs::remove_file(&paths.pidfile);
 }
 
@@ -138,5 +139,5 @@ fn print_status(status: &DaemonStatus) {
         println!("pid: {pid}");
     }
     println!("pidfile: {}", status.pidfile);
-    println!("socket: {}", status.socket);
+    println!("socket: {}", status.endpoint);
 }

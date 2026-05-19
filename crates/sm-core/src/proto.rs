@@ -246,7 +246,7 @@ pub struct DaemonStatus {
     pub running: bool,
     pub pid: Option<u32>,
     pub pidfile: String,
-    pub socket: String,
+    pub endpoint: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -9,7 +9,7 @@ pub use error::{SmError, SmResult};
 pub use mcp::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_PROTOCOL_VERSION, tool_error, tool_success,
 };
-pub use paths::SmPaths;
+pub use paths::{SmEndpoint, SmPaths, SmPathsError, rtmd_socket_path};
 pub use proto::{
     DaemonStatus, DeleteRequest, DeleteResponse, DoctorFinding, DoctorRequest, DoctorResponse,
     LabelRequest, LabelResponse, LinkRequest, LinkResponse, ListRequest, ListResponse, LogsRequest,

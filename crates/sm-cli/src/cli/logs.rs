@@ -5,14 +5,14 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use sm_core::{LogsRequest, RpcRequest, RpcResponse, Selector, SmPaths};
+use sm_core::{LogsRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
 
 use crate::cli::cli_def::LogsArgs;
 
 pub async fn run(args: LogsArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Logs {
             request: LogsRequest {
                 selector: Selector::from_str(&args.selector)?,
