@@ -7,6 +7,7 @@ use std::sync::{Mutex, Once};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use async_trait::async_trait;
 use nix::pty::{ForkptyResult, forkpty};
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, kill, sigaction};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
@@ -37,8 +38,13 @@ impl InProcessDriver {
     }
 }
 
+#[async_trait]
 impl SpawnDriver for InProcessDriver {
-    fn spawn(&self, session_id: &str, launch: &SpawnLaunch) -> Result<SpawnedProcess, DriverError> {
+    async fn spawn(
+        &self,
+        session_id: &str,
+        launch: &SpawnLaunch,
+    ) -> Result<SpawnedProcess, DriverError> {
         validate_env(launch)?;
         let command = CString::new(launch.runtime.command())
             .map_err(|_| DriverError::InvalidRuntimeCommand)?;
@@ -54,7 +60,12 @@ impl SpawnDriver for InProcessDriver {
                     .lock()
                     .expect("driver child registry poisoned")
                     .insert(session_id.to_string(), handle);
-                Ok(SpawnedProcess { runtime_pid })
+                Ok(SpawnedProcess {
+                    runtime_pid,
+                    log_dir: None,
+                    stdout_path: None,
+                    stderr_path: None,
+                })
             }
             ForkptyResult::Child => {
                 for item in &launch.env {
@@ -69,7 +80,7 @@ impl SpawnDriver for InProcessDriver {
         }
     }
 
-    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
+    async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
         let _ = SIGCHLD_SEEN.swap(false, Ordering::SeqCst);
         let mut children = self
             .children
@@ -91,7 +102,11 @@ impl SpawnDriver for InProcessDriver {
         Ok(exits)
     }
 
-    fn probe_session(&self, session_id: &str, stored_pid: u32) -> Result<DriverProbe, DriverError> {
+    async fn probe_session(
+        &self,
+        session_id: &str,
+        stored_pid: u32,
+    ) -> Result<DriverProbe, DriverError> {
         let children = self
             .children
             .lock()
@@ -124,7 +139,7 @@ impl SpawnDriver for InProcessDriver {
         })
     }
 
-    fn terminate(
+    async fn terminate(
         &self,
         session_id: &str,
         signal: &str,
@@ -153,11 +168,10 @@ impl SpawnDriver for InProcessDriver {
             .map(Some)
     }
 
-    fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
-        eprintln!("nudge: tmux gateway not available; nudge skipped");
-        Ok(NudgeResult {
-            delivered: false,
-            message: "nudge: tmux gateway not available; nudge skipped".to_string(),
+    async fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
+        Err(DriverError::Unsupported {
+            operation: "nudge",
+            pass: "Pass 5",
         })
     }
 

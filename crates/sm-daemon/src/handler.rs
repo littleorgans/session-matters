@@ -63,7 +63,7 @@ impl DaemonState {
     ) -> HandlerResult {
         match request {
             RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
-            RpcRequest::List { request } => response(self.list(request), false),
+            RpcRequest::List { request } => response(self.list(request).await, false),
             RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
             RpcRequest::MailSend { request } => {
                 response(self.mail_send(&context, request).await, false)
@@ -78,7 +78,7 @@ impl DaemonState {
             RpcRequest::Link { request } => response(self.link(&context, request).await, false),
             RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
             RpcRequest::Doctor { request } => response(self.doctor(&context, request).await, false),
-            RpcRequest::Wait { request } => response(self.wait(request), false),
+            RpcRequest::Wait { request } => response(self.wait(request).await, false),
             RpcRequest::McpBridge { .. } => response(
                 Err(anyhow::anyhow!(
                     "nested MCP bridge requests are not supported"
@@ -105,6 +105,7 @@ impl DaemonState {
         let spawned = self
             .driver
             .spawn(&id.to_string(), &launch)
+            .await
             .context("spawn driver failed")?;
         let now = Utc::now();
         let session = Session {
@@ -136,8 +137,8 @@ impl DaemonState {
         })
     }
 
-    fn list(&self, request: ListRequest) -> Result<RpcResponse> {
-        crate::lifecycle::refresh_exits(self)?;
+    async fn list(&self, request: ListRequest) -> Result<RpcResponse> {
+        crate::lifecycle::refresh_exits(self).await?;
         let selector = request.selector.unwrap_or_default();
         let sessions = self
             .store
@@ -284,7 +285,7 @@ impl DaemonState {
         self.identity
             .authorize(&context.principal, Action::Kill, &session_resource(id))
             .await?;
-        crate::lifecycle::refresh_exits(self)?;
+        crate::lifecycle::refresh_exits(self).await?;
         let id_string = id.to_string();
         let session = self
             .store
@@ -303,6 +304,7 @@ impl DaemonState {
                 &request.signal,
                 Duration::from_secs(request.grace_secs),
             )
+            .await
             .context("failed to terminate runtime")?
             .with_context(|| format!("session is not owned by this daemon: {id}"))?;
         self.store
@@ -393,6 +395,7 @@ impl DaemonState {
         let result = self
             .driver
             .nudge(&to, content)
+            .await
             .context("nudge driver failed")?;
         Ok(NudgeDelivery {
             to,
@@ -509,6 +512,7 @@ fn spawn_launch(
     });
     SpawnLaunch {
         runtime: request.runtime,
+        cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         env,
     }
 }

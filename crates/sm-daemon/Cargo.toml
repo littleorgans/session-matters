@@ -11,6 +11,8 @@ chrono.workspace = true
 lilo-im-core = "0.1"
 lilo-im-store = "0.1"
 lilo-im-stub = "0.1"
+lilo-rm-core.workspace = true
+lilo-rm-client.workspace = true
 nix.workspace = true
 serde_json.workspace = true
 sm-core.workspace = true
@@ -21,4 +23,5 @@ toml.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 tempfile.workspace = true

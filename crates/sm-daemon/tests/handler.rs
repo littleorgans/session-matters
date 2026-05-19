@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
+use async_trait::async_trait;
 use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
     DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, MailCheckRequest,
@@ -46,8 +47,9 @@ impl MockDriver {
     }
 }
 
+#[async_trait]
 impl SpawnDriver for MockDriver {
-    fn spawn(
+    async fn spawn(
         &self,
         _session_id: &str,
         launch: &SpawnLaunch,
@@ -56,10 +58,15 @@ impl SpawnDriver for MockDriver {
             .lock()
             .expect("launches lock poisoned")
             .push(launch.clone());
-        Ok(SpawnedProcess { runtime_pid: 42 })
+        Ok(SpawnedProcess {
+            runtime_pid: 42,
+            log_dir: None,
+            stdout_path: None,
+            stderr_path: None,
+        })
     }
 
-    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
+    async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
         Ok(self
             .exits
             .lock()
@@ -68,7 +75,7 @@ impl SpawnDriver for MockDriver {
             .collect())
     }
 
-    fn probe_session(
+    async fn probe_session(
         &self,
         _session_id: &str,
         _runtime_pid: u32,
@@ -84,7 +91,7 @@ impl SpawnDriver for MockDriver {
         })
     }
 
-    fn terminate(
+    async fn terminate(
         &self,
         session_id: &str,
         _signal: &str,
@@ -97,7 +104,7 @@ impl SpawnDriver for MockDriver {
         }))
     }
 
-    fn nudge(
+    async fn nudge(
         &self,
         _session_id: &str,
         _content: &str,

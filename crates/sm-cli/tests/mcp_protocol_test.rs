@@ -147,9 +147,17 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         json!({ "selector": format!("id:{id}"), "signal": "SIGTERM", "grace_secs": 1 }),
     );
     assert!(deleted["error"].is_null());
-    assert_eq!(
-        deleted["result"]["structuredContent"]["sessions"][0]["state"],
-        "TERMINATED"
+    assert!(
+        deleted["result"]["structuredContent"]["sessions"]
+            .as_array()
+            .expect("sessions is array")
+            .is_empty()
+    );
+    assert!(
+        deleted["result"]["structuredContent"]["errors"][0]["message"]
+            .as_str()
+            .expect("delete error message")
+            .contains("unsupported driver operation terminate")
     );
 
     let rows =
@@ -291,13 +299,17 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
         json!({ "to": recipient.clone(), "content": "ping" }),
     );
     assert!(nudged["error"].is_null());
-    assert_eq!(
-        nudged["result"]["structuredContent"]["nudges"][0]["delivered"],
-        false
+    assert!(
+        nudged["result"]["structuredContent"]["nudges"]
+            .as_array()
+            .expect("nudges is array")
+            .is_empty()
     );
-    assert_eq!(
-        nudged["result"]["structuredContent"]["nudges"][0]["message"],
-        "nudge: tmux gateway not available; nudge skipped"
+    assert!(
+        nudged["result"]["structuredContent"]["errors"][0]["message"]
+            .as_str()
+            .expect("nudge error message")
+            .contains("unsupported driver operation nudge")
     );
 
     let rows =

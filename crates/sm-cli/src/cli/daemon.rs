@@ -55,7 +55,10 @@ fn start(paths: &SmPaths, endpoint: &SmEndpoint) -> Result<()> {
             return Ok(());
         }
         if let Some(exit) = child.try_wait().context("failed to observe daemon")? {
-            bail!("daemon exited before becoming ready: {exit}");
+            bail!(
+                "daemon exited before becoming ready: {exit}{}",
+                daemon_log_tail(paths)
+            );
         }
         thread::sleep(Duration::from_millis(100));
     }
@@ -131,6 +134,13 @@ fn process_alive(pid: u32) -> bool {
 fn remove_stale_files(paths: &SmPaths, endpoint: &SmEndpoint) {
     let _ = fs::remove_file(endpoint.as_path());
     let _ = fs::remove_file(&paths.pidfile);
+}
+
+fn daemon_log_tail(paths: &SmPaths) -> String {
+    match fs::read_to_string(&paths.log) {
+        Ok(contents) if !contents.trim().is_empty() => format!(": {}", contents.trim()),
+        _ => String::new(),
+    }
 }
 
 fn print_status(status: &DaemonStatus) {

@@ -1,11 +1,17 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use lilo_rm_client::ClientError;
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnedProcess {
     pub runtime_pid: u32,
+    pub log_dir: Option<PathBuf>,
+    pub stdout_path: Option<PathBuf>,
+    pub stderr_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +23,7 @@ pub struct LaunchEnv {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnLaunch {
     pub runtime: RuntimeKind,
+    pub cwd: PathBuf,
     pub env: Vec<LaunchEnv>,
 }
 
@@ -49,6 +56,21 @@ pub enum DriverError {
     InvalidSignal(String),
     #[error("runtime process did not terminate after SIGKILL")]
     TerminationTimeout,
+    #[error(transparent)]
+    Client(#[from] ClientError),
+    #[error("invalid runtime session id: {0}")]
+    InvalidSessionId(String),
+    #[error("runtime session has no runtime pid: {0}")]
+    MissingRuntimePid(String),
+    #[error("unsupported driver operation {operation}; scheduled for {pass}")]
+    Unsupported {
+        operation: &'static str,
+        pass: &'static str,
+    },
+    #[error("unknown runtime variant: {variant}")]
+    UnknownRuntimeVariant { variant: String },
+    #[error("runtime spawn conflict: {0}")]
+    SpawnConflict(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,22 +79,30 @@ pub struct NudgeResult {
     pub message: String,
 }
 
+#[async_trait]
 pub trait SpawnDriver: Send + Sync {
-    fn spawn(&self, session_id: &str, launch: &SpawnLaunch) -> Result<SpawnedProcess, DriverError>;
+    async fn spawn(
+        &self,
+        session_id: &str,
+        launch: &SpawnLaunch,
+    ) -> Result<SpawnedProcess, DriverError>;
 
-    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
+    async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
 
-    fn probe_session(&self, session_id: &str, runtime_pid: u32)
-    -> Result<DriverProbe, DriverError>;
+    async fn probe_session(
+        &self,
+        session_id: &str,
+        runtime_pid: u32,
+    ) -> Result<DriverProbe, DriverError>;
 
-    fn terminate(
+    async fn terminate(
         &self,
         session_id: &str,
         signal: &str,
         grace: Duration,
     ) -> Result<Option<ChildExit>, DriverError>;
 
-    fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError>;
+    async fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError>;
 
     fn terminate_all(&self);
 }

@@ -1,5 +1,4 @@
 use std::fs;
-use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -95,7 +94,7 @@ impl DaemonState {
         self.identity
             .authorize(&context.principal, Action::Doctor, &Default::default())
             .await?;
-        let fresh_findings = crate::reconcile::reconcile_once(self)?;
+        let fresh_findings = crate::reconcile::reconcile_once(self).await?;
         let sessions = self
             .store
             .lock()
@@ -127,11 +126,11 @@ impl DaemonState {
         })
     }
 
-    pub(crate) fn wait(&self, request: WaitRequest) -> Result<RpcResponse> {
+    pub(crate) async fn wait(&self, request: WaitRequest) -> Result<RpcResponse> {
         let deadline = Instant::now() + Duration::from_secs(request.timeout_secs);
         loop {
-            crate::lifecycle::refresh_exits(self)?;
-            let _ = crate::reconcile::reconcile_once(self)?;
+            crate::lifecycle::refresh_exits(self).await?;
+            let _ = crate::reconcile::reconcile_once(self).await?;
             let sessions = self
                 .store
                 .lock()
@@ -144,7 +143,7 @@ impl DaemonState {
             if Instant::now() >= deadline {
                 return Ok(wait_response(false, sessions));
             }
-            thread::sleep(Duration::from_millis(200));
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
     }
 
