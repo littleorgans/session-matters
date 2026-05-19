@@ -28,6 +28,78 @@ fn main() {
 
     write_schema_outputs(&manifest_dir, registry.tools());
     write_docs_outputs(&manifest_dir, &registry);
+    emit_cli_version();
+}
+
+fn emit_cli_version() {
+    emit_git_rerun_directives();
+    println!("cargo:rerun-if-env-changed=SM_GIT_SHA");
+    println!("cargo:rerun-if-env-changed=GITHUB_SHA");
+    println!("cargo:rerun-if-env-changed=SM_VERSION_INCLUDE_GIT_SHA");
+
+    let package_version = std::env::var("CARGO_PKG_VERSION").expect("CARGO_PKG_VERSION set");
+    let version = match (include_git_sha(), build_git_sha()) {
+        (true, Some(sha)) => format!("{package_version}+{sha}"),
+        _ => package_version,
+    };
+    println!("cargo:rustc-env=SM_CLI_VERSION={version}");
+}
+
+fn emit_git_rerun_directives() {
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
+    println!("cargo:rerun-if-changed=../../.git/packed-refs");
+
+    let Ok(head) = fs::read_to_string("../../.git/HEAD") else {
+        return;
+    };
+    if let Some(ref_path) = head.trim().strip_prefix("ref: ") {
+        println!("cargo:rerun-if-changed=../../.git/{ref_path}");
+    }
+}
+
+fn include_git_sha() -> bool {
+    matches!(
+        std::env::var("SM_VERSION_INCLUDE_GIT_SHA").as_deref(),
+        Ok("1") | Ok("true")
+    )
+}
+
+fn build_git_sha() -> Option<String> {
+    std::env::var("SM_GIT_SHA")
+        .ok()
+        .and_then(short_sha)
+        .or_else(|| std::env::var("GITHUB_SHA").ok().and_then(short_sha))
+        .or_else(git_head_sha)
+}
+
+fn git_head_sha() -> Option<String> {
+    let head = fs::read_to_string("../../.git/HEAD").ok()?;
+    let trimmed = head.trim();
+    if let Some(ref_path) = trimmed.strip_prefix("ref: ") {
+        let ref_file = Path::new("../../.git").join(ref_path);
+        if let Ok(sha) = fs::read_to_string(&ref_file) {
+            return short_sha(sha.trim().to_string());
+        }
+        let packed = fs::read_to_string("../../.git/packed-refs").ok()?;
+        for line in packed.lines() {
+            if let Some((sha, name)) = line.split_once(' ')
+                && name == ref_path
+            {
+                return short_sha(sha.to_string());
+            }
+        }
+        None
+    } else {
+        short_sha(trimmed.to_string())
+    }
+}
+
+fn short_sha(sha: String) -> Option<String> {
+    let trimmed = sha.trim();
+    if trimmed.len() < 7 {
+        return None;
+    }
+    Some(trimmed[..7].to_string())
 }
 
 fn write_schema_outputs(manifest_dir: &str, tools: &[ToolContract]) {

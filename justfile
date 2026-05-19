@@ -1,7 +1,12 @@
+set shell := ["bash", "-cu"]
+
+# Fall back to $HOME/.cargo/bin/sm if SM_LOCAL_BIN is not set in the host environment
+SM_LOCAL_BIN := env("SM_LOCAL_BIN", env("HOME") / ".cargo/bin/sm")
+
 default:
     @just --list
 
-SM_LOCAL_BIN := env_var_or_default("SM_LOCAL_BIN", "/Users/alphab/.cargo/bin/sm")
+install: install-release
 
 build:
     cargo build --workspace
@@ -9,9 +14,21 @@ build:
 release-build:
     cargo build --workspace --release
 
-install-local: release-build
+build-local:
+    SM_VERSION_INCLUDE_GIT_SHA=1 cargo build -p sm-cli --bin sm --profile install-local
+
+build-install-release:
+    SM_VERSION_INCLUDE_GIT_SHA=0 cargo build -p sm-cli --bin sm --release
+
+install-local: build-local
+    @just _install-bin target/install-local/sm
+
+install-release: build-install-release
+    @just _install-bin target/release/sm
+
+_install-bin src:
     @set -eu; \
-    src="$(pwd)/target/release/sm"; \
+    src="$(pwd)/{{src}}"; \
     dest="{{SM_LOCAL_BIN}}"; \
     case "$dest" in /*) ;; *) dest="$(pwd)/$dest";; esac; \
     if [ "$src" = "$dest" ]; then \
@@ -20,7 +37,8 @@ install-local: release-build
         mkdir -p "$(dirname "$dest")"; \
         install -m 755 "$src" "$dest"; \
         echo "Installed $dest"; \
-    fi
+    fi; \
+    "$dest" --version
 
 test *ARGS:
     cargo nextest run --workspace {{ARGS}}
@@ -41,13 +59,19 @@ release *ARGS:
 fmt:
     cargo fmt --all
 
+fmt-check:
+    cargo fmt --all -- --check
+
 clippy:
-    cargo clippy --workspace --fix --allow-dirty -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
 
-loc:
-    scripts/check-loc-limit.sh
+clippy-fix:
+    cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged -- -D warnings
 
-check: fmt clippy loc
+check-loc:
+    bash scripts/check-loc-limit.sh
+
+check: fmt clippy-fix fmt-check check-loc clippy
 
 sm *ARGS:
     cargo run -p sm-cli -- {{ARGS}}
