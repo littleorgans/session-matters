@@ -1208,6 +1208,7 @@ dependencies = [
  "nix",
  "sm-core",
  "thiserror",
+ "tokio",
  "uuid",
 ]
 

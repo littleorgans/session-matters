@@ -1,13 +1,18 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    HeadlessSpawnTarget, Lifecycle, RuntimeKind as RtmdRuntimeKind, SpawnRequest,
-    SpawnTarget as RtmdSpawnTarget, StatusFilter,
+    HeadlessSpawnTarget, KillOutcome, KillRequest, Lifecycle, LifecycleState,
+    RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnRequest, SpawnTarget as RtmdSpawnTarget,
+    StatusFilter,
 };
 use sm_core::RuntimeKind;
+use tokio::time::{Instant, sleep};
 use uuid::Uuid;
 
 use crate::conv::lifecycle_to_probe;
@@ -18,12 +23,14 @@ use crate::driver::{
 #[derive(Clone, Debug)]
 pub struct RtmdDriver {
     client: RuntimeClient,
+    terminal_sessions: Arc<Mutex<HashSet<Uuid>>>,
 }
 
 impl RtmdDriver {
     pub fn new(socket_path: PathBuf) -> Self {
         Self {
             client: RuntimeClient::new(socket_path),
+            terminal_sessions: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -40,6 +47,10 @@ impl SpawnDriver for RtmdDriver {
         launch: &SpawnLaunch,
     ) -> Result<SpawnedProcess, DriverError> {
         let session_id = parse_session_id(session_id)?;
+        self.terminal_sessions
+            .lock()
+            .expect("terminal sessions lock poisoned")
+            .remove(&session_id);
         let payload = self
             .client
             .spawn(SpawnRequest {
@@ -71,7 +82,20 @@ impl SpawnDriver for RtmdDriver {
     }
 
     async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
-        Ok(Vec::new())
+        let payload = self.client.status(StatusFilter::empty()).await?;
+        let mut terminal_sessions = self
+            .terminal_sessions
+            .lock()
+            .expect("terminal sessions lock poisoned");
+        let mut exits = Vec::new();
+        for lifecycle in payload.lifecycles {
+            if let Some(exit) = terminal_child_exit(&lifecycle)?
+                && terminal_sessions.insert(lifecycle.session_id)
+            {
+                exits.push(exit);
+            }
+        }
+        Ok(exits)
     }
 
     async fn probe_session(
@@ -96,14 +120,39 @@ impl SpawnDriver for RtmdDriver {
 
     async fn terminate(
         &self,
-        _session_id: &str,
-        _signal: &str,
-        _grace: Duration,
+        session_id: &str,
+        signal: &str,
+        grace: Duration,
     ) -> Result<Option<ChildExit>, DriverError> {
-        Err(DriverError::Unsupported {
-            operation: "terminate",
-            pass: "Pass 2",
-        })
+        let session_id = parse_session_id(session_id)?;
+        let signal = RuntimeSignal::from_str(signal)
+            .map_err(|_| DriverError::InvalidSignal(signal.to_string()))?;
+        let outcome = self
+            .client
+            .kill(KillRequest {
+                session_id,
+                signal,
+                grace_secs: grace.as_secs(),
+            })
+            .await?;
+
+        let exit = match outcome {
+            KillOutcome::Signalled | KillOutcome::AlreadyExited => {
+                self.wait_for_terminal(session_id, grace).await?
+            }
+            _ => {
+                return Err(DriverError::UnknownRuntimeVariant {
+                    variant: format!("{outcome:?}"),
+                });
+            }
+        };
+        if exit.is_some() {
+            self.terminal_sessions
+                .lock()
+                .expect("terminal sessions lock poisoned")
+                .insert(session_id);
+        }
+        Ok(exit)
     }
 
     async fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
@@ -114,6 +163,31 @@ impl SpawnDriver for RtmdDriver {
     }
 
     fn terminate_all(&self) {}
+}
+
+impl RtmdDriver {
+    async fn wait_for_terminal(
+        &self,
+        session_id: Uuid,
+        grace: Duration,
+    ) -> Result<Option<ChildExit>, DriverError> {
+        let timeout = grace.max(Duration::from_secs(1));
+        let deadline = Instant::now() + timeout;
+        loop {
+            let payload = self.client.status(status_session(session_id)).await?;
+            let exit = payload
+                .lifecycles
+                .iter()
+                .find(|lifecycle| lifecycle.session_id == session_id)
+                .map(terminal_child_exit)
+                .transpose()?
+                .flatten();
+            if exit.is_some() || Instant::now() >= deadline {
+                return Ok(exit);
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+    }
 }
 
 fn parse_session_id(session_id: &str) -> Result<Uuid, DriverError> {
@@ -131,6 +205,24 @@ fn runtime_pid(lifecycle: &Lifecycle) -> Result<u32, DriverError> {
     lifecycle
         .runtime_pid
         .ok_or_else(|| DriverError::MissingRuntimePid(lifecycle.session_id.to_string()))
+}
+
+fn terminal_child_exit(lifecycle: &Lifecycle) -> Result<Option<ChildExit>, DriverError> {
+    let exit_code = match lifecycle.state {
+        LifecycleState::Forking | LifecycleState::Running => return Ok(None),
+        LifecycleState::Exited(exit) => exit.code,
+        LifecycleState::Lost(_) => None,
+        _ => {
+            return Err(DriverError::UnknownRuntimeVariant {
+                variant: format!("{:?}", lifecycle.state),
+            });
+        }
+    };
+    Ok(Some(ChildExit {
+        session_id: lifecycle.session_id.to_string(),
+        runtime_pid: lifecycle.runtime_pid.unwrap_or_default(),
+        exit_code,
+    }))
 }
 
 fn status_session(session_id: Uuid) -> StatusFilter {

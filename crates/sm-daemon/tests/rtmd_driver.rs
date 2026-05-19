@@ -6,8 +6,13 @@ use std::time::{Duration, Instant};
 
 use lilo_im_core::Principal;
 use lilo_rm_client::RuntimeClient;
-use lilo_rm_core::{LifecycleState, StatusFilter};
-use sm_core::{RpcRequest, RpcResponse, RuntimeKind, SpawnRequest};
+use lilo_rm_core::{Lifecycle, LifecycleState, StatusFilter};
+use nix::sys::signal::{Signal, kill};
+use nix::unistd::Pid;
+use sm_core::{
+    DeleteRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SessionState,
+    SpawnRequest,
+};
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
 use sm_driver::RtmdDriver;
@@ -32,15 +37,82 @@ async fn rtmd_driver_spawn_is_visible_to_sm_and_rtmd() {
         std::sync::Arc::new(RtmdDriver::new(rtmd.socket.clone())),
         std::sync::Arc::new(identity),
     );
+    let context = RequestContext::new(Principal::Local(42));
 
+    let session = spawn_session(&state, context, temp.path()).await;
+    assert_eq!(session.runtime, RuntimeKind::Claude);
+    assert_eq!(session.runtime_pid, runtime_pid(&rtmd, session.id).await);
+
+    rtmd.stop();
+}
+
+#[tokio::test]
+async fn rtmd_driver_delete_signalled_session_marks_terminated() {
+    let Some(rtm) = rtm_binary() else {
+        eprintln!("skipping rtmd integration test; set RTM_TEST_BIN to an rtm binary");
+        return;
+    };
+    let temp = tempfile::tempdir().expect("tempdir");
+    write_fake_runtime(temp.path(), "claude");
+    let mut rtmd = RtmdHarness::start(&rtm, temp.path());
+    let state = rtmd_state(&rtmd, temp.path()).await;
+    let context = RequestContext::new(Principal::Local(42));
+    let session = spawn_session(&state, context.clone(), temp.path()).await;
+
+    let deleted = delete_session(&state, context, session.id, 2).await;
+
+    assert_eq!(deleted.state, SessionState::Terminated);
+    assert!(matches!(
+        runtime_lifecycle(&rtmd, session.id).await.state,
+        LifecycleState::Exited(_)
+    ));
+
+    rtmd.stop();
+}
+
+#[tokio::test]
+async fn rtmd_driver_delete_already_exited_session_marks_terminated() {
+    let Some(rtm) = rtm_binary() else {
+        eprintln!("skipping rtmd integration test; set RTM_TEST_BIN to an rtm binary");
+        return;
+    };
+    let temp = tempfile::tempdir().expect("tempdir");
+    write_fake_runtime(temp.path(), "claude");
+    let mut rtmd = RtmdHarness::start(&rtm, temp.path());
+    let state = rtmd_state(&rtmd, temp.path()).await;
+    let context = RequestContext::new(Principal::Local(42));
+    let session = spawn_session(&state, context.clone(), temp.path()).await;
+
+    kill(Pid::from_raw(session.runtime_pid as i32), Signal::SIGKILL)
+        .expect("runtime process can be killed");
+    wait_for_runtime_exit(&rtmd, session.id).await;
+    let deleted = delete_session(&state, context, session.id, 2).await;
+
+    assert_eq!(deleted.state, SessionState::Terminated);
+
+    rtmd.stop();
+}
+
+async fn rtmd_state(rtmd: &RtmdHarness, dir: &Path) -> DaemonState {
+    let identity = IdentityClient::connect(&dir.join("audit.sqlite"), 42)
+        .await
+        .expect("identity connects");
+    DaemonState::new(
+        SqliteStore::open_in_memory().expect("store opens"),
+        std::sync::Arc::new(RtmdDriver::new(rtmd.socket.clone())),
+        std::sync::Arc::new(identity),
+    )
+}
+
+async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: &Path) -> Session {
     let result = state
         .handle(
-            RequestContext::new(Principal::Local(42)),
+            context,
             RpcRequest::Spawn {
                 request: SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
-                    workspace: temp.path().display().to_string(),
+                    workspace: workspace.display().to_string(),
                     agent_config: None,
                     labels: Vec::new(),
                 },
@@ -50,13 +122,36 @@ async fn rtmd_driver_spawn_is_visible_to_sm_and_rtmd() {
     let RpcResponse::Spawned { response } = result.response else {
         panic!("expected spawn response");
     };
-    assert_eq!(response.session.runtime, RuntimeKind::Claude);
-    assert_eq!(
-        response.session.runtime_pid,
-        runtime_pid(&rtmd, response.session.id).await
-    );
+    response.session
+}
 
-    rtmd.stop();
+async fn delete_session(
+    state: &DaemonState,
+    context: RequestContext,
+    id: Uuid,
+    grace_secs: u64,
+) -> Session {
+    let deleted = state
+        .handle(
+            context,
+            RpcRequest::Delete {
+                request: DeleteRequest {
+                    selector: Selector::Id { id },
+                    signal: "SIGTERM".to_string(),
+                    grace_secs,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Deleted { response } = deleted.response else {
+        panic!("expected delete response");
+    };
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    response
+        .sessions
+        .into_iter()
+        .next()
+        .expect("deleted session")
 }
 
 struct RtmdHarness {
@@ -107,6 +202,15 @@ impl Drop for RtmdHarness {
 }
 
 async fn runtime_pid(harness: &RtmdHarness, session_id: Uuid) -> u32 {
+    let lifecycle = runtime_lifecycle(harness, session_id).await;
+    assert!(matches!(
+        lifecycle.state,
+        LifecycleState::Forking | LifecycleState::Running
+    ));
+    lifecycle.runtime_pid.expect("runtime pid")
+}
+
+async fn runtime_lifecycle(harness: &RtmdHarness, session_id: Uuid) -> Lifecycle {
     let payload = RuntimeClient::new(harness.socket.clone())
         .status(StatusFilter {
             session_id: Some(session_id),
@@ -117,16 +221,25 @@ async fn runtime_pid(harness: &RtmdHarness, session_id: Uuid) -> u32 {
         })
         .await
         .expect("rtmd status");
-    let lifecycle = payload
+    payload
         .lifecycles
         .into_iter()
         .find(|lifecycle| lifecycle.session_id == session_id)
-        .expect("rtmd lifecycle exists");
-    assert!(matches!(
-        lifecycle.state,
-        LifecycleState::Forking | LifecycleState::Running
-    ));
-    lifecycle.runtime_pid.expect("runtime pid")
+        .expect("rtmd lifecycle exists")
+}
+
+async fn wait_for_runtime_exit(harness: &RtmdHarness, session_id: Uuid) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if matches!(
+            runtime_lifecycle(harness, session_id).await.state,
+            LifecycleState::Exited(_)
+        ) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("runtime lifecycle did not exit");
 }
 
 fn rtm_binary() -> Option<PathBuf> {

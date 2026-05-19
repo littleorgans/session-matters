@@ -147,17 +147,15 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         json!({ "selector": format!("id:{id}"), "signal": "SIGTERM", "grace_secs": 1 }),
     );
     assert!(deleted["error"].is_null());
-    assert!(
-        deleted["result"]["structuredContent"]["sessions"]
-            .as_array()
-            .expect("sessions is array")
-            .is_empty()
+    assert_eq!(
+        deleted["result"]["structuredContent"]["sessions"][0]["state"],
+        "TERMINATED"
     );
     assert!(
-        deleted["result"]["structuredContent"]["errors"][0]["message"]
-            .as_str()
-            .expect("delete error message")
-            .contains("unsupported driver operation terminate")
+        deleted["result"]["structuredContent"]["errors"]
+            .as_array()
+            .expect("errors is array")
+            .is_empty()
     );
 
     let rows =
