@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/littleorgans/session-matters/compare/v0.1.2...v0.1.3) (2026-05-19)
+
+
+### Features
+
+* add --version stamp and align install/check pipelines with playbook ([#5](https://github.com/littleorgans/session-matters/issues/5)) ([f0d0587](https://github.com/littleorgans/session-matters/commit/f0d0587dcf083253352e337b947460adc581ed5d))
+
 ## [0.1.2](https://github.com/littleorgans/session-matters/compare/v0.1.1...v0.1.2) (2026-05-17)
 
 
