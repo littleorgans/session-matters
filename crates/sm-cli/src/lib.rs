@@ -8,6 +8,8 @@ use clap::Parser;
 
 use cli::cli_def::{Cli, Command};
 
+pub const VERSION: &str = env!("SM_CLI_VERSION");
+
 pub async fn run() -> anyhow::Result<()> {
     match Cli::parse().command {
         Command::Daemon(args) => cli::daemon::run(args).await,

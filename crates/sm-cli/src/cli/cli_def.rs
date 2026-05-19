@@ -6,7 +6,12 @@ use sm_core::RuntimeKind;
 use crate::cli::generated_help;
 
 #[derive(Debug, Parser)]
-#[command(name = "sm", about = "session-matters control plane")]
+#[command(
+    name = "sm",
+    display_name = "session-matters",
+    about = "session-matters control plane",
+    version = crate::VERSION,
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

@@ -49,6 +49,11 @@ opt-level = 3
 inherits = "release"
 lto = "thin"
 
+[profile.install-local]
+inherits = "release"
+codegen-units = 16
+lto = false
+
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"
 ci = "github"
