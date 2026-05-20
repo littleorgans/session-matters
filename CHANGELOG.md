@@ -2,16 +2,9 @@
 
 ## [0.2.1](https://github.com/littleorgans/session-matters/compare/v0.2.0...v0.2.1) (2026-05-20)
 
+Release bookkeeping only. No functional change from 0.2.0.
 
-### Features
-
-* add --version stamp and align install/check pipelines with playbook ([#5](https://github.com/littleorgans/session-matters/issues/5)) ([f0d0587](https://github.com/littleorgans/session-matters/commit/f0d0587dcf083253352e337b947460adc581ed5d))
-* ship session-matters v1 ([#1](https://github.com/littleorgans/session-matters/issues/1)) ([be655b5](https://github.com/littleorgans/session-matters/commit/be655b582a1dba815a05d79c2d86d3d1685355d0))
-
-
-### Bug Fixes
-
-* drop unsupported Windows release target ([#3](https://github.com/littleorgans/session-matters/issues/3)) ([03a2402](https://github.com/littleorgans/session-matters/commit/03a24024d00681c1e6b5880ebff45b6dd51ce0f3))
+The auto-generated entries that originally appeared here were re-attributions of commits already shipped in 0.1.1, 0.1.2, and 0.1.3. They surfaced because the v0.2.0 release was cut manually and bypassed release-please, so the bot walked conventional commits back to its last self-managed tag (v0.1.3) when composing this changelog block.
 
 ## 0.2.0 (2026-05-20)
 
