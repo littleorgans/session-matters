@@ -138,7 +138,11 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(doctor["error"].is_null());
     assert_eq!(
         doctor["result"]["structuredContent"]["runtime"],
-        "in-process driver active"
+        "rtmd (lilo-rm-client 0.6.x, protocol 0.6)"
+    );
+    assert_eq!(
+        doctor["result"]["structuredContent"]["runtime_matters"]["status"],
+        "ok"
     );
 
     let deleted = call_tool(

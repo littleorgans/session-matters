@@ -22,7 +22,7 @@ Tools:
 - link: Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically.
 - logs: Read the transcript linked to one selected session.
 - wait: Wait until a selector satisfies running, terminated, or count=N.
-- doctor: Report session-matters daemon health, LOST sessions, and v1 runtime driver status.
+- doctor: Report session-matters daemon health, LOST sessions, and runtime-matters status.
 
 ## Session Control Workflow
 

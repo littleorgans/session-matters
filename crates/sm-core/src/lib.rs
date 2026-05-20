@@ -16,8 +16,8 @@ pub use proto::{
     ListRequest, ListResponse, LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse,
     MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
     MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse, NudgeDelivery,
-    NudgeRequest, NudgeResponse, RpcRequest, RpcResponse, ShutdownResponse, SpawnRequest,
-    SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
+    NudgeRequest, NudgeResponse, RpcRequest, RpcResponse, RuntimeDoctorReport, ShutdownResponse,
+    SpawnRequest, SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
 };
 pub use types::{
     Channel, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus, RuntimeKind, Selector,

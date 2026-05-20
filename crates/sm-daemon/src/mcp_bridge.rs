@@ -526,6 +526,7 @@ async fn doctor(
             &json!({
                 "status": response.status,
                 "runtime": response.runtime,
+                "runtime_matters": response.runtime_matters,
                 "findings": response.findings
             }),
         )),

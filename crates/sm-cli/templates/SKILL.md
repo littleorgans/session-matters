@@ -25,7 +25,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 | `link` | `sm link` | Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically. |
 | `logs` | `sm logs` | Read the transcript linked to one selected session. |
 | `wait` | `sm wait` | Wait until a selector satisfies running, terminated, or count=N. |
-| `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and v1 runtime driver status. |
+| `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and runtime-matters status. |
 
 ## Examples
 

@@ -6,6 +6,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use lilo_im_core::Principal;
+use lilo_rm_core::{
+    DoctorPayload, LifecycleCounts, MigrationState, RuntimeResponse, RuntimeRpc, TmuxStatus,
+    WatcherCounts, read_json_line, version_info, write_json_line,
+};
 use sm_core::{
     Label, MailCheckRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SpawnRequest,
 };
@@ -16,6 +20,9 @@ use sm_driver::{
     SpawnLaunch, SpawnedProcess,
 };
 use sm_store::SqliteStore;
+use tokio::io::BufReader;
+use tokio::net::UnixListener;
+use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 pub const LOCAL_UID: u32 = 42;
@@ -282,6 +289,80 @@ pub async fn mail_count(state: &DaemonState, context: RequestContext, session_id
         panic!("expected mail check response");
     };
     response.unread
+}
+
+pub async fn mock_rtmd_doctor(doctor: lilo_rm_core::DoctorResponse) -> (PathBuf, JoinHandle<()>) {
+    let tempdir = tempfile::tempdir().expect("tempdir creates");
+    let socket_path = tempdir.path().join("rtmd.sock");
+    let listener = UnixListener::bind(&socket_path).expect("rtmd test socket binds");
+    let server = tokio::spawn(async move {
+        let _tempdir = tempdir;
+        respond_to_rtmd_status(&listener).await;
+        let mut rpc = read_rtmd_rpc(&listener).await;
+        assert_eq!(rpc.0, RuntimeRpc::Doctor);
+        write_json_line(
+            &mut rpc.1,
+            &RuntimeResponse::Doctor(DoctorPayload { doctor }),
+        )
+        .await
+        .expect("write rtmd doctor response");
+    });
+    (socket_path, server)
+}
+
+async fn respond_to_rtmd_status(listener: &UnixListener) {
+    let mut rpc = read_rtmd_rpc(listener).await;
+    let RuntimeRpc::Status { .. } = rpc.0 else {
+        panic!("expected status rpc before doctor");
+    };
+    write_json_line(
+        &mut rpc.1,
+        &RuntimeResponse::Status(lilo_rm_core::StatusPayload {
+            lifecycles: Vec::new(),
+        }),
+    )
+    .await
+    .expect("write rtmd status response");
+}
+
+async fn read_rtmd_rpc(listener: &UnixListener) -> (RuntimeRpc, tokio::net::unix::OwnedWriteHalf) {
+    let (stream, _) = listener.accept().await.expect("accept rtmd client");
+    let (read_half, write_half) = stream.into_split();
+    let mut reader = BufReader::new(read_half);
+    let rpc = read_json_line(&mut reader).await.expect("read rtmd rpc");
+    (rpc, write_half)
+}
+
+pub fn runtime_doctor_response() -> lilo_rm_core::DoctorResponse {
+    lilo_rm_core::DoctorResponse {
+        version: version_info(),
+        socket_path: "/tmp/rtmd.sock".to_string(),
+        uptime_secs: 7,
+        sqlite: MigrationState {
+            applied: 1,
+            total: 1,
+            applied_descriptions: vec!["init".to_string()],
+            pending_descriptions: Vec::new(),
+        },
+        lifecycles: LifecycleCounts {
+            running: 1,
+            ..LifecycleCounts::default()
+        },
+        watchers: WatcherCounts {
+            process_exit_watchers: 1,
+            shim_sockets: 0,
+            event_waiters: 0,
+        },
+        launchers: Vec::new(),
+        tmux: TmuxStatus {
+            available: false,
+            version: None,
+            error: Some("tmux unavailable in test".to_string()),
+        },
+        log_availability: Vec::new(),
+        last_probe_sweep: None,
+        recent_lost: Vec::new(),
+    }
 }
 
 pub fn local_context() -> RequestContext {

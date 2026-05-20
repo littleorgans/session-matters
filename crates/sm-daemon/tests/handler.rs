@@ -1,8 +1,8 @@
 mod common;
 
 use common::{
-    LOCAL_UID, TestDaemon, launch_env, local_context, mail_count, spawn_test_session,
-    spawn_test_session_with_labels,
+    LOCAL_UID, TestDaemon, launch_env, local_context, mail_count, mock_rtmd_doctor,
+    runtime_doctor_response, spawn_test_session, spawn_test_session_with_labels,
 };
 use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
@@ -283,6 +283,72 @@ async fn link_logs_wait_and_doctor_polish_paths_work() {
         Some(session.id.to_string())
     );
     assert!(response.findings[0].message.contains("PidNotAlive"));
+}
+
+#[tokio::test]
+async fn doctor_includes_runtime_matters_payload() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let (socket_path, server) = mock_rtmd_doctor(runtime_doctor_response()).await;
+    let state = daemon.state.with_rtmd_socket_path(socket_path);
+
+    let doctor = state
+        .handle(
+            context,
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    let RpcResponse::Doctor { response } = doctor.response else {
+        panic!("expected doctor response");
+    };
+
+    assert_eq!(response.status, "ok");
+    assert!(response.runtime.starts_with("rtmd (lilo-rm-client 0.6.x"));
+    assert_eq!(response.runtime_matters.status, "ok");
+    assert_eq!(
+        response
+            .runtime_matters
+            .doctor
+            .expect("runtime doctor payload")
+            .watchers
+            .process_exit_watchers,
+        1
+    );
+    server.await.expect("rtmd doctor server");
+}
+
+#[tokio::test]
+async fn doctor_reports_runtime_matters_unavailable() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let socket_path = daemon._dir.path().join("missing-rtmd.sock");
+    let state = daemon.state.with_rtmd_socket_path(socket_path);
+
+    let doctor = state
+        .handle(
+            context,
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    let RpcResponse::Doctor { response } = doctor.response else {
+        panic!("expected doctor response");
+    };
+
+    assert_eq!(response.status, "degraded");
+    assert_eq!(response.runtime_matters.status, "error");
+    assert_eq!(
+        response.runtime_matters.code.as_deref(),
+        Some("runtime_unavailable")
+    );
+    assert!(
+        response.findings[0]
+            .message
+            .contains("runtime-matters doctor failed")
+    );
 }
 
 #[tokio::test]
