@@ -16,7 +16,9 @@ use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
 use uuid::Uuid;
 
-use crate::conv::{lifecycle_to_probe, lifecycle_transcript_path};
+use crate::conv::{
+    kill_outcome_label, lifecycle_state_label, lifecycle_to_probe, lifecycle_transcript_path,
+};
 use crate::driver::{
     CaptureResult, ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch,
     SpawnedProcess,
@@ -171,7 +173,7 @@ impl SpawnDriver for RtmdDriver {
             }
             _ => {
                 return Err(DriverError::UnknownRuntimeVariant {
-                    variant: format!("{outcome:?}"),
+                    variant: kill_outcome_label(&outcome),
                 });
             }
         };
@@ -283,7 +285,7 @@ fn terminal_child_exit(lifecycle: &Lifecycle) -> Result<Option<ChildExit>, Drive
         LifecycleState::Lost(_) => None,
         _ => {
             return Err(DriverError::UnknownRuntimeVariant {
-                variant: format!("{:?}", lifecycle.state),
+                variant: lifecycle_state_label(&lifecycle.state),
             });
         }
     };
