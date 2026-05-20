@@ -306,7 +306,12 @@ impl DaemonState {
             )
             .await
             .context("failed to terminate runtime")?
-            .with_context(|| format!("session is not owned by this daemon: {id}"))?;
+            .with_context(|| {
+                format!(
+                    "runtime did not terminate within {} grace seconds: {id}",
+                    request.grace_secs
+                )
+            })?;
         self.store
             .lock()
             .expect("store lock poisoned")
