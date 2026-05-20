@@ -14,6 +14,7 @@ pub fn examples() -> Vec<ToolExample> {
                 "runtime": "claude",
                 "role": "engineer",
                 "workspace": "session-matters",
+                "target": "headless",
                 "labels": ["area=auth", "pri=high"]
             }),
         },
@@ -27,6 +28,13 @@ pub fn examples() -> Vec<ToolExample> {
             tool: "agent_get",
             arguments: json!({
                 "id": "019e32e3-0000-7000-8000-000000000000"
+            }),
+        },
+        ToolExample {
+            tool: "agent_capture",
+            arguments: json!({
+                "selector": "id:019e32e3-0000-7000-8000-000000000000",
+                "scrollback_lines": 500
             }),
         },
         ToolExample {
