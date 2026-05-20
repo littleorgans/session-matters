@@ -104,6 +104,7 @@ impl DaemonState {
 
     async fn spawn(&self, context: &RequestContext, request: SpawnRequest) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
+        validate_workspace(&request.workspace)?;
         let agent_config = resolve_agent_config(request.agent_config.as_deref())?;
         let launch = spawn_launch(id, &request, agent_config.as_ref());
         let mut labels = request.labels.clone();
@@ -232,6 +233,13 @@ impl DaemonState {
         let mut mail = Vec::new();
         let mut errors = Vec::new();
         for recipient in recipients {
+            if !recipient.state.is_active() {
+                errors.push(TargetError {
+                    target: recipient.id.to_string(),
+                    message: format!("recipient is {}; mail not delivered", recipient.state),
+                });
+                continue;
+            }
             match self
                 .mail_send_one(context, sender_id, recipient.id, &request.content)
                 .await
@@ -506,7 +514,7 @@ impl DaemonState {
         }
         match selector {
             Selector::Id { id } => anyhow::bail!("unknown {label} session: {id}"),
-            _ => anyhow::bail!("{label} selector matched no sessions: {selector:?}"),
+            _ => anyhow::bail!("{label} selector matched no sessions: {selector}"),
         }
     }
 
@@ -559,7 +567,7 @@ fn spawn_launch(
         &mut env,
         LaunchEnv::new("HELIOY_SESSION_WORKSPACE", request.workspace.clone()),
     );
-    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let cwd = std::path::PathBuf::from(&request.workspace);
     let shell_resume = shell_resume(request, &cwd);
     SpawnLaunch {
         runtime: request.runtime,
@@ -568,6 +576,22 @@ fn spawn_launch(
         env,
         shell_resume,
     }
+}
+
+fn validate_workspace(workspace: &str) -> Result<()> {
+    if workspace.is_empty() {
+        anyhow::bail!("workspace must not be empty");
+    }
+    let path = std::path::Path::new(workspace);
+    if !path.is_absolute() {
+        anyhow::bail!(
+            "workspace must be an absolute path; got {workspace} (resolve relative paths in the caller)"
+        );
+    }
+    if !path.is_dir() {
+        anyhow::bail!("workspace must point to an existing directory: {workspace}");
+    }
+    Ok(())
 }
 
 fn shell_resume(request: &SpawnRequest, cwd: &std::path::Path) -> Option<ShellResume> {

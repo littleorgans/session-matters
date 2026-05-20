@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
     CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
-    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
+    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictKind,
     SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
     ValidateTargetOutcome,
 };
@@ -16,7 +16,9 @@ use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
 use uuid::Uuid;
 
-use crate::conv::{lifecycle_to_probe, lifecycle_transcript_path};
+use crate::conv::{
+    kill_outcome_label, lifecycle_state_label, lifecycle_to_probe, lifecycle_transcript_path,
+};
 use crate::driver::{
     CaptureResult, ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch,
     SpawnedProcess,
@@ -171,7 +173,7 @@ impl SpawnDriver for RtmdDriver {
             }
             _ => {
                 return Err(DriverError::UnknownRuntimeVariant {
-                    variant: format!("{outcome:?}"),
+                    variant: kill_outcome_label(&outcome),
                 });
             }
         };
@@ -251,27 +253,27 @@ fn nudge_result(outcome: NudgeOutcome) -> NudgeResult {
     match outcome {
         NudgeOutcome::Delivered => NudgeResult {
             delivered: true,
-            message: "delivered via rtm".to_string(),
+            message: "delivered".to_string(),
         },
         NudgeOutcome::Unsupported(NudgeFailureReason::HeadlessLifecycle) => NudgeResult {
             delivered: false,
-            message: "nudge unsupported for headless runtime".to_string(),
+            message: "headless runtime does not support nudges".to_string(),
         },
         NudgeOutcome::Failed(NudgeFailureReason::SessionEnded) => NudgeResult {
             delivered: false,
-            message: "session ended before nudge delivered".to_string(),
+            message: "session ended before the nudge could land".to_string(),
         },
         NudgeOutcome::Failed(NudgeFailureReason::TmuxPaneDead) => NudgeResult {
             delivered: false,
-            message: "tmux pane dead".to_string(),
+            message: "tmux pane is no longer available".to_string(),
         },
         NudgeOutcome::Unsupported(reason) => NudgeResult {
             delivered: false,
-            message: format!("nudge unsupported: {}", reason.as_str()),
+            message: format!("nudge unsupported ({})", reason.as_str()),
         },
         NudgeOutcome::Failed(reason) => NudgeResult {
             delivered: false,
-            message: format!("nudge failed: {}", reason.as_str()),
+            message: format!("nudge failed ({})", reason.as_str()),
         },
     }
 }
@@ -283,7 +285,7 @@ fn terminal_child_exit(lifecycle: &Lifecycle) -> Result<Option<ChildExit>, Drive
         LifecycleState::Lost(_) => None,
         _ => {
             return Err(DriverError::UnknownRuntimeVariant {
-                variant: format!("{:?}", lifecycle.state),
+                variant: lifecycle_state_label(&lifecycle.state),
             });
         }
     };
@@ -315,6 +317,79 @@ fn spawn_error(error: ClientError) -> DriverError {
 fn spawn_conflict(payload: SpawnConflictPayload) -> DriverError {
     DriverError::SpawnConflict {
         kind: payload.kind,
-        lifecycle: format!("{:?}", payload.lifecycle),
+        message: format_spawn_conflict(&payload),
+    }
+}
+
+fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
+    let lifecycle = &payload.lifecycle;
+    let runtime: &str = match &lifecycle.runtime {
+        RtmdRuntimeKind::Claude => "claude",
+        RtmdRuntimeKind::Codex => "codex",
+        RtmdRuntimeKind::Other(name) => name.as_str(),
+    };
+    let session_id = lifecycle.session_id;
+    let pid = lifecycle
+        .runtime_pid
+        .map(|pid| format!(" (pid {pid})"))
+        .unwrap_or_default();
+    match payload.kind {
+        SpawnConflictKind::TmuxPaneOccupancy => {
+            let pane = lifecycle
+                .tmux_pane
+                .as_ref()
+                .map(|address| address.to_string())
+                .unwrap_or_else(|| "<unknown>".to_string());
+            format!("tmux pane {pane} is already running {runtime} session {session_id}{pid}")
+        }
+        SpawnConflictKind::SessionId => {
+            format!("session {session_id} is already running {runtime}{pid}")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lilo_rm_core::TmuxAddress;
+
+    fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
+        Lifecycle {
+            session_id: Uuid::nil(),
+            runtime: RtmdRuntimeKind::Claude,
+            state: LifecycleState::Running,
+            shim_pid: None,
+            runtime_pid: Some(29032),
+            start_time: None,
+            tmux_pane,
+            log_availability: None,
+        }
+    }
+
+    #[test]
+    fn tmux_pane_conflict_renders_human_message() {
+        let payload = SpawnConflictPayload {
+            kind: SpawnConflictKind::TmuxPaneOccupancy,
+            lifecycle: lifecycle(Some("1:3.1".parse().expect("pane parses"))),
+        };
+        let message = format_spawn_conflict(&payload);
+        assert_eq!(
+            message,
+            "tmux pane 1:3.1 is already running claude session 00000000-0000-0000-0000-000000000000 (pid 29032)"
+        );
+        assert!(!message.contains("Lifecycle {"));
+    }
+
+    #[test]
+    fn session_id_conflict_renders_human_message() {
+        let payload = SpawnConflictPayload {
+            kind: SpawnConflictKind::SessionId,
+            lifecycle: lifecycle(None),
+        };
+        let message = format_spawn_conflict(&payload);
+        assert_eq!(
+            message,
+            "session 00000000-0000-0000-0000-000000000000 is already running claude (pid 29032)"
+        );
     }
 }

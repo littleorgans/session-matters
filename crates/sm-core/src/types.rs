@@ -65,6 +65,10 @@ impl fmt::Display for SessionState {
 }
 
 impl SessionState {
+    pub fn is_active(&self) -> bool {
+        matches!(self, Self::Spawning | Self::Running)
+    }
+
     pub fn sql_name(&self) -> &'static str {
         match self {
             Self::Spawning => "SPAWNING",
@@ -173,6 +177,25 @@ pub enum Selector {
     All,
 }
 
+impl fmt::Display for Selector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::All => f.write_str("all"),
+            Self::Id { id } => write!(f, "id:{id}"),
+            Self::Role { name } => write!(f, "role:{name}"),
+            Self::Workspace { name } => write!(f, "workspace:{name}"),
+            Self::Label {
+                key,
+                op: LabelOp::Eq { value },
+            } => write!(f, "label:{key}={value}"),
+            Self::Label {
+                key,
+                op: LabelOp::In { values },
+            } => write!(f, "label:{key} in ({})", values.join(", ")),
+        }
+    }
+}
+
 impl FromStr for Selector {
     type Err = SmError;
 
@@ -202,9 +225,13 @@ impl FromStr for Selector {
         if let Some(raw) = value.strip_prefix("label:") {
             return parse_label_selector(raw);
         }
-        Err(SmError::Message(format!("unsupported selector: {value}")))
+        Err(SmError::Message(format!(
+            "unsupported selector: {value} (expected one of: {SELECTOR_GRAMMAR_HINT})"
+        )))
     }
 }
+
+pub const SELECTOR_GRAMMAR_HINT: &str = "all, <uuid>, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, label:<key> in (v1, v2)";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -365,6 +392,67 @@ mod tests {
                     values: vec!["auth".to_string(), "ui".to_string()]
                 }
             }
+        );
+    }
+
+    #[test]
+    fn selector_display_round_trips_through_from_str() {
+        let id = Uuid::now_v7();
+        let cases = vec![
+            Selector::All,
+            Selector::Id { id },
+            Selector::Role {
+                name: "engineer".to_string(),
+            },
+            Selector::Workspace {
+                name: "test".to_string(),
+            },
+            Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::Eq {
+                    value: "auth".to_string(),
+                },
+            },
+            Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::In {
+                    values: vec!["auth".to_string(), "ui".to_string()],
+                },
+            },
+        ];
+        for selector in cases {
+            let rendered = selector.to_string();
+            let parsed = Selector::from_str(&rendered).unwrap();
+            assert_eq!(parsed, selector, "round-trip failed for {rendered}");
+        }
+
+        assert_eq!(Selector::All.to_string(), "all");
+        assert_eq!(
+            Selector::Role {
+                name: "engineer".to_string(),
+            }
+            .to_string(),
+            "role:engineer"
+        );
+        assert_eq!(
+            Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::Eq {
+                    value: "auth".to_string(),
+                },
+            }
+            .to_string(),
+            "label:area=auth"
+        );
+        assert_eq!(
+            Selector::Label {
+                key: "area".to_string(),
+                op: LabelOp::In {
+                    values: vec!["auth".to_string(), "ui".to_string()],
+                },
+            }
+            .to_string(),
+            "label:area in (auth, ui)"
         );
     }
 

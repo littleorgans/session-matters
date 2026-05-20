@@ -1,6 +1,5 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
-assertion_line: 8
 expression: tool
 ---
 {
@@ -36,7 +35,7 @@ expression: tool
         "type": "string"
       },
       "workspace": {
-        "description": "Workspace path or name recorded on the session.",
+        "description": "Filesystem path used as the runtime's working directory. Caller-relative paths are resolved against the caller's cwd and must point to an existing directory. The absolute path is stored on the session.",
         "type": "string"
       }
     },

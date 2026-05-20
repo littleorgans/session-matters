@@ -13,7 +13,7 @@ pub fn examples() -> Vec<ToolExample> {
             arguments: json!({
                 "runtime": "claude",
                 "role": "engineer",
-                "workspace": "session-matters",
+                "workspace": "/Users/you/code/session-matters",
                 "target": "headless",
                 "labels": ["area=auth", "pri=high"]
             }),

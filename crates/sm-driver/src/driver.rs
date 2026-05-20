@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::ClientError;
 pub use lilo_rm_core::LaunchEnv;
-use lilo_rm_core::{CaptureError, CaptureResponse, ShellResume, SpawnConflictKind};
+use lilo_rm_core::{CaptureResponse, ShellResume, SpawnConflictKind};
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
@@ -58,10 +58,10 @@ pub enum DriverError {
     },
     #[error("unknown runtime variant: {variant}")]
     UnknownRuntimeVariant { variant: String },
-    #[error("runtime spawn conflict: {kind:?} {lifecycle}")]
+    #[error("{message}")]
     SpawnConflict {
         kind: SpawnConflictKind,
-        lifecycle: String,
+        message: String,
     },
     #[error("invalid runtime target: {0}")]
     InvalidTarget(String),
@@ -69,8 +69,8 @@ pub enum DriverError {
     TmuxPaneDead(String),
     #[error("unsupported runtime target: {0}")]
     UnsupportedTarget(String),
-    #[error("runtime capture failed: {0:?}")]
-    CaptureFailed(CaptureError),
+    #[error("runtime capture failed: {0}")]
+    CaptureFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

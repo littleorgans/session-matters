@@ -149,7 +149,10 @@ async fn agent_run(
             Ok(tool_success(text, &json!({ "session": response.session })))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -177,7 +180,10 @@ async fn agent_list(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -213,7 +219,10 @@ async fn agent_get(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -244,7 +253,10 @@ async fn agent_capture(
             &json!({ "session": response.session, "capture": response.capture }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -280,7 +292,10 @@ async fn agent_delete(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -305,7 +320,10 @@ async fn agent_label(
             &json!({ "sessions": response.sessions, "errors": response.errors }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -332,7 +350,10 @@ async fn mail_send(
             &json!({ "mail": response.mail, "errors": response.errors }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -362,7 +383,10 @@ async fn mail_read(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -423,7 +447,10 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -451,7 +478,10 @@ async fn link(state: &DaemonState, context: &RequestContext, arguments: &Value) 
             &json!({ "session": response.session }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -479,7 +509,10 @@ async fn logs(state: &DaemonState, context: &RequestContext, arguments: &Value) 
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -503,7 +536,10 @@ async fn wait(state: &DaemonState, context: &RequestContext, arguments: &Value) 
             &json!({ "matched": response.matched, "sessions": response.sessions }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -531,7 +567,10 @@ async fn doctor(
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 
@@ -548,7 +587,10 @@ async fn mail_count_tool(
             Ok(unread_tool_response(response.unread, &response.counts))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+        other => Err(anyhow!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        )),
     }
 }
 

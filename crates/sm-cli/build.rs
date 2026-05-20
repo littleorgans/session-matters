@@ -187,11 +187,18 @@ fn generate_cli_help(tools: &[ToolContract]) -> String {
         ));
         for param in &tool.params {
             if let Some(help) = &param.cli_help {
+                let help = if help.to_lowercase().contains("selector") {
+                    format!(
+                        "{help}\n\nGrammar: all, <uuid>, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, label:<key> in (v1, v2).\nExamples: all, 019e44f9-..., role:engineer, label:app=nginx, \\\"label:app in (web, api)\\\""
+                    )
+                } else {
+                    help.clone()
+                };
                 lines.push("#[rustfmt::skip]".to_string());
                 lines.push(format!(
                     "pub const {prefix}_{}_HELP: &str = \"{}\";",
                     tool_contracts::rust_const_name(&param.name),
-                    rust_escape(help)
+                    rust_escape(&help)
                 ));
             }
         }

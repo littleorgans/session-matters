@@ -21,7 +21,7 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
     match response {
         RpcResponse::Nudged { response } => {
             for nudge in response.nudges {
-                println!("{}", nudge.message);
+                println!("{} {}", nudge.to, nudge.message);
             }
             for error in response.errors {
                 eprintln!("{} {}", error.target, error.message);
@@ -29,6 +29,9 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }

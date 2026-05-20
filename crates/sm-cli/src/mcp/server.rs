@@ -29,7 +29,10 @@ pub async fn run_stdio_bridge(_paths: SmPaths) -> Result<()> {
                 }
             }
             RpcResponse::Error { message } => bail!(message),
-            other => bail!("unexpected daemon response: {other:?}"),
+            other => bail!(
+                "unexpected daemon response: {} (please report)",
+                other.kind()
+            ),
         }
     }
 

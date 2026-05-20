@@ -18,7 +18,7 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
                 request: SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
-                    workspace: "test".to_string(),
+                    workspace: daemon._dir.path().display().to_string(),
                     target: "tmux:test:0.0".to_string(),
                     agent_config: None,
                     env: Vec::new(),
@@ -88,7 +88,7 @@ async fn capture_delegates_to_driver_for_selected_session() {
             scrollback_lines_included: 1,
             pane_history_lines: 1,
         }));
-    let session = common::spawn_test_session(&daemon.state, &context, "engineer").await;
+    let session = common::spawn_test_session(&daemon, &context, "engineer").await;
 
     let response = daemon
         .state
@@ -119,7 +119,7 @@ async fn capture_surfaces_pane_unavailable_failure() {
     daemon
         .driver
         .set_capture(CaptureResponse::Failed(CaptureError::PaneUnavailable));
-    let session = common::spawn_test_session(&daemon.state, &context, "engineer").await;
+    let session = common::spawn_test_session(&daemon, &context, "engineer").await;
 
     let response = daemon
         .state
@@ -152,7 +152,7 @@ async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::hand
                 request: SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
-                    workspace: "test".to_string(),
+                    workspace: daemon._dir.path().display().to_string(),
                     target: target.to_string(),
                     agent_config: None,
                     env: Vec::new(),

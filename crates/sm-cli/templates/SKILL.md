@@ -40,7 +40,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
   "role": "engineer",
   "runtime": "claude",
   "target": "headless",
-  "workspace": "session-matters"
+  "workspace": "/Users/you/code/session-matters"
 }
 ```
 

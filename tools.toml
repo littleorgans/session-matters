@@ -74,8 +74,8 @@ cli_flag        = "--role"
 name            = "workspace"
 type            = "string"
 required        = true
-mcp_description = "Workspace path or name recorded on the session."
-cli_help        = "Workspace path or name recorded on the session."
+mcp_description = "Filesystem path used as the runtime's working directory. Caller-relative paths are resolved against the caller's cwd and must point to an existing directory. The absolute path is stored on the session."
+cli_help        = "Filesystem path used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
 cli_flag        = "--workspace"
 
 [[tools.agent_run.params]]

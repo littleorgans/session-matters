@@ -5,7 +5,7 @@ pub mod proto;
 pub mod tool_contracts;
 pub mod types;
 
-pub use error::{SmError, SmResult};
+pub use error::{SmError, SmResult, humanize_capture_error};
 pub use mcp::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_PROTOCOL_VERSION, tool_error, tool_success,
 };
