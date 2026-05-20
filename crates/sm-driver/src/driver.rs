@@ -43,20 +43,8 @@ pub struct DriverProbe {
 
 #[derive(Debug, Error)]
 pub enum DriverError {
-    #[error(transparent)]
-    Nix(#[from] nix::Error),
-    #[error("runtime pid out of range: {0}")]
-    PidOutOfRange(i32),
-    #[error("stored runtime pid out of range: {0}")]
-    StoredPidOutOfRange(u32),
-    #[error("runtime command contains a null byte")]
-    InvalidRuntimeCommand,
-    #[error("launch environment contains a null byte")]
-    InvalidEnvironment,
     #[error("unsupported signal: {0}")]
     InvalidSignal(String),
-    #[error("runtime process did not terminate after SIGKILL")]
-    TerminationTimeout,
     #[error(transparent)]
     Client(#[from] ClientError),
     #[error("invalid runtime session id: {0}")]

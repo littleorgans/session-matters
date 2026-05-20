@@ -9,7 +9,6 @@ repository.workspace = true
 async-trait.workspace = true
 lilo-rm-client.workspace = true
 lilo-rm-core.workspace = true
-nix.workspace = true
 sm-core.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

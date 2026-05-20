@@ -1207,7 +1207,6 @@ dependencies = [
  "async-trait",
  "lilo-rm-client",
  "lilo-rm-core",
- "nix",
  "sm-core",
  "tempfile",
  "thiserror",
