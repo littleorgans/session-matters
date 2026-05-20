@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use lilo_im_core::Action;
+use lilo_rm_core::{LaunchEnv, ShellResume, capture_caller_env, capture_shell_resume};
 use sm_core::{
     CaptureRequest, CaptureResponse, DeleteRequest, DeleteResponse, LabelRequest, LabelResponse,
     ListRequest, ListResponse, Mail, MailCheckRequest, MailCheckResponse, MailReadRequest,
@@ -12,7 +13,7 @@ use sm_core::{
     NudgeResponse, RpcRequest, RpcResponse, Selector, Session, SessionState, ShutdownResponse,
     SpawnRequest, SpawnResponse, TargetError,
 };
-use sm_driver::{LaunchEnv, SpawnDriver, SpawnLaunch};
+use sm_driver::{SpawnDriver, SpawnLaunch};
 use sm_store::SqliteStore;
 use uuid::Uuid;
 
@@ -531,27 +532,63 @@ fn spawn_launch(
     request: &SpawnRequest,
     agent_config: Option<&ResolvedAgentConfig>,
 ) -> SpawnLaunch {
-    let mut env = agent_config
-        .map(|config| config.env.clone())
-        .unwrap_or_default();
+    let mut env = request.env.clone();
+    if env.is_empty() {
+        env = capture_caller_env();
+    }
+    if let Some(config) = agent_config {
+        merge_env(&mut env, config.env.clone());
+    }
     env.retain(|item| !item.key.starts_with("HELIOY_SESSION_"));
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_ID".to_string(),
-        value: id.to_string(),
-    });
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_ROLE".to_string(),
-        value: request.role.clone(),
-    });
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_WORKSPACE".to_string(),
-        value: request.workspace.clone(),
-    });
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_ID", id.to_string()),
+    );
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_ROLE", request.role.clone()),
+    );
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_WORKSPACE", request.workspace.clone()),
+    );
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let shell_resume = shell_resume(request, &cwd);
     SpawnLaunch {
         runtime: request.runtime,
-        cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        cwd,
         target: request.target.clone(),
         env,
+        shell_resume,
+    }
+}
+
+fn shell_resume(request: &SpawnRequest, cwd: &std::path::Path) -> Option<ShellResume> {
+    if request.shell_resume.is_some() {
+        return request.shell_resume.clone();
+    }
+    request
+        .target
+        .parse::<lilo_rm_core::SpawnTarget>()
+        .ok()
+        .and_then(|target| {
+            target
+                .tmux_address()
+                .map(|_| capture_shell_resume(cwd.to_path_buf()))
+        })
+}
+
+fn merge_env(env: &mut Vec<LaunchEnv>, next: Vec<LaunchEnv>) {
+    for item in next {
+        upsert_env(env, item);
+    }
+}
+
+fn upsert_env(env: &mut Vec<LaunchEnv>, next: LaunchEnv) {
+    if let Some(existing) = env.iter_mut().find(|item| item.key == next.key) {
+        *existing = next;
+    } else {
+        env.push(next);
     }
 }
 

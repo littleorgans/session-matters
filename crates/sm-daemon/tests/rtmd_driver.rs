@@ -130,6 +130,8 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
                     workspace: workspace.display().to_string(),
                     target: "headless".to_string(),
                     agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels: Vec::new(),
                 },
             },

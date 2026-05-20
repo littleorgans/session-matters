@@ -3,7 +3,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use lilo_rm_client::ClientError;
-use lilo_rm_core::{CaptureError, CaptureResponse, SpawnConflictKind};
+pub use lilo_rm_core::LaunchEnv;
+use lilo_rm_core::{CaptureError, CaptureResponse, ShellResume, SpawnConflictKind};
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
@@ -17,17 +18,12 @@ pub struct SpawnedProcess {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LaunchEnv {
-    pub key: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnLaunch {
     pub runtime: RuntimeKind,
     pub cwd: PathBuf,
     pub target: String,
     pub env: Vec<LaunchEnv>,
+    pub shell_resume: Option<ShellResume>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

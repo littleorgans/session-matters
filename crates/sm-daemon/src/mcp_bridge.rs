@@ -136,6 +136,8 @@ async fn agent_run(
                     workspace,
                     target,
                     agent_config,
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels,
                 },
             },

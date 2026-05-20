@@ -254,6 +254,8 @@ pub async fn spawn_test_session_with_labels(
                     workspace: "test".to_string(),
                     target: "headless".to_string(),
                     agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels,
                 },
             },

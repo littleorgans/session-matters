@@ -65,6 +65,8 @@ async fn agent_config_env_reaches_spawn_driver() {
                     workspace: "test".to_string(),
                     target: "headless".to_string(),
                     agent_config: Some(config.display().to_string()),
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels: Vec::new(),
                 },
             },
@@ -93,6 +95,51 @@ async fn agent_config_env_reaches_spawn_driver() {
         "HELIOY_SESSION_ID",
         &response.session.id.to_string()
     )));
+}
+
+#[tokio::test]
+async fn caller_env_and_shell_resume_reach_spawn_driver() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let shell_resume = lilo_rm_core::ShellResume {
+        argv: vec!["/bin/zsh".to_string()],
+        env: vec![launch_env("TERM", "xterm-256color")],
+        cwd: daemon._dir.path().to_path_buf(),
+    };
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: "test".to_string(),
+                    target: "tmux:test:0.0".to_string(),
+                    agent_config: None,
+                    env: vec![
+                        launch_env("HOME", "/Users/tester"),
+                        launch_env("PATH", "/opt/node/bin:/usr/bin"),
+                    ],
+                    shell_resume: Some(shell_resume.clone()),
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { .. } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert!(launch.env.contains(&launch_env("HOME", "/Users/tester")));
+    assert!(
+        launch
+            .env
+            .contains(&launch_env("PATH", "/opt/node/bin:/usr/bin"))
+    );
+    assert_eq!(launch.shell_resume, Some(shell_resume));
 }
 
 #[tokio::test]
@@ -496,6 +543,8 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     workspace: "test".to_string(),
                     target: "headless".to_string(),
                     agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels: Vec::new(),
                 },
             },

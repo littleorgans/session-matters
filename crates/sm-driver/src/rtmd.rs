@@ -58,18 +58,11 @@ impl SpawnDriver for RtmdDriver {
             .spawn(SpawnRequest {
                 session_id,
                 runtime: runtime_kind(launch.runtime),
-                env: launch
-                    .env
-                    .iter()
-                    .map(|item| lilo_rm_core::LaunchEnv {
-                        key: item.key.clone(),
-                        value: item.value.clone(),
-                    })
-                    .collect(),
+                env: launch.env.clone(),
                 cwd: launch.cwd.clone(),
                 target: runtime_target(&launch.target)?,
                 force: false,
-                shell_resume: None,
+                shell_resume: launch.shell_resume.clone(),
             })
             .await
             .map_err(spawn_error)?;

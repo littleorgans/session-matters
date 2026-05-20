@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
 use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
@@ -18,6 +19,10 @@ pub struct SpawnRequest {
     pub target: String,
     #[serde(default)]
     pub agent_config: Option<String>,
+    #[serde(default)]
+    pub env: Vec<LaunchEnv>,
+    #[serde(default)]
+    pub shell_resume: Option<ShellResume>,
     #[serde(default)]
     pub labels: Vec<crate::Label>,
 }
@@ -324,6 +329,8 @@ mod tests {
                 workspace: "test".to_string(),
                 target: "headless".to_string(),
                 agent_config: None,
+                env: Vec::new(),
+                shell_resume: None,
                 labels: Vec::new(),
             },
         };
