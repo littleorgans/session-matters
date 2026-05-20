@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/littleorgans/session-matters/compare/v0.2.1...v0.2.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* 0.2.1 road-test feedback bundle ([#9](https://github.com/littleorgans/session-matters/issues/9)) ([8d54e3d](https://github.com/littleorgans/session-matters/commit/8d54e3dfeb9b1bf7d5b7414687203de4bea8ccac))
+
 ## [0.2.1](https://github.com/littleorgans/session-matters/compare/v0.2.0...v0.2.1) (2026-05-20)
 
 Release bookkeeping only. No functional change from 0.2.0.
