@@ -506,7 +506,7 @@ impl DaemonState {
         }
         match selector {
             Selector::Id { id } => anyhow::bail!("unknown {label} session: {id}"),
-            _ => anyhow::bail!("{label} selector matched no sessions: {selector:?}"),
+            _ => anyhow::bail!("{label} selector matched no sessions: {selector}"),
         }
     }
 
