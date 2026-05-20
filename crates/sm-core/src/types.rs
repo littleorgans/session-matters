@@ -221,9 +221,13 @@ impl FromStr for Selector {
         if let Some(raw) = value.strip_prefix("label:") {
             return parse_label_selector(raw);
         }
-        Err(SmError::Message(format!("unsupported selector: {value}")))
+        Err(SmError::Message(format!(
+            "unsupported selector: {value} (expected one of: {SELECTOR_GRAMMAR_HINT})"
+        )))
     }
 }
+
+pub const SELECTOR_GRAMMAR_HINT: &str = "all, <uuid>, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, label:<key> in (v1, v2)";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
