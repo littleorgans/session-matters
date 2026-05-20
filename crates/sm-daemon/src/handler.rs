@@ -233,6 +233,13 @@ impl DaemonState {
         let mut mail = Vec::new();
         let mut errors = Vec::new();
         for recipient in recipients {
+            if !recipient.state.is_active() {
+                errors.push(TargetError {
+                    target: recipient.id.to_string(),
+                    message: format!("recipient is {}; mail not delivered", recipient.state),
+                });
+                continue;
+            }
             match self
                 .mail_send_one(context, sender_id, recipient.id, &request.content)
                 .await

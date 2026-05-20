@@ -179,6 +179,49 @@ async fn mail_send_rejects_unknown_recipient() {
 }
 
 #[tokio::test]
+async fn mail_send_skips_terminated_recipients() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let live = spawn_test_session(&daemon, &context, "engineer").await;
+    let dead = spawn_test_session(&daemon, &context, "engineer").await;
+    let _ = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Delete {
+                request: DeleteRequest {
+                    selector: Selector::Id { id: dead.id },
+                    signal: "SIGTERM".to_string(),
+                    grace_secs: 5,
+                },
+            },
+        )
+        .await;
+
+    let sent = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::MailSend {
+                request: MailSendRequest {
+                    from: None,
+                    to: Selector::All,
+                    content: "broadcast".to_string(),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::MailSent { response } = sent.response else {
+        panic!("expected mail sent");
+    };
+    let delivered: Vec<_> = response.mail.iter().map(|m| m.recipient_id).collect();
+    assert_eq!(delivered, vec![live.id]);
+    let skipped: Vec<_> = response.errors.iter().map(|e| e.target.as_str()).collect();
+    assert_eq!(skipped, vec![dead.id.to_string().as_str()]);
+    assert!(response.errors[0].message.contains("TERMINATED"));
+}
+
+#[tokio::test]
 async fn nudge_delegates_delivery_outcome_from_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();

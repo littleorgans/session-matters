@@ -65,6 +65,10 @@ impl fmt::Display for SessionState {
 }
 
 impl SessionState {
+    pub fn is_active(&self) -> bool {
+        matches!(self, Self::Spawning | Self::Running)
+    }
+
     pub fn sql_name(&self) -> &'static str {
         match self {
             Self::Spawning => "SPAWNING",
