@@ -28,6 +28,9 @@ pub async fn run(args: WaitArgs) -> Result<()> {
         }
         RpcResponse::Wait { .. } => bail!("wait timed out"),
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }

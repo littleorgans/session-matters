@@ -26,7 +26,10 @@ pub async fn run(args: CaptureArgs) -> Result<()> {
         }
         RpcResponse::Capture { response } => print_capture(response.capture),
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }
 

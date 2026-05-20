@@ -35,7 +35,10 @@ pub async fn run(args: LogsArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }
 

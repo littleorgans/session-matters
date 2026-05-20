@@ -326,6 +326,30 @@ pub enum RpcResponse {
     Error { message: String },
 }
 
+impl RpcResponse {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            RpcResponse::Spawned { .. } => "Spawned",
+            RpcResponse::Listed { .. } => "Listed",
+            RpcResponse::Deleted { .. } => "Deleted",
+            RpcResponse::MailSent { .. } => "MailSent",
+            RpcResponse::MailRead { .. } => "MailRead",
+            RpcResponse::MailChecked { .. } => "MailChecked",
+            RpcResponse::MailStopChecked { .. } => "MailStopChecked",
+            RpcResponse::Nudged { .. } => "Nudged",
+            RpcResponse::Labeled { .. } => "Labeled",
+            RpcResponse::Linked { .. } => "Linked",
+            RpcResponse::Logs { .. } => "Logs",
+            RpcResponse::Capture { .. } => "Capture",
+            RpcResponse::Doctor { .. } => "Doctor",
+            RpcResponse::Wait { .. } => "Wait",
+            RpcResponse::McpBridge { .. } => "McpBridge",
+            RpcResponse::Shutdown { .. } => "Shutdown",
+            RpcResponse::Error { .. } => "Error",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

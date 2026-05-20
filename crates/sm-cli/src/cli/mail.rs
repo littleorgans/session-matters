@@ -41,7 +41,10 @@ async fn send(args: MailSendArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }
 
@@ -63,7 +66,10 @@ async fn read(args: MailReadArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }
 
@@ -83,7 +89,10 @@ async fn stop_check(args: MailStopCheckArgs) -> Result<()> {
     let unread = match response {
         RpcResponse::MailStopChecked { response } => response.unread,
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     };
     if unread == 0 {
         return Ok(());
@@ -110,7 +119,10 @@ async fn unread_count(selector: String) -> Result<usize> {
     match response {
         RpcResponse::MailChecked { response } => Ok(response.unread),
         RpcResponse::Error { message } => bail!(message),
-        other => bail!("unexpected daemon response: {other:?}"),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
     }
 }
 
