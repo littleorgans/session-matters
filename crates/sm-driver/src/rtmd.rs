@@ -253,27 +253,27 @@ fn nudge_result(outcome: NudgeOutcome) -> NudgeResult {
     match outcome {
         NudgeOutcome::Delivered => NudgeResult {
             delivered: true,
-            message: "delivered via rtm".to_string(),
+            message: "delivered".to_string(),
         },
         NudgeOutcome::Unsupported(NudgeFailureReason::HeadlessLifecycle) => NudgeResult {
             delivered: false,
-            message: "nudge unsupported for headless runtime".to_string(),
+            message: "headless runtime does not support nudges".to_string(),
         },
         NudgeOutcome::Failed(NudgeFailureReason::SessionEnded) => NudgeResult {
             delivered: false,
-            message: "session ended before nudge delivered".to_string(),
+            message: "session ended before the nudge could land".to_string(),
         },
         NudgeOutcome::Failed(NudgeFailureReason::TmuxPaneDead) => NudgeResult {
             delivered: false,
-            message: "tmux pane dead".to_string(),
+            message: "tmux pane is no longer available".to_string(),
         },
         NudgeOutcome::Unsupported(reason) => NudgeResult {
             delivered: false,
-            message: format!("nudge unsupported: {}", reason.as_str()),
+            message: format!("nudge unsupported ({})", reason.as_str()),
         },
         NudgeOutcome::Failed(reason) => NudgeResult {
             delivered: false,
-            message: format!("nudge failed: {}", reason.as_str()),
+            message: format!("nudge failed ({})", reason.as_str()),
         },
     }
 }

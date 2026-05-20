@@ -19,7 +19,7 @@ async fn rtmd_nudge_maps_delivered_outcome() {
         .expect("nudge delegates to rtmd");
 
     assert!(result.delivered);
-    assert_eq!(result.message, "delivered via rtm");
+    assert_eq!(result.message, "delivered");
     server.await.expect("server task");
 }
 
@@ -38,7 +38,7 @@ async fn rtmd_nudge_maps_tmux_pane_dead_outcome() {
         .expect("failed nudge outcome remains a response");
 
     assert!(!result.delivered);
-    assert_eq!(result.message, "tmux pane dead");
+    assert_eq!(result.message, "tmux pane is no longer available");
     server.await.expect("server task");
 }
 

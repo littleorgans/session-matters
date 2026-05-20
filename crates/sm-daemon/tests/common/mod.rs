@@ -55,7 +55,7 @@ impl MockDriver {
             capture: Mutex::new(None),
             nudge: Mutex::new(NudgeResult {
                 delivered: true,
-                message: "delivered via rtm".to_string(),
+                message: "delivered".to_string(),
             }),
         }
     }

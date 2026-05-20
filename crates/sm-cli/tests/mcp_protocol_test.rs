@@ -318,7 +318,7 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
     assert!(nudged["error"].is_null());
     assert_eq!(
         nudged["result"]["structuredContent"]["nudges"][0]["message"],
-        "nudge unsupported for headless runtime"
+        "headless runtime does not support nudges"
     );
     assert_eq!(
         nudged["result"]["structuredContent"]["nudges"][0]["delivered"],

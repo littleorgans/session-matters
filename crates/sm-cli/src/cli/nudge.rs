@@ -21,7 +21,7 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
     match response {
         RpcResponse::Nudged { response } => {
             for nudge in response.nudges {
-                println!("{}", nudge.message);
+                println!("{} {}", nudge.to, nudge.message);
             }
             for error in response.errors {
                 eprintln!("{} {}", error.target, error.message);
