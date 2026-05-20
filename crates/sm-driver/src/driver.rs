@@ -58,10 +58,10 @@ pub enum DriverError {
     },
     #[error("unknown runtime variant: {variant}")]
     UnknownRuntimeVariant { variant: String },
-    #[error("runtime spawn conflict: {kind:?} {lifecycle}")]
+    #[error("{message}")]
     SpawnConflict {
         kind: SpawnConflictKind,
-        lifecycle: String,
+        message: String,
     },
     #[error("invalid runtime target: {0}")]
     InvalidTarget(String),

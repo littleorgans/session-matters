@@ -8,10 +8,6 @@ use crate::cli::cli_def::RunArgs;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
-    if !args.detach {
-        eprintln!("attached mode is deferred in pass 1; leaving session detached");
-    }
-
     let endpoint = SmEndpoint::from_env()?;
     let env = lilo_rm_core::capture_caller_env();
     let target = SpawnTarget::from_str(&args.target).ok();

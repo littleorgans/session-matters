@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
     CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
-    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
+    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictKind,
     SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
     ValidateTargetOutcome,
 };
@@ -315,6 +315,79 @@ fn spawn_error(error: ClientError) -> DriverError {
 fn spawn_conflict(payload: SpawnConflictPayload) -> DriverError {
     DriverError::SpawnConflict {
         kind: payload.kind,
-        lifecycle: format!("{:?}", payload.lifecycle),
+        message: format_spawn_conflict(&payload),
+    }
+}
+
+fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
+    let lifecycle = &payload.lifecycle;
+    let runtime: &str = match &lifecycle.runtime {
+        RtmdRuntimeKind::Claude => "claude",
+        RtmdRuntimeKind::Codex => "codex",
+        RtmdRuntimeKind::Other(name) => name.as_str(),
+    };
+    let session_id = lifecycle.session_id;
+    let pid = lifecycle
+        .runtime_pid
+        .map(|pid| format!(" (pid {pid})"))
+        .unwrap_or_default();
+    match payload.kind {
+        SpawnConflictKind::TmuxPaneOccupancy => {
+            let pane = lifecycle
+                .tmux_pane
+                .as_ref()
+                .map(|address| address.to_string())
+                .unwrap_or_else(|| "<unknown>".to_string());
+            format!("tmux pane {pane} is already running {runtime} session {session_id}{pid}")
+        }
+        SpawnConflictKind::SessionId => {
+            format!("session {session_id} is already running {runtime}{pid}")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lilo_rm_core::{LifecycleState, TmuxAddress};
+
+    fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
+        Lifecycle {
+            session_id: Uuid::nil(),
+            runtime: RtmdRuntimeKind::Claude,
+            state: LifecycleState::Running,
+            shim_pid: None,
+            runtime_pid: Some(29032),
+            start_time: None,
+            tmux_pane,
+            log_availability: None,
+        }
+    }
+
+    #[test]
+    fn tmux_pane_conflict_renders_human_message() {
+        let payload = SpawnConflictPayload {
+            kind: SpawnConflictKind::TmuxPaneOccupancy,
+            lifecycle: lifecycle(Some("1:3.1".parse().expect("pane parses"))),
+        };
+        let message = format_spawn_conflict(&payload);
+        assert_eq!(
+            message,
+            "tmux pane 1:3.1 is already running claude session 00000000-0000-0000-0000-000000000000 (pid 29032)"
+        );
+        assert!(!message.contains("Lifecycle {"));
+    }
+
+    #[test]
+    fn session_id_conflict_renders_human_message() {
+        let payload = SpawnConflictPayload {
+            kind: SpawnConflictKind::SessionId,
+            lifecycle: lifecycle(None),
+        };
+        let message = format_spawn_conflict(&payload);
+        assert_eq!(
+            message,
+            "session 00000000-0000-0000-0000-000000000000 is already running claude (pid 29032)"
+        );
     }
 }
