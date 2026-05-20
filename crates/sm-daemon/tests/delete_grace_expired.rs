@@ -7,7 +7,7 @@ use sm_core::{DeleteRequest, RpcRequest, RpcResponse, Selector};
 async fn delete_reports_grace_expired_when_driver_returns_no_exit() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let session = spawn_test_session(&daemon.state, &context, "engineer").await;
+    let session = spawn_test_session(&daemon, &context, "engineer").await;
     daemon.driver.set_terminate_exit(None);
 
     let deleted = daemon

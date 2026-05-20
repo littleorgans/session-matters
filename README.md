@@ -9,8 +9,8 @@ Control plane for Helioy agent sessions.
 ```bash
 rtm daemon start
 sm daemon start
-sm run claude --role general --workspace test --detach
-sm run codex --role reviewer --workspace test --target tmux:agents:0.1 --detach
+sm run claude --role general --workspace "$PWD" --detach
+sm run codex --role reviewer --workspace "$PWD" --target tmux:agents:0.1 --detach
 sm capture --selector id:<session-id>
 sm get agents
 sm logs id:<session-id>
@@ -63,7 +63,7 @@ sm mcp
   "role": "engineer",
   "runtime": "claude",
   "target": "headless",
-  "workspace": "session-matters"
+  "workspace": "/Users/you/code/session-matters"
 }
 ```
 

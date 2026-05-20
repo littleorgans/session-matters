@@ -104,6 +104,7 @@ impl DaemonState {
 
     async fn spawn(&self, context: &RequestContext, request: SpawnRequest) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
+        validate_workspace(&request.workspace)?;
         let agent_config = resolve_agent_config(request.agent_config.as_deref())?;
         let launch = spawn_launch(id, &request, agent_config.as_ref());
         let mut labels = request.labels.clone();
@@ -568,6 +569,22 @@ fn spawn_launch(
         env,
         shell_resume,
     }
+}
+
+fn validate_workspace(workspace: &str) -> Result<()> {
+    if workspace.is_empty() {
+        anyhow::bail!("workspace must not be empty");
+    }
+    let path = std::path::Path::new(workspace);
+    if !path.is_absolute() {
+        anyhow::bail!(
+            "workspace must be an absolute path; got {workspace} (resolve relative paths in the caller)"
+        );
+    }
+    if !path.is_dir() {
+        anyhow::bail!("workspace must point to an existing directory: {workspace}");
+    }
+    Ok(())
 }
 
 fn shell_resume(request: &SpawnRequest, cwd: &std::path::Path) -> Option<ShellResume> {

@@ -7,7 +7,7 @@ pub const AGENT_RUN_RUNTIME_HELP: &str = "Runtime to launch.";
 #[rustfmt::skip]
 pub const AGENT_RUN_ROLE_HELP: &str = "Role label recorded on the session.";
 #[rustfmt::skip]
-pub const AGENT_RUN_WORKSPACE_HELP: &str = "Workspace path or name recorded on the session.";
+pub const AGENT_RUN_WORKSPACE_HELP: &str = "Filesystem path used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist.";
 #[rustfmt::skip]
 pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]

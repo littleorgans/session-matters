@@ -238,27 +238,28 @@ impl TestDaemon {
 }
 
 pub async fn spawn_test_session(
-    state: &DaemonState,
+    daemon: &TestDaemon,
     context: &RequestContext,
     role: &str,
 ) -> Session {
-    spawn_test_session_with_labels(state, context, role, Vec::new()).await
+    spawn_test_session_with_labels(daemon, context, role, Vec::new()).await
 }
 
 pub async fn spawn_test_session_with_labels(
-    state: &DaemonState,
+    daemon: &TestDaemon,
     context: &RequestContext,
     role: &str,
     labels: Vec<Label>,
 ) -> Session {
-    let spawned = state
+    let spawned = daemon
+        .state
         .handle(
             context.clone(),
             RpcRequest::Spawn {
                 request: SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
-                    workspace: "test".to_string(),
+                    workspace: daemon._dir.path().display().to_string(),
                     target: "headless".to_string(),
                     agent_config: None,
                     env: Vec::new(),
