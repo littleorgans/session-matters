@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use lilo_rm_core::{Lifecycle, LifecycleState, LogAvailability};
+use lilo_rm_core::{KillOutcome, Lifecycle, LifecycleState, LogAvailability};
 
 use crate::driver::{DriverError, DriverProbe};
 
@@ -46,7 +46,7 @@ pub(crate) fn lifecycle_to_probe(
             transcript_path: lifecycle_transcript_path(lifecycle),
         }),
         _ => Err(DriverError::UnknownRuntimeVariant {
-            variant: format!("{:?}", lifecycle.state),
+            variant: lifecycle_state_label(&lifecycle.state),
         }),
     }
 }
@@ -57,5 +57,52 @@ pub(crate) fn lifecycle_transcript_path(lifecycle: &Lifecycle) -> Option<PathBuf
         Some(LogAvailability::TmuxPaneSnapshot | LogAvailability::Unavailable { .. }) | None => {
             None
         }
+    }
+}
+
+pub(crate) fn lifecycle_state_label(state: &LifecycleState) -> String {
+    match state {
+        LifecycleState::Forking => "forking".to_string(),
+        LifecycleState::Running => "running".to_string(),
+        LifecycleState::Exited(_) => "exited".to_string(),
+        LifecycleState::Lost(_) => "lost".to_string(),
+        other => format!("unknown ({other:?})"),
+    }
+}
+
+pub(crate) fn kill_outcome_label(outcome: &KillOutcome) -> String {
+    match outcome {
+        KillOutcome::Signalled => "signalled".to_string(),
+        KillOutcome::AlreadyExited => "already_exited".to_string(),
+        other => format!("unknown ({other:?})"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lilo_rm_core::{LostEvidence, RuntimeExit};
+
+    #[test]
+    fn lifecycle_state_label_covers_known_variants() {
+        assert_eq!(lifecycle_state_label(&LifecycleState::Forking), "forking");
+        assert_eq!(lifecycle_state_label(&LifecycleState::Running), "running");
+        assert_eq!(
+            lifecycle_state_label(&LifecycleState::Exited(RuntimeExit::new(Some(0), None))),
+            "exited"
+        );
+        assert_eq!(
+            lifecycle_state_label(&LifecycleState::Lost(LostEvidence::ShimDiedBeforeReport)),
+            "lost"
+        );
+    }
+
+    #[test]
+    fn kill_outcome_label_covers_known_variants() {
+        assert_eq!(kill_outcome_label(&KillOutcome::Signalled), "signalled");
+        assert_eq!(
+            kill_outcome_label(&KillOutcome::AlreadyExited),
+            "already_exited"
+        );
     }
 }
