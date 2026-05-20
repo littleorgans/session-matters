@@ -1,5 +1,6 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 8
 expression: tool
 ---
 {
@@ -28,6 +29,10 @@ expression: tool
           "claude",
           "codex"
         ],
+        "type": "string"
+      },
+      "target": {
+        "description": "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.",
         "type": "string"
       },
       "workspace": {
@@ -101,6 +106,12 @@ expression: tool
           },
           "terminated_at": {
             "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tmux_pane": {
             "type": [
               "string",
               "null"

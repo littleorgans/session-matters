@@ -5,11 +5,12 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use lilo_im_core::Action;
 use sm_core::{
-    DeleteRequest, DeleteResponse, LabelRequest, LabelResponse, ListRequest, ListResponse, Mail,
-    MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest,
-    MailSendResponse, MailStopCheckRequest, MailStopCheckResponse, MailUnreadCount,
-    McpBridgeResponse, NudgeDelivery, NudgeRequest, NudgeResponse, RpcRequest, RpcResponse,
-    Selector, Session, SessionState, ShutdownResponse, SpawnRequest, SpawnResponse, TargetError,
+    CaptureRequest, CaptureResponse, DeleteRequest, DeleteResponse, LabelRequest, LabelResponse,
+    ListRequest, ListResponse, Mail, MailCheckRequest, MailCheckResponse, MailReadRequest,
+    MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
+    MailStopCheckResponse, MailUnreadCount, McpBridgeResponse, NudgeDelivery, NudgeRequest,
+    NudgeResponse, RpcRequest, RpcResponse, Selector, Session, SessionState, ShutdownResponse,
+    SpawnRequest, SpawnResponse, TargetError,
 };
 use sm_driver::{LaunchEnv, SpawnDriver, SpawnLaunch};
 use sm_store::SqliteStore;
@@ -77,6 +78,9 @@ impl DaemonState {
             RpcRequest::Label { request } => response(self.label(&context, request).await, false),
             RpcRequest::Link { request } => response(self.link(&context, request).await, false),
             RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
+            RpcRequest::Capture { request } => {
+                response(self.capture(&context, request).await, false)
+            }
             RpcRequest::Doctor { request } => response(self.doctor(&context, request).await, false),
             RpcRequest::Wait { request } => response(self.wait(request).await, false),
             RpcRequest::McpBridge { .. } => response(
@@ -102,6 +106,10 @@ impl DaemonState {
                 &spawn_resource(&request, id),
             )
             .await?;
+        self.driver
+            .validate_target(&request.target)
+            .await
+            .context("runtime target validation failed")?;
         let spawned = self
             .driver
             .spawn(&id.to_string(), &launch)
@@ -118,6 +126,7 @@ impl DaemonState {
             runtime_pid: spawned.runtime_pid,
             runtime_session: None,
             transcript_path: spawned.stdout_path,
+            tmux_pane: spawned.tmux_pane,
             agent_config: request.agent_config,
             created_at: now,
             started_at: now,
@@ -149,6 +158,32 @@ impl DaemonState {
 
         Ok(RpcResponse::Listed {
             response: ListResponse { sessions },
+        })
+    }
+
+    async fn capture(
+        &self,
+        context: &RequestContext,
+        request: CaptureRequest,
+    ) -> Result<RpcResponse> {
+        let session = self
+            .resolve_selector(&request.selector, "capture")?
+            .remove(0);
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::Read,
+                &session_resource(session.id),
+            )
+            .await?;
+        let capture = self
+            .driver
+            .capture(&session.id.to_string(), request.scrollback_lines)
+            .await
+            .context("runtime capture failed")?
+            .response;
+        Ok(RpcResponse::Capture {
+            response: CaptureResponse { session, capture },
         })
     }
 
@@ -515,6 +550,7 @@ fn spawn_launch(
     SpawnLaunch {
         runtime: request.runtime,
         cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        target: request.target.clone(),
         env,
     }
 }

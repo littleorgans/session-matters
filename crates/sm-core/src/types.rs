@@ -90,6 +90,7 @@ pub struct Session {
     pub runtime_pid: u32,
     pub runtime_session: Option<String>,
     pub transcript_path: Option<PathBuf>,
+    pub tmux_pane: Option<String>,
     pub agent_config: Option<String>,
     pub created_at: DateTime<Utc>,
     pub started_at: DateTime<Utc>,

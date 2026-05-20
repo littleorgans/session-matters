@@ -39,6 +39,7 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "agent_run",
             "agent_list",
             "agent_get",
+            "agent_capture",
             "agent_delete",
             "agent_label",
             "mail_send",

@@ -9,6 +9,7 @@ workflow = """
 Use `agent_run` to start a local agent runtime through the session-matters daemon.
 Use `agent_list` to inspect live and terminated sessions.
 Use `agent_get` before acting on one session id.
+Use `agent_capture` to read tmux pane scrollback for a tmux backed session.
 Use `agent_delete` to terminate daemon owned sessions.
 Use `agent_label` to add or remove labels on selected sessions.
 Use `link`, `logs`, `wait`, and `doctor` for runtime linkback and diagnostics.
@@ -37,6 +38,7 @@ output_schema   = '''
         "runtime_pid": {"type": "integer"},
         "runtime_session": {"type": ["string", "null"]},
         "transcript_path": {"type": ["string", "null"]},
+        "tmux_pane": {"type": ["string", "null"]},
         "agent_config": {"type": ["string", "null"]},
         "created_at": {"type": "string", "format": "date-time"},
         "started_at": {"type": "string", "format": "date-time"},
@@ -91,6 +93,14 @@ mcp_description = "Agent config name resolved as ~/.agm/<name>/agent.toml, or an
 cli_help        = "Agent config name or explicit agent.toml path."
 cli_flag        = "--agent-config"
 
+[[tools.agent_run.params]]
+name            = "target"
+type            = "string"
+required        = false
+mcp_description = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless."
+cli_help        = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless."
+cli_flag        = "--target"
+
 [tools.agent_list]
 cli_name        = "get agents"
 mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b)."
@@ -114,6 +124,7 @@ output_schema   = '''
           "runtime_pid": {"type": "integer"},
           "runtime_session": {"type": ["string", "null"]},
           "transcript_path": {"type": ["string", "null"]},
+          "tmux_pane": {"type": ["string", "null"]},
           "agent_config": {"type": ["string", "null"]},
           "created_at": {"type": "string", "format": "date-time"},
           "started_at": {"type": "string", "format": "date-time"},
@@ -156,6 +167,7 @@ output_schema   = '''
         "runtime_pid": {"type": "integer"},
         "runtime_session": {"type": ["string", "null"]},
         "transcript_path": {"type": ["string", "null"]},
+        "tmux_pane": {"type": ["string", "null"]},
         "agent_config": {"type": ["string", "null"]},
         "created_at": {"type": "string", "format": "date-time"},
         "started_at": {"type": "string", "format": "date-time"},
@@ -175,6 +187,44 @@ required        = true
 mcp_description = "Session id to load."
 cli_help        = "Session id to load."
 cli_flag        = "id"
+
+[tools.agent_capture]
+cli_name        = "capture"
+mcp_description = "Capture tmux pane scrollback for one selected session."
+cli_about       = "Capture tmux pane scrollback for one selected session."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["session", "capture"],
+  "properties": {
+    "session": {"type": "object"},
+    "capture": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "string", "enum": ["captured", "failed"]},
+        "payload": {"type": "object"}
+      }
+    }
+  }
+}
+'''
+
+[[tools.agent_capture.params]]
+name            = "selector"
+type            = "string"
+required        = true
+mcp_description = "Session selector to capture. Usually id:<uuid>."
+cli_help        = "Session selector to capture. Usually id:<uuid>."
+cli_flag        = "--selector"
+
+[[tools.agent_capture.params]]
+name            = "scrollback_lines"
+type            = "integer"
+required        = false
+mcp_description = "Maximum tmux scrollback lines to include."
+cli_help        = "Maximum tmux scrollback lines to include."
+cli_flag        = "--scrollback-lines"
 
 [tools.agent_delete]
 cli_name        = "delete agent"

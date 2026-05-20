@@ -12,6 +12,8 @@ pub const AGENT_RUN_WORKSPACE_HELP: &str = "Workspace path or name recorded on t
 pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]
 pub const AGENT_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
+#[rustfmt::skip]
+pub const AGENT_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
 
 #[rustfmt::skip]
 pub const AGENT_LIST_ABOUT: &str = "List session records known to the session-matters daemon.";
@@ -22,6 +24,13 @@ pub const AGENT_LIST_SELECTOR_HELP: &str = "Optional session selector.";
 pub const AGENT_GET_ABOUT: &str = "Get one session record by id.";
 #[rustfmt::skip]
 pub const AGENT_GET_ID_HELP: &str = "Session id to load.";
+
+#[rustfmt::skip]
+pub const AGENT_CAPTURE_ABOUT: &str = "Capture tmux pane scrollback for one selected session.";
+#[rustfmt::skip]
+pub const AGENT_CAPTURE_SELECTOR_HELP: &str = "Session selector to capture. Usually id:<uuid>.";
+#[rustfmt::skip]
+pub const AGENT_CAPTURE_SCROLLBACK_LINES_HELP: &str = "Maximum tmux scrollback lines to include.";
 
 #[rustfmt::skip]
 pub const AGENT_DELETE_ABOUT: &str = "Terminate daemon owned agent runtimes by selector.";

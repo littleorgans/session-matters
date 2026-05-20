@@ -128,6 +128,7 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
                     workspace: workspace.display().to_string(),
+                    target: "headless".to_string(),
                     agent_config: None,
                     labels: Vec::new(),
                 },

@@ -3,11 +3,11 @@ use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    DeleteRequest, DoctorRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Label,
-    LabelMutation, LabelRequest, LinkRequest, ListRequest, LogsRequest, MCP_PROTOCOL_VERSION,
-    MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest, NudgeRequest,
-    RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest,
-    tool_contracts::contract_registry, tool_error, tool_success,
+    CaptureRequest, DeleteRequest, DoctorRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
+    Label, LabelMutation, LabelRequest, LinkRequest, ListRequest, LogsRequest,
+    MCP_PROTOCOL_VERSION, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
+    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition,
+    WaitRequest, tool_contracts::contract_registry, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -97,6 +97,7 @@ async fn call_tool(
         "agent_run" => agent_run(state, context, arguments).await,
         "agent_list" => agent_list(state, context, arguments).await,
         "agent_get" => agent_get(state, context, arguments).await,
+        "agent_capture" => agent_capture(state, context, arguments).await,
         "agent_delete" => agent_delete(state, context, arguments).await,
         "agent_label" => agent_label(state, context, arguments).await,
         "mail_send" => mail_send(state, context, arguments).await,
@@ -122,6 +123,9 @@ async fn agent_run(
     let workspace = required_string(arguments, "workspace")?.to_string();
     let labels = optional_labels(arguments)?;
     let agent_config = optional_string(arguments, "agent_config").map(ToString::to_string);
+    let target = optional_string(arguments, "target")
+        .unwrap_or("headless")
+        .to_string();
     let response = state
         .handle_direct(
             context.clone(),
@@ -130,6 +134,7 @@ async fn agent_run(
                     runtime,
                     role,
                     workspace,
+                    target,
                     agent_config,
                     labels,
                 },
@@ -205,6 +210,37 @@ async fn agent_get(
                 &json!({ "session": session }),
             ))
         }
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(anyhow!("unexpected daemon response: {other:?}")),
+    }
+}
+
+async fn agent_capture(
+    state: &DaemonState,
+    context: &RequestContext,
+    arguments: &Value,
+) -> Result<Value> {
+    let selector = required_selector(arguments, "selector")
+        .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::Capture {
+                request: CaptureRequest {
+                    selector,
+                    scrollback_lines: optional_u64(arguments, "scrollback_lines")
+                        .map(u32::try_from)
+                        .transpose()
+                        .map_err(|_| anyhow!("scrollback_lines is out of range"))?,
+                },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::Capture { response } => Ok(tool_success(
+            format!("captured {}", response.session.id),
+            &json!({ "session": response.session, "capture": response.capture }),
+        )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
         other => Err(anyhow!("unexpected daemon response: {other:?}")),
     }

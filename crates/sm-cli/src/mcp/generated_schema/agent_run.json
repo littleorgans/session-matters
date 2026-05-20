@@ -26,6 +26,10 @@
         ],
         "type": "string"
       },
+      "target": {
+        "description": "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.",
+        "type": "string"
+      },
       "workspace": {
         "description": "Workspace path or name recorded on the session.",
         "type": "string"
@@ -97,6 +101,12 @@
           },
           "terminated_at": {
             "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tmux_pane": {
             "type": [
               "string",
               "null"

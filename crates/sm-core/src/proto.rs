@@ -5,11 +5,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
 
+fn default_spawn_target() -> String {
+    "headless".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
     pub workspace: String,
+    #[serde(default = "default_spawn_target")]
+    pub target: String,
     #[serde(default)]
     pub agent_config: Option<String>,
     #[serde(default)]
@@ -159,6 +165,19 @@ pub struct LogsResponse {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CaptureRequest {
+    pub selector: Selector,
+    #[serde(default)]
+    pub scrollback_lines: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CaptureResponse {
+    pub session: Session,
+    pub capture: lilo_rm_core::CaptureResponse,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct DoctorRequest {}
 
@@ -263,6 +282,7 @@ pub enum RpcRequest {
     Label { request: LabelRequest },
     Link { request: LinkRequest },
     Logs { request: LogsRequest },
+    Capture { request: CaptureRequest },
     Doctor { request: DoctorRequest },
     Wait { request: WaitRequest },
     McpBridge { request: McpBridgeRequest },
@@ -283,6 +303,7 @@ pub enum RpcResponse {
     Labeled { response: LabelResponse },
     Linked { response: LinkResponse },
     Logs { response: LogsResponse },
+    Capture { response: CaptureResponse },
     Doctor { response: DoctorResponse },
     Wait { response: WaitResponse },
     McpBridge { response: McpBridgeResponse },
@@ -301,6 +322,7 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                target: "headless".to_string(),
                 agent_config: None,
                 labels: Vec::new(),
             },

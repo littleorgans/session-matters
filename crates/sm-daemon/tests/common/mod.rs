@@ -12,7 +12,8 @@ use sm_core::{
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
 use sm_driver::{
-    ChildExit, DriverError, DriverProbe, LaunchEnv, SpawnDriver, SpawnLaunch, SpawnedProcess,
+    CaptureResult, ChildExit, DriverError, DriverProbe, LaunchEnv, SpawnDriver, SpawnLaunch,
+    SpawnedProcess,
 };
 use sm_store::SqliteStore;
 use uuid::Uuid;
@@ -24,7 +25,9 @@ pub struct MockDriver {
     launches: Mutex<Vec<SpawnLaunch>>,
     probe_verified: Mutex<bool>,
     spawn_stdout_path: Mutex<Option<PathBuf>>,
+    spawn_tmux_pane: Mutex<Option<String>>,
     terminate_exit: Mutex<Option<ChildExit>>,
+    capture: Mutex<Option<lilo_rm_core::CaptureResponse>>,
 }
 
 impl MockDriver {
@@ -34,12 +37,14 @@ impl MockDriver {
             launches: Mutex::new(Vec::new()),
             probe_verified: Mutex::new(true),
             spawn_stdout_path: Mutex::new(None),
+            spawn_tmux_pane: Mutex::new(None),
             terminate_exit: Mutex::new(Some(ChildExit {
                 session_id: String::new(),
                 runtime_pid: 42,
                 exit_code: Some(143),
                 transcript_path: None,
             })),
+            capture: Mutex::new(None),
         }
     }
 
@@ -59,6 +64,17 @@ impl MockDriver {
             .spawn_stdout_path
             .lock()
             .expect("spawn stdout path lock poisoned") = Some(path);
+    }
+
+    pub fn set_spawn_tmux_pane(&self, pane: &str) {
+        *self
+            .spawn_tmux_pane
+            .lock()
+            .expect("spawn tmux pane lock poisoned") = Some(pane.to_string());
+    }
+
+    pub fn set_capture(&self, response: lilo_rm_core::CaptureResponse) {
+        *self.capture.lock().expect("capture lock poisoned") = Some(response);
     }
 
     pub fn set_terminate_exit(&self, exit: Option<ChildExit>) {
@@ -89,7 +105,41 @@ impl SpawnDriver for MockDriver {
                 .expect("spawn stdout path lock poisoned")
                 .clone(),
             stderr_path: None,
+            tmux_pane: self
+                .spawn_tmux_pane
+                .lock()
+                .expect("spawn tmux pane lock poisoned")
+                .clone(),
         })
+    }
+
+    async fn validate_target(&self, target: &str) -> Result<(), DriverError> {
+        match target {
+            "headless" | "tmux:test:0.0" => Ok(()),
+            other if other.starts_with("tmux:dead:") => Err(DriverError::TmuxPaneDead(
+                other.trim_start_matches("tmux:").to_string(),
+            )),
+            other if other.starts_with("ssh:") => {
+                Err(DriverError::UnsupportedTarget(other.to_string()))
+            }
+            other => Err(DriverError::InvalidTarget(other.to_string())),
+        }
+    }
+
+    async fn capture(
+        &self,
+        _session_id: &str,
+        _scrollback_lines: Option<u32>,
+    ) -> Result<CaptureResult, DriverError> {
+        let response = self
+            .capture
+            .lock()
+            .expect("capture lock poisoned")
+            .clone()
+            .unwrap_or(lilo_rm_core::CaptureResponse::Failed(
+                lilo_rm_core::CaptureError::NotATmuxTarget,
+            ));
+        Ok(CaptureResult { response })
     }
 
     async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
@@ -200,6 +250,7 @@ pub async fn spawn_test_session_with_labels(
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
                     workspace: "test".to_string(),
+                    target: "headless".to_string(),
                     agent_config: None,
                     labels,
                 },

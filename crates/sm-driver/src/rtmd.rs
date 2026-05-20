@@ -7,9 +7,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    HeadlessSpawnTarget, KillOutcome, KillRequest, Lifecycle, LifecycleState,
-    RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnRequest, SpawnTarget as RtmdSpawnTarget,
-    StatusFilter,
+    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState,
+    RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictPayload, SpawnRequest,
+    SpawnTarget as RtmdSpawnTarget, StatusFilter, ValidateTargetOutcome,
 };
 use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
@@ -17,7 +17,8 @@ use uuid::Uuid;
 
 use crate::conv::{lifecycle_to_probe, lifecycle_transcript_path};
 use crate::driver::{
-    ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch, SpawnedProcess,
+    CaptureResult, ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch,
+    SpawnedProcess,
 };
 
 #[derive(Clone, Debug)]
@@ -65,7 +66,7 @@ impl SpawnDriver for RtmdDriver {
                     })
                     .collect(),
                 cwd: launch.cwd.clone(),
-                target: RtmdSpawnTarget::Headless(HeadlessSpawnTarget {}),
+                target: runtime_target(&launch.target)?,
                 force: false,
                 shell_resume: None,
             })
@@ -78,6 +79,39 @@ impl SpawnDriver for RtmdDriver {
             log_dir: payload.log_dir,
             stdout_path: payload.stdout_path,
             stderr_path: payload.stderr_path,
+            tmux_pane: payload.lifecycle.tmux_pane.map(|pane| pane.to_string()),
+        })
+    }
+
+    async fn validate_target(&self, target: &str) -> Result<(), DriverError> {
+        match self.client.validate_target(target).await?.outcome {
+            ValidateTargetOutcome::Valid => Ok(()),
+            ValidateTargetOutcome::InvalidTarget { message } => {
+                Err(DriverError::InvalidTarget(message))
+            }
+            ValidateTargetOutcome::TmuxPaneDead { address } => {
+                Err(DriverError::TmuxPaneDead(address.to_string()))
+            }
+            ValidateTargetOutcome::UnsupportedTarget { target } => {
+                Err(DriverError::UnsupportedTarget(target))
+            }
+        }
+    }
+
+    async fn capture(
+        &self,
+        session_id: &str,
+        scrollback_lines: Option<u32>,
+    ) -> Result<CaptureResult, DriverError> {
+        let session_id = parse_session_id(session_id)?;
+        Ok(CaptureResult {
+            response: self
+                .client
+                .capture(CaptureRequest {
+                    session_id,
+                    scrollback_lines,
+                })
+                .await?,
         })
     }
 
@@ -202,6 +236,12 @@ fn runtime_kind(runtime: RuntimeKind) -> RtmdRuntimeKind {
     }
 }
 
+fn runtime_target(target: &str) -> Result<RtmdSpawnTarget, DriverError> {
+    target
+        .parse()
+        .map_err(|error| DriverError::InvalidTarget(format!("{error}")))
+}
+
 fn runtime_pid(lifecycle: &Lifecycle) -> Result<u32, DriverError> {
     lifecycle
         .runtime_pid
@@ -239,7 +279,14 @@ fn status_session(session_id: Uuid) -> StatusFilter {
 
 fn spawn_error(error: ClientError) -> DriverError {
     match error {
-        ClientError::SpawnConflict(payload) => DriverError::SpawnConflict(format!("{payload:?}")),
+        ClientError::SpawnConflict(payload) => spawn_conflict(*payload),
         other => DriverError::Client(other),
+    }
+}
+
+fn spawn_conflict(payload: SpawnConflictPayload) -> DriverError {
+    DriverError::SpawnConflict {
+        kind: payload.kind,
+        lifecycle: format!("{:?}", payload.lifecycle),
     }
 }

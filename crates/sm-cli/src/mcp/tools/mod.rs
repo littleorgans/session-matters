@@ -1,7 +1,8 @@
-pub const TOOL_NAMES: [&str; 14] = [
+pub const TOOL_NAMES: [&str; 15] = [
     "agent_run",
     "agent_list",
     "agent_get",
+    "agent_capture",
     "agent_delete",
     "agent_label",
     "mail_send",

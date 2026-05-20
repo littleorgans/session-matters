@@ -56,6 +56,9 @@ fn migrate_sessions(connection: &Connection) -> Result<()> {
     if !columns.contains("transcript_path") {
         connection.execute("ALTER TABLE sessions ADD COLUMN transcript_path TEXT", [])?;
     }
+    if !columns.contains("tmux_pane") {
+        connection.execute("ALTER TABLE sessions ADD COLUMN tmux_pane TEXT", [])?;
+    }
     if !columns.contains("agent_config") {
         connection.execute("ALTER TABLE sessions ADD COLUMN agent_config TEXT", [])?;
     }

@@ -14,7 +14,8 @@ use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{Pid, execvp};
 
 use crate::driver::{
-    ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch, SpawnedProcess,
+    CaptureResult, ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch,
+    SpawnedProcess,
 };
 
 pub struct InProcessDriver {
@@ -65,6 +66,7 @@ impl SpawnDriver for InProcessDriver {
                     log_dir: None,
                     stdout_path: None,
                     stderr_path: None,
+                    tmux_pane: None,
                 })
             }
             ForkptyResult::Child => {
@@ -78,6 +80,24 @@ impl SpawnDriver for InProcessDriver {
                 std::process::exit(127);
             }
         }
+    }
+
+    async fn validate_target(&self, target: &str) -> Result<(), DriverError> {
+        match target {
+            "headless" => Ok(()),
+            other => Err(DriverError::UnsupportedTarget(other.to_string())),
+        }
+    }
+
+    async fn capture(
+        &self,
+        _session_id: &str,
+        _scrollback_lines: Option<u32>,
+    ) -> Result<CaptureResult, DriverError> {
+        Err(DriverError::Unsupported {
+            operation: "capture",
+            pass: "Pass 4",
+        })
     }
 
     async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {

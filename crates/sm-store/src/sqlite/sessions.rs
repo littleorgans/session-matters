@@ -28,9 +28,9 @@ impl SqliteStore {
         self.connection.execute(
             "INSERT INTO sessions
                 (id, runtime, role, workspace, state, runtime_pid, runtime_session,
-                 transcript_path, agent_config, created_at, started_at, terminated_at,
+                 transcript_path, tmux_pane, agent_config, created_at, started_at, terminated_at,
                  exit_code, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 session.id.to_string(),
                 session.runtime.to_string(),
@@ -43,6 +43,7 @@ impl SqliteStore {
                     .transcript_path
                     .as_ref()
                     .map(|path| path.display().to_string()),
+                session.tmux_pane.as_deref(),
                 session.agent_config.as_deref(),
                 session.created_at.to_rfc3339(),
                 session.started_at.to_rfc3339(),
@@ -268,6 +269,7 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         transcript_path: row
             .get::<_, Option<String>>("transcript_path")?
             .map(Into::into),
+        tmux_pane: row.get("tmux_pane")?,
         agent_config: row.get("agent_config")?,
         created_at: parse_timestamp(&row.get::<_, String>("created_at")?)?,
         started_at: parse_timestamp(&row.get::<_, String>("started_at")?)?,
@@ -309,6 +311,7 @@ mod tests {
             runtime_pid: 42,
             runtime_session: None,
             transcript_path: None,
+            tmux_pane: None,
             agent_config: None,
             created_at: now,
             started_at: now,
@@ -339,6 +342,7 @@ mod tests {
             runtime_pid: 42,
             runtime_session: None,
             transcript_path: None,
+            tmux_pane: None,
             agent_config: None,
             created_at: now,
             started_at: now,
@@ -563,6 +567,7 @@ mod tests {
             runtime_pid: 42,
             runtime_session: None,
             transcript_path: None,
+            tmux_pane: None,
             agent_config: None,
             created_at: now,
             started_at: now,

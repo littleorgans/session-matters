@@ -1,3 +1,4 @@
+pub mod capture;
 pub mod cli_def;
 pub mod daemon;
 pub mod delete;

@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use lilo_rm_client::ClientError;
+use lilo_rm_core::{CaptureError, CaptureResponse, SpawnConflictKind};
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
@@ -12,6 +13,7 @@ pub struct SpawnedProcess {
     pub log_dir: Option<PathBuf>,
     pub stdout_path: Option<PathBuf>,
     pub stderr_path: Option<PathBuf>,
+    pub tmux_pane: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +26,7 @@ pub struct LaunchEnv {
 pub struct SpawnLaunch {
     pub runtime: RuntimeKind,
     pub cwd: PathBuf,
+    pub target: String,
     pub env: Vec<LaunchEnv>,
 }
 
@@ -71,14 +74,30 @@ pub enum DriverError {
     },
     #[error("unknown runtime variant: {variant}")]
     UnknownRuntimeVariant { variant: String },
-    #[error("runtime spawn conflict: {0}")]
-    SpawnConflict(String),
+    #[error("runtime spawn conflict: {kind:?} {lifecycle}")]
+    SpawnConflict {
+        kind: SpawnConflictKind,
+        lifecycle: String,
+    },
+    #[error("invalid runtime target: {0}")]
+    InvalidTarget(String),
+    #[error("tmux pane is unavailable: {0}")]
+    TmuxPaneDead(String),
+    #[error("unsupported runtime target: {0}")]
+    UnsupportedTarget(String),
+    #[error("runtime capture failed: {0:?}")]
+    CaptureFailed(CaptureError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NudgeResult {
     pub delivered: bool,
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureResult {
+    pub response: CaptureResponse,
 }
 
 #[async_trait]
@@ -88,6 +107,14 @@ pub trait SpawnDriver: Send + Sync {
         session_id: &str,
         launch: &SpawnLaunch,
     ) -> Result<SpawnedProcess, DriverError>;
+
+    async fn validate_target(&self, target: &str) -> Result<(), DriverError>;
+
+    async fn capture(
+        &self,
+        session_id: &str,
+        scrollback_lines: Option<u32>,
+    ) -> Result<CaptureResult, DriverError>;
 
     async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
 

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     runtime_pid INTEGER NOT NULL,
     runtime_session TEXT,
     transcript_path TEXT,
+    tmux_pane TEXT,
     agent_config TEXT,
     created_at TEXT NOT NULL,
     started_at TEXT NOT NULL,
