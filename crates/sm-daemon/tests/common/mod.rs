@@ -23,6 +23,7 @@ pub struct MockDriver {
     exits: Mutex<Vec<ChildExit>>,
     launches: Mutex<Vec<SpawnLaunch>>,
     probe_verified: Mutex<bool>,
+    spawn_stdout_path: Mutex<Option<PathBuf>>,
     terminate_exit: Mutex<Option<ChildExit>>,
 }
 
@@ -32,10 +33,12 @@ impl MockDriver {
             exits: Mutex::new(Vec::new()),
             launches: Mutex::new(Vec::new()),
             probe_verified: Mutex::new(true),
+            spawn_stdout_path: Mutex::new(None),
             terminate_exit: Mutex::new(Some(ChildExit {
                 session_id: String::new(),
                 runtime_pid: 42,
                 exit_code: Some(143),
+                transcript_path: None,
             })),
         }
     }
@@ -49,6 +52,13 @@ impl MockDriver {
 
     pub fn set_probe_verified(&self, verified: bool) {
         *self.probe_verified.lock().expect("probe lock poisoned") = verified;
+    }
+
+    pub fn set_spawn_stdout_path(&self, path: PathBuf) {
+        *self
+            .spawn_stdout_path
+            .lock()
+            .expect("spawn stdout path lock poisoned") = Some(path);
     }
 
     pub fn set_terminate_exit(&self, exit: Option<ChildExit>) {
@@ -73,7 +83,11 @@ impl SpawnDriver for MockDriver {
         Ok(SpawnedProcess {
             runtime_pid: 42,
             log_dir: None,
-            stdout_path: None,
+            stdout_path: self
+                .spawn_stdout_path
+                .lock()
+                .expect("spawn stdout path lock poisoned")
+                .clone(),
             stderr_path: None,
         })
     }
@@ -100,6 +114,7 @@ impl SpawnDriver for MockDriver {
             } else {
                 "probe failed".to_string()
             },
+            transcript_path: None,
         })
     }
 

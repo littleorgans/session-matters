@@ -32,12 +32,14 @@ pub struct ChildExit {
     pub session_id: String,
     pub runtime_pid: u32,
     pub exit_code: Option<i32>,
+    pub transcript_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DriverProbe {
     pub verified: bool,
     pub evidence: String,
+    pub transcript_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Error)]

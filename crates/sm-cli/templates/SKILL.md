@@ -21,7 +21,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
 | `mail_stop_check` | `sm mail stop-check` | Return the unread mail count for stop-hook decisions without draining mail. |
 | `nudge` | `sm nudge` | Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver. |
-| `link` | `sm link` | Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent. |
+| `link` | `sm link` | Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically. |
 | `logs` | `sm logs` | Read the transcript linked to one selected session. |
 | `wait` | `sm wait` | Wait until a selector satisfies running, terminated, or count=N. |
 | `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and v1 runtime driver status. |

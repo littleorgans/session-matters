@@ -73,7 +73,7 @@ pub const NUDGE_TO_HELP: &str = "Recipient selector.";
 pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";
 
 #[rustfmt::skip]
-pub const LINK_ABOUT: &str = "Attach runtime linkback metadata to one session.";
+pub const LINK_ABOUT: &str = "Attach runtime metadata to one unmanaged session.";
 #[rustfmt::skip]
 pub const LINK_SESSION_ID_HELP: &str = "Session id to link. Defaults to HELIOY_SESSION_ID.";
 #[rustfmt::skip]
@@ -86,7 +86,7 @@ pub const LINK_TRANSCRIPT_HELP: &str = "Transcript path reported by the SessionS
 #[rustfmt::skip]
 pub const LOGS_ABOUT: &str = "Read linked transcript logs for one session.";
 #[rustfmt::skip]
-pub const LOGS_SELECTOR_HELP: &str = "Selector that must match exactly one linked session.";
+pub const LOGS_SELECTOR_HELP: &str = "Selector that must match exactly one session with transcript logs.";
 #[rustfmt::skip]
 pub const LOGS_FOLLOW_HELP: &str = "Follow appended transcript bytes.";
 #[rustfmt::skip]

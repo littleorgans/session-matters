@@ -12,7 +12,7 @@
         "type": "integer"
       },
       "selector": {
-        "description": "Selector that must match exactly one linked session.",
+        "description": "Selector that must match exactly one session with transcript logs.",
         "type": "string"
       }
     },

@@ -395,8 +395,8 @@ cli_flag        = "--content"
 
 [tools.link]
 cli_name        = "link"
-mcp_description = "Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent."
-cli_about       = "Attach runtime linkback metadata to one session."
+mcp_description = "Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically."
+cli_about       = "Attach runtime metadata to one unmanaged session."
 output_schema   = '''
 {
   "type": "object",
@@ -459,8 +459,8 @@ output_schema   = '''
 name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Selector that must match exactly one linked session."
-cli_help        = "Selector that must match exactly one linked session."
+mcp_description = "Selector that must match exactly one session with transcript logs."
+cli_help        = "Selector that must match exactly one session with transcript logs."
 cli_flag        = "selector"
 
 [[tools.logs.params]]

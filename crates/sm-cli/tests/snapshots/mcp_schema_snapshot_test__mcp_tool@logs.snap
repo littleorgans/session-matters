@@ -1,5 +1,6 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 8
 expression: tool
 ---
 {
@@ -16,7 +17,7 @@ expression: tool
         "type": "integer"
       },
       "selector": {
-        "description": "Selector that must match exactly one linked session.",
+        "description": "Selector that must match exactly one session with transcript logs.",
         "type": "string"
       }
     },

@@ -95,6 +95,38 @@ async fn agent_config_env_reaches_spawn_driver() {
 }
 
 #[tokio::test]
+async fn spawn_persists_driver_stdout_path_for_logs() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let transcript = daemon._dir.path().join("runtime.stdout.log");
+    std::fs::write(&transcript, "daemon spawned\n").expect("transcript writes");
+    daemon.driver.set_spawn_stdout_path(transcript.clone());
+
+    let session = spawn_test_session(&daemon.state, &context, "engineer").await;
+
+    assert_eq!(
+        session.transcript_path.as_deref(),
+        Some(transcript.as_path())
+    );
+    let logs = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Logs {
+                request: LogsRequest {
+                    selector: Selector::Id { id: session.id },
+                    max_bytes: None,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Logs { response } = logs.response else {
+        panic!("expected logs response");
+    };
+    assert_eq!(response.content, "daemon spawned\n");
+}
+
+#[tokio::test]
 async fn link_logs_wait_and_doctor_polish_paths_work() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();

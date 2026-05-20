@@ -117,7 +117,7 @@ impl DaemonState {
             state: SessionState::Running,
             runtime_pid: spawned.runtime_pid,
             runtime_session: None,
-            transcript_path: None,
+            transcript_path: spawned.stdout_path,
             agent_config: request.agent_config,
             created_at: now,
             started_at: now,
@@ -312,10 +312,7 @@ impl DaemonState {
                     request.grace_secs
                 )
             })?;
-        self.store
-            .lock()
-            .expect("store lock poisoned")
-            .mark_session_terminated(&id, exit.exit_code, Utc::now())
+        crate::lifecycle::persist_child_exit(self, exit)
             .context("failed to persist terminated session")?
             .with_context(|| format!("unknown session: {id}"))
     }

@@ -60,6 +60,14 @@ pub async fn reconcile_once(state: &DaemonState) -> Result<Vec<ReconcileFinding>
             .probe_session(&session.id.to_string(), session.runtime_pid)
             .await
             .context("failed to probe runtime session")?;
+        if let Some(transcript_path) = probe.transcript_path {
+            state
+                .store
+                .lock()
+                .expect("store lock poisoned")
+                .record_transcript_path(&session.id, &transcript_path, Utc::now())
+                .context("failed to persist transcript path")?;
+        }
         if probe.verified {
             continue;
         }

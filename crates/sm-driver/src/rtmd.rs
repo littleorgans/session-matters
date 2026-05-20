@@ -15,7 +15,7 @@ use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
 use uuid::Uuid;
 
-use crate::conv::lifecycle_to_probe;
+use crate::conv::{lifecycle_to_probe, lifecycle_transcript_path};
 use crate::driver::{
     ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch, SpawnedProcess,
 };
@@ -113,6 +113,7 @@ impl SpawnDriver for RtmdDriver {
             return Ok(DriverProbe {
                 verified: false,
                 evidence: format!("rtmd has no lifecycle for session {session_id}"),
+                transcript_path: None,
             });
         };
         lifecycle_to_probe(lifecycle, runtime_pid)
@@ -222,6 +223,7 @@ fn terminal_child_exit(lifecycle: &Lifecycle) -> Result<Option<ChildExit>, Drive
         session_id: lifecycle.session_id.to_string(),
         runtime_pid: lifecycle.runtime_pid.unwrap_or_default(),
         exit_code,
+        transcript_path: lifecycle_transcript_path(lifecycle),
     }))
 }
 

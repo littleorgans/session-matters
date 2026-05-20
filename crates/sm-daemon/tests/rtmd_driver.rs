@@ -10,8 +10,8 @@ use lilo_rm_core::{Lifecycle, LifecycleState, StatusFilter};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use sm_core::{
-    DeleteRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SessionState,
-    SpawnRequest,
+    DeleteRequest, LogsRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session,
+    SessionState, SpawnRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
@@ -41,6 +41,21 @@ async fn rtmd_driver_spawn_is_visible_to_sm_and_rtmd() {
 
     let session = spawn_session(&state, context, temp.path()).await;
     assert_eq!(session.runtime, RuntimeKind::Claude);
+    let transcript_path = session.transcript_path.as_deref().expect("transcript path");
+    assert!(
+        wait_for_log_content(transcript_path)
+            .await
+            .contains("rtm fake runtime ready")
+    );
+    assert!(
+        logs_session(
+            &state,
+            RequestContext::new(Principal::Local(42)),
+            session.id
+        )
+        .await
+        .contains("rtm fake runtime ready")
+    );
     assert_eq!(session.runtime_pid, runtime_pid(&rtmd, session.id).await);
 
     rtmd.stop();
@@ -154,6 +169,24 @@ async fn delete_session(
         .expect("deleted session")
 }
 
+async fn logs_session(state: &DaemonState, context: RequestContext, id: Uuid) -> String {
+    let logs = state
+        .handle(
+            context,
+            RpcRequest::Logs {
+                request: LogsRequest {
+                    selector: Selector::Id { id },
+                    max_bytes: None,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Logs { response } = logs.response else {
+        panic!("expected logs response");
+    };
+    response.content
+}
+
 struct RtmdHarness {
     rtm: PathBuf,
     socket: PathBuf,
@@ -240,6 +273,19 @@ async fn wait_for_runtime_exit(harness: &RtmdHarness, session_id: Uuid) {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     panic!("runtime lifecycle did not exit");
+}
+
+async fn wait_for_log_content(path: &Path) -> String {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if let Ok(content) = std::fs::read_to_string(path)
+            && !content.is_empty()
+        {
+            return content;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("runtime log did not receive content at {}", path.display());
 }
 
 fn rtm_binary() -> Option<PathBuf> {

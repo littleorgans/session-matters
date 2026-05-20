@@ -218,6 +218,26 @@ impl SqliteStore {
         self.get_session(id)
     }
 
+    pub fn record_transcript_path(
+        &self,
+        id: &Uuid,
+        transcript_path: &std::path::Path,
+        updated_at: DateTime<Utc>,
+    ) -> Result<Option<Session>, SessionRowError> {
+        self.connection.execute(
+            "UPDATE sessions
+             SET transcript_path = ?1, updated_at = ?2
+             WHERE id = ?3
+               AND (transcript_path IS NULL OR transcript_path != ?1)",
+            params![
+                transcript_path.display().to_string(),
+                updated_at.to_rfc3339(),
+                id.to_string(),
+            ],
+        )?;
+        self.get_session(id)
+    }
+
     pub fn get_session_by_runtime_session(
         &self,
         runtime_session: &str,
@@ -368,6 +388,32 @@ mod tests {
             .expect("session marks lost")
             .expect("session exists");
         assert_eq!(lost.state, SessionState::Lost);
+    }
+
+    #[test]
+    fn records_transcript_path_without_runtime_session() {
+        let store = SqliteStore::open_in_memory().expect("store opens");
+        let session = test_session("engineer", "test", Vec::new());
+        store.insert_session(&session).expect("session inserts");
+        let transcript = std::path::Path::new("/tmp/rtmd-stdout.log");
+
+        let recorded_at = Utc::now();
+        let updated = store
+            .record_transcript_path(&session.id, transcript, recorded_at)
+            .expect("transcript records")
+            .expect("session exists");
+
+        assert_eq!(updated.runtime_session, None);
+        assert_eq!(updated.transcript_path.as_deref(), Some(transcript));
+        assert_eq!(updated.updated_at, recorded_at);
+
+        let later = recorded_at + chrono::Duration::seconds(30);
+        let unchanged = store
+            .record_transcript_path(&session.id, transcript, later)
+            .expect("transcript no-ops")
+            .expect("session exists");
+
+        assert_eq!(unchanged.updated_at, recorded_at);
     }
 
     #[test]

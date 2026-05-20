@@ -115,6 +115,7 @@ impl SpawnDriver for InProcessDriver {
             return Ok(DriverProbe {
                 verified: false,
                 evidence: "session is not owned by this daemon".to_string(),
+                transcript_path: None,
             });
         };
         if runtime_pid(handle.pid)? != stored_pid {
@@ -124,6 +125,7 @@ impl SpawnDriver for InProcessDriver {
                     "stored runtime pid {stored_pid} does not match driver pid {}",
                     handle.pid
                 ),
+                transcript_path: None,
             });
         }
         let raw_pid =
@@ -136,6 +138,7 @@ impl SpawnDriver for InProcessDriver {
             } else {
                 "runtime process is not alive".to_string()
             },
+            transcript_path: None,
         })
     }
 
@@ -269,6 +272,7 @@ fn child_exit(
         session_id: session_id.to_string(),
         runtime_pid: runtime_pid(pid)?,
         exit_code,
+        transcript_path: None,
     })
 }
 

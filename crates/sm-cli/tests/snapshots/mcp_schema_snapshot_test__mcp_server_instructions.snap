@@ -1,5 +1,6 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 15
 expression: "sm_cli::mcp::instructions::SERVER_INSTRUCTIONS"
 ---
 session-matters controls local Helioy agent sessions through smd.
@@ -17,7 +18,7 @@ Tools:
 - mail_check: Return the unread mail count for sessions selected by selector without draining mail.
 - mail_stop_check: Return the unread mail count for stop-hook decisions without draining mail.
 - nudge: Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.
-- link: Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent.
+- link: Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically.
 - logs: Read the transcript linked to one selected session.
 - wait: Wait until a selector satisfies running, terminated, or count=N.
 - doctor: Report session-matters daemon health, LOST sessions, and v1 runtime driver status.
