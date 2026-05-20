@@ -8,7 +8,8 @@ use crate::cli::output::{print_session_line, print_session_table};
 
 pub async fn run(args: GetArgs) -> Result<()> {
     match args.resource {
-        GetResource::Agent => get_agent(args).await,
+        GetResource::Agent if args.id.is_some() => get_agent(args).await,
+        GetResource::Agent => list_agents(args).await,
         GetResource::Agents => list_agents(args).await,
     }
 }
