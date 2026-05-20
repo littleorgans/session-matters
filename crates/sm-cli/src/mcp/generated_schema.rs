@@ -9,6 +9,8 @@ pub fn generated_tool_list() -> serde_json::Value {
             .expect("generated schema for agent_list is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_get.json"))
             .expect("generated schema for agent_get is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_capture.json"))
+            .expect("generated schema for agent_capture is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_delete.json"))
             .expect("generated schema for agent_delete is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_label.json"))

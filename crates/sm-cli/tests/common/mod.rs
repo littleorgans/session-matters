@@ -10,6 +10,9 @@ use serde_json::Value;
 pub struct DaemonFixture {
     pub dir: tempfile::TempDir,
     child: Child,
+    rtmd: Child,
+    rtm: PathBuf,
+    rtm_socket: PathBuf,
 }
 
 impl DaemonFixture {
@@ -23,14 +26,28 @@ impl DaemonFixture {
 
     fn start_with_path_prefix(path_prefix: Option<&Path>) -> Self {
         let dir = tempfile::tempdir().expect("tempdir creates");
+        let rtm_socket = dir.path().join("rtm.sock");
+        let rtm = rtm_bin();
+        let mut rtmd = Command::new(&rtm)
+            .arg("daemon")
+            .arg("start")
+            .env("RTM_SOCKET_PATH", &rtm_socket)
+            .env("RTM_DB_PATH", dir.path().join("rtm.sqlite"))
+            .env("RTM_HOME", dir.path().join("rtm-home"))
+            .env("PATH", test_path(path_prefix))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("rtmd starts");
+        wait_for_path_socket(&rtm_socket, &mut rtmd);
+
         let mut command = Command::new(sm_bin());
         command
             .arg("__smd")
             .env("SM_HOME", dir.path())
-            .env("HOME", dir.path());
-        if let Some(prefix) = path_prefix {
-            command.env("PATH", path_with_prefix(prefix));
-        }
+            .env("HOME", dir.path())
+            .env("RTM_SOCKET_PATH", &rtm_socket)
+            .env("PATH", test_path(path_prefix));
         let mut child = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -38,7 +55,13 @@ impl DaemonFixture {
             .spawn()
             .expect("daemon starts");
         wait_for_socket(dir.path(), &mut child);
-        Self { dir, child }
+        Self {
+            dir,
+            child,
+            rtmd,
+            rtm,
+            rtm_socket,
+        }
     }
 
     pub fn spawn_mcp(&self) -> McpFixture {
@@ -82,6 +105,14 @@ impl DaemonFixture {
             .stderr(Stdio::null())
             .status();
         let _ = self.child.wait();
+        let _ = Command::new(&self.rtm)
+            .args(["daemon", "stop"])
+            .env("RTM_SOCKET_PATH", &self.rtm_socket)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = self.rtmd.kill();
+        let _ = self.rtmd.wait();
     }
 }
 
@@ -138,6 +169,10 @@ pub fn sm_bin() -> PathBuf {
 
 fn wait_for_socket(dir: &Path, child: &mut Child) {
     let socket = dir.join("sock");
+    wait_for_path_socket(&socket, child);
+}
+
+fn wait_for_path_socket(socket: &Path, child: &mut Child) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -174,8 +209,28 @@ pub fn fake_runtime_path(command: &str) -> tempfile::TempDir {
     dir
 }
 
-fn path_with_prefix(prefix: &Path) -> std::ffi::OsString {
-    let paths = std::iter::once(prefix.to_path_buf()).chain(
+fn rtm_bin() -> PathBuf {
+    if let Some(path) = std::env::var_os("RTM_TEST_BIN") {
+        return PathBuf::from(path);
+    }
+    let sibling = helioy_root().join("runtime-matters/target/debug/rtm");
+    if sibling.exists() {
+        return sibling;
+    }
+    PathBuf::from("rtm")
+}
+
+fn helioy_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(4)
+        .expect("workspace has helioy root ancestor")
+        .to_path_buf()
+}
+
+fn test_path(prefix: Option<&Path>) -> std::ffi::OsString {
+    let prefixes = prefix.into_iter().map(Path::to_path_buf);
+    let paths = prefixes.chain(
         std::env::var_os("PATH")
             .into_iter()
             .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>()),

@@ -1,5 +1,5 @@
 {
-  "description": "Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent.",
+  "description": "Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {

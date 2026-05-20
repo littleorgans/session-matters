@@ -1,16 +1,16 @@
 use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
-use sm_core::{LinkRequest, RpcRequest, RpcResponse, Selector, SmPaths};
+use sm_core::{LinkRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
 use uuid::Uuid;
 
 use crate::cli::cli_def::LinkArgs;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: LinkArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Link {
             request: LinkRequest {
                 session_id: link_session_id(args.session_id.as_deref())?,

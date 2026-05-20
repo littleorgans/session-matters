@@ -1,17 +1,28 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
 use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
+
+fn default_spawn_target() -> String {
+    "headless".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
     pub workspace: String,
+    #[serde(default = "default_spawn_target")]
+    pub target: String,
     #[serde(default)]
     pub agent_config: Option<String>,
+    #[serde(default)]
+    pub env: Vec<LaunchEnv>,
+    #[serde(default)]
+    pub shell_resume: Option<ShellResume>,
     #[serde(default)]
     pub labels: Vec<crate::Label>,
 }
@@ -159,6 +170,19 @@ pub struct LogsResponse {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CaptureRequest {
+    pub selector: Selector,
+    #[serde(default)]
+    pub scrollback_lines: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CaptureResponse {
+    pub session: Session,
+    pub capture: lilo_rm_core::CaptureResponse,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct DoctorRequest {}
 
@@ -166,7 +190,17 @@ pub struct DoctorRequest {}
 pub struct DoctorResponse {
     pub status: String,
     pub runtime: String,
+    pub runtime_matters: RuntimeDoctorReport,
     pub findings: Vec<DoctorFinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeDoctorReport {
+    pub status: String,
+    pub doctor: Option<Box<lilo_rm_core::DoctorResponse>>,
+    pub socket_path: Option<String>,
+    pub code: Option<String>,
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -246,7 +280,7 @@ pub struct DaemonStatus {
     pub running: bool,
     pub pid: Option<u32>,
     pub pidfile: String,
-    pub socket: String,
+    pub endpoint: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -263,6 +297,7 @@ pub enum RpcRequest {
     Label { request: LabelRequest },
     Link { request: LinkRequest },
     Logs { request: LogsRequest },
+    Capture { request: CaptureRequest },
     Doctor { request: DoctorRequest },
     Wait { request: WaitRequest },
     McpBridge { request: McpBridgeRequest },
@@ -283,6 +318,7 @@ pub enum RpcResponse {
     Labeled { response: LabelResponse },
     Linked { response: LinkResponse },
     Logs { response: LogsResponse },
+    Capture { response: CaptureResponse },
     Doctor { response: DoctorResponse },
     Wait { response: WaitResponse },
     McpBridge { response: McpBridgeResponse },
@@ -301,7 +337,10 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                target: "headless".to_string(),
                 agent_config: None,
+                env: Vec::new(),
+                shell_resume: None,
                 labels: Vec::new(),
             },
         };

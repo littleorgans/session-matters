@@ -21,6 +21,7 @@ pub async fn run() -> anyhow::Result<()> {
         Command::Label(args) => cli::label::run(args).await,
         Command::Link(args) => cli::link::run(args).await,
         Command::Logs(args) => cli::logs::run(args).await,
+        Command::Capture(args) => cli::capture::run(args).await,
         Command::Wait(args) => cli::wait::run(args).await,
         Command::Nudge(args) => cli::nudge::run(args).await,
         Command::Mcp(args) => cli::mcp::run(args).await,

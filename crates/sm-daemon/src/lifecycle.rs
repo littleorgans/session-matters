@@ -1,61 +1,62 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
+use sm_core::Session;
+use sm_driver::ChildExit;
+use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 use crate::handler::DaemonState;
 
 pub struct LifecycleTask {
-    stop: Arc<AtomicBool>,
-    handle: Option<JoinHandle<()>>,
+    handle: JoinHandle<()>,
 }
 
 impl LifecycleTask {
     pub fn spawn(state: Arc<DaemonState>) -> Self {
-        let stop = Arc::new(AtomicBool::new(false));
-        let stop_thread = Arc::clone(&stop);
-        let handle = thread::spawn(move || {
-            while !stop_thread.load(Ordering::SeqCst) {
-                if let Err(error) = refresh_exits(&state) {
+        let handle = tokio::spawn(async move {
+            loop {
+                if let Err(error) = refresh_exits(&state).await {
                     eprintln!("failed to refresh session lifecycle: {error:#}");
                 }
-                thread::sleep(Duration::from_millis(200));
+                tokio::time::sleep(Duration::from_millis(200)).await;
             }
         });
 
-        Self {
-            stop,
-            handle: Some(handle),
-        }
+        Self { handle }
     }
 }
 
 impl Drop for LifecycleTask {
     fn drop(&mut self) {
-        self.stop.store(true, Ordering::SeqCst);
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
-        }
+        self.handle.abort();
     }
 }
 
-pub fn refresh_exits(state: &DaemonState) -> Result<()> {
+pub async fn refresh_exits(state: &DaemonState) -> Result<()> {
     for child_exit in state
         .driver
         .reap_exited()
+        .await
         .context("failed to reap children")?
     {
-        let id = Uuid::parse_str(&child_exit.session_id).context("invalid session id")?;
-        state
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .mark_session_terminated(&id, child_exit.exit_code, Utc::now())
-            .context("failed to persist terminated session")?;
+        persist_child_exit(state, child_exit).context("failed to persist terminated session")?;
     }
     Ok(())
+}
+
+pub fn persist_child_exit(state: &DaemonState, child_exit: ChildExit) -> Result<Option<Session>> {
+    let id = Uuid::parse_str(&child_exit.session_id).context("invalid session id")?;
+    let now = Utc::now();
+    let store = state.store.lock().expect("store lock poisoned");
+    if let Some(transcript_path) = child_exit.transcript_path {
+        store
+            .record_transcript_path(&id, &transcript_path, now)
+            .context("failed to persist transcript path")?;
+    }
+    store
+        .mark_session_terminated(&id, child_exit.exit_code, now)
+        .map_err(Into::into)
 }

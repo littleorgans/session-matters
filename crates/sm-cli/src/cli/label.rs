@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
 use anyhow::{Result, bail};
-use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, Selector, SmPaths};
+use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
 
 use crate::cli::cli_def::LabelArgs;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: LabelArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Label {
             request: LabelRequest {
                 selector: Selector::from_str(&args.selector)?,

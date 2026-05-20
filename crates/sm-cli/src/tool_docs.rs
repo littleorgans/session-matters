@@ -12,14 +12,22 @@ Control plane for Helioy agent sessions.
 ## Runtime
 
 ```bash
+rtm daemon start
 sm daemon start
 sm run claude --role general --workspace test --detach
+sm run codex --role reviewer --workspace test --target tmux:agents:0.1 --detach
+sm capture --selector id:<session-id>
 sm get agents
+sm logs id:<session-id>
+sm doctor
 sm daemon stop
+rtm daemon stop
 ```
 
 The daemon uses `~/.sm/sm.pid`, `~/.sm/sock`, and `~/.sm/sm.db` by default.
 Set `SM_HOME` to use an alternate runtime directory.
+The daemon connects to runtime-matters through `~/.rtm/sock`, or `RTM_SOCKET_PATH`.
+`smd` requires `rtmd` with runtime protocol 0.6 or newer.
 
 ## MCP Server
 

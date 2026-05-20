@@ -77,6 +77,12 @@
               "null"
             ]
           },
+          "tmux_pane": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "transcript_path": {
             "type": [
               "string",

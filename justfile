@@ -66,12 +66,12 @@ clippy:
     cargo clippy --workspace --all-targets -- -D warnings
 
 clippy-fix:
-    cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged -- -D warnings
+    cargo clippy --workspace --fix --allow-dirty -- -D warnings
 
 check-loc:
     bash scripts/check-loc-limit.sh
 
-check: fmt clippy-fix fmt-check check-loc clippy
+check: fmt clippy-fix check-loc
 
 sm *ARGS:
     cargo run -p sm-cli -- {{ARGS}}

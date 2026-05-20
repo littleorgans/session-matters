@@ -1,144 +1,18 @@
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+mod common;
 
-use anyhow::Result;
+use common::{
+    LOCAL_UID, TestDaemon, launch_env, local_context, mail_count, mock_rtmd_doctor,
+    runtime_doctor_response, spawn_test_session, spawn_test_session_with_labels,
+};
 use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, MailCheckRequest,
-    MailReadRequest, MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
-    Session, SessionState, SpawnRequest, WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, LostEvidence, MailReadRequest,
+    MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
+    SpawnRequest, WaitCondition, WaitRequest,
 };
 use sm_daemon::handler::DaemonState;
-use sm_daemon::identity_client::{IdentityClient, RequestContext};
-use sm_driver::{
-    ChildExit, DriverError, DriverProbe, LaunchEnv, SpawnDriver, SpawnLaunch, SpawnedProcess,
-};
-use sm_store::SqliteStore;
+use sm_daemon::identity_client::RequestContext;
 use uuid::Uuid;
-
-const LOCAL_UID: u32 = 42;
-
-struct MockDriver {
-    exits: Mutex<Vec<ChildExit>>,
-    launches: Mutex<Vec<SpawnLaunch>>,
-    probe_verified: Mutex<bool>,
-}
-
-impl MockDriver {
-    fn new() -> Self {
-        Self {
-            exits: Mutex::new(Vec::new()),
-            launches: Mutex::new(Vec::new()),
-            probe_verified: Mutex::new(true),
-        }
-    }
-
-    fn launches(&self) -> Vec<SpawnLaunch> {
-        self.launches
-            .lock()
-            .expect("launches lock poisoned")
-            .clone()
-    }
-
-    fn set_probe_verified(&self, verified: bool) {
-        *self.probe_verified.lock().expect("probe lock poisoned") = verified;
-    }
-}
-
-impl SpawnDriver for MockDriver {
-    fn spawn(
-        &self,
-        _session_id: &str,
-        launch: &SpawnLaunch,
-    ) -> Result<SpawnedProcess, DriverError> {
-        self.launches
-            .lock()
-            .expect("launches lock poisoned")
-            .push(launch.clone());
-        Ok(SpawnedProcess { runtime_pid: 42 })
-    }
-
-    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
-        Ok(self
-            .exits
-            .lock()
-            .expect("exits lock poisoned")
-            .drain(..)
-            .collect())
-    }
-
-    fn probe_session(
-        &self,
-        _session_id: &str,
-        _runtime_pid: u32,
-    ) -> Result<DriverProbe, DriverError> {
-        let verified = *self.probe_verified.lock().expect("probe lock poisoned");
-        Ok(DriverProbe {
-            verified,
-            evidence: if verified {
-                "verified".to_string()
-            } else {
-                "probe failed".to_string()
-            },
-        })
-    }
-
-    fn terminate(
-        &self,
-        session_id: &str,
-        _signal: &str,
-        _grace: Duration,
-    ) -> Result<Option<ChildExit>, DriverError> {
-        Ok(Some(ChildExit {
-            session_id: session_id.to_string(),
-            runtime_pid: 42,
-            exit_code: Some(143),
-        }))
-    }
-
-    fn nudge(
-        &self,
-        _session_id: &str,
-        _content: &str,
-    ) -> Result<sm_driver::NudgeResult, DriverError> {
-        Ok(sm_driver::NudgeResult {
-            delivered: false,
-            message: "nudge skipped".to_string(),
-        })
-    }
-
-    fn terminate_all(&self) {}
-}
-
-struct TestDaemon {
-    state: DaemonState,
-    driver: Arc<MockDriver>,
-    audit_path: PathBuf,
-    _dir: tempfile::TempDir,
-}
-
-impl TestDaemon {
-    async fn new(local_uid: u32) -> Self {
-        let dir = tempfile::tempdir().expect("tempdir creates");
-        let audit_path = dir.path().join("audit.sqlite");
-        let identity = IdentityClient::connect(&audit_path, local_uid)
-            .await
-            .expect("identity client connects");
-        let driver = Arc::new(MockDriver::new());
-        let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
-            driver.clone(),
-            Arc::new(identity),
-        );
-        Self {
-            state,
-            driver,
-            audit_path,
-            _dir: dir,
-        }
-    }
-}
 
 #[tokio::test]
 async fn drives_session_through_delete_lifecycle() {
@@ -189,7 +63,10 @@ async fn agent_config_env_reaches_spawn_driver() {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: "test".to_string(),
+                    target: "headless".to_string(),
                     agent_config: Some(config.display().to_string()),
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels: Vec::new(),
                 },
             },
@@ -204,18 +81,97 @@ async fn agent_config_env_reaches_spawn_driver() {
         Some(config.display().to_string())
     );
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
-    assert!(launch.env.contains(&LaunchEnv {
-        key: "CLAUDE_CONFIG_DIR".to_string(),
-        value: "/tmp/demo-claude".to_string(),
-    }));
-    assert!(launch.env.contains(&LaunchEnv {
-        key: "HELIOY_AGENT_NAME".to_string(),
-        value: "demo".to_string(),
-    }));
-    assert!(launch.env.contains(&LaunchEnv {
-        key: "HELIOY_SESSION_ID".to_string(),
-        value: response.session.id.to_string(),
-    }));
+    assert!(
+        launch
+            .env
+            .contains(&launch_env("CLAUDE_CONFIG_DIR", "/tmp/demo-claude"))
+    );
+    assert!(
+        launch
+            .env
+            .contains(&launch_env("HELIOY_AGENT_NAME", "demo"))
+    );
+    assert!(launch.env.contains(&launch_env(
+        "HELIOY_SESSION_ID",
+        &response.session.id.to_string()
+    )));
+}
+
+#[tokio::test]
+async fn caller_env_and_shell_resume_reach_spawn_driver() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let shell_resume = lilo_rm_core::ShellResume {
+        argv: vec!["/bin/zsh".to_string()],
+        env: vec![launch_env("TERM", "xterm-256color")],
+        cwd: daemon._dir.path().to_path_buf(),
+    };
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: "test".to_string(),
+                    target: "tmux:test:0.0".to_string(),
+                    agent_config: None,
+                    env: vec![
+                        launch_env("HOME", "/Users/tester"),
+                        launch_env("PATH", "/opt/node/bin:/usr/bin"),
+                    ],
+                    shell_resume: Some(shell_resume.clone()),
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { .. } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert!(launch.env.contains(&launch_env("HOME", "/Users/tester")));
+    assert!(
+        launch
+            .env
+            .contains(&launch_env("PATH", "/opt/node/bin:/usr/bin"))
+    );
+    assert_eq!(launch.shell_resume, Some(shell_resume));
+}
+
+#[tokio::test]
+async fn spawn_persists_driver_stdout_path_for_logs() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let transcript = daemon._dir.path().join("runtime.stdout.log");
+    std::fs::write(&transcript, "daemon spawned\n").expect("transcript writes");
+    daemon.driver.set_spawn_stdout_path(transcript.clone());
+
+    let session = spawn_test_session(&daemon.state, &context, "engineer").await;
+
+    assert_eq!(
+        session.transcript_path.as_deref(),
+        Some(transcript.as_path())
+    );
+    let logs = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Logs {
+                request: LogsRequest {
+                    selector: Selector::Id { id: session.id },
+                    max_bytes: None,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Logs { response } = logs.response else {
+        panic!("expected logs response");
+    };
+    assert_eq!(response.content, "daemon spawned\n");
 }
 
 #[tokio::test]
@@ -302,7 +258,13 @@ async fn link_logs_wait_and_doctor_polish_paths_work() {
     };
     assert!(response.matched);
 
-    daemon.driver.set_probe_verified(false);
+    daemon
+        .state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .mark_session_lost(&session.id, LostEvidence::PidNotAlive, chrono::Utc::now())
+        .expect("session marks lost");
     let doctor = daemon
         .state
         .handle(
@@ -320,7 +282,73 @@ async fn link_logs_wait_and_doctor_polish_paths_work() {
         response.findings[0].session_id,
         Some(session.id.to_string())
     );
-    assert!(response.findings[0].message.contains("probe failed"));
+    assert!(response.findings[0].message.contains("PidNotAlive"));
+}
+
+#[tokio::test]
+async fn doctor_includes_runtime_matters_payload() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let (socket_path, server) = mock_rtmd_doctor(runtime_doctor_response()).await;
+    let state = daemon.state.with_rtmd_socket_path(socket_path);
+
+    let doctor = state
+        .handle(
+            context,
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    let RpcResponse::Doctor { response } = doctor.response else {
+        panic!("expected doctor response");
+    };
+
+    assert_eq!(response.status, "ok");
+    assert!(response.runtime.starts_with("rtmd (lilo-rm-client 0.6.x"));
+    assert_eq!(response.runtime_matters.status, "ok");
+    assert_eq!(
+        response
+            .runtime_matters
+            .doctor
+            .expect("runtime doctor payload")
+            .watchers
+            .process_exit_watchers,
+        1
+    );
+    server.await.expect("rtmd doctor server");
+}
+
+#[tokio::test]
+async fn doctor_reports_runtime_matters_unavailable() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let socket_path = daemon._dir.path().join("missing-rtmd.sock");
+    let state = daemon.state.with_rtmd_socket_path(socket_path);
+
+    let doctor = state
+        .handle(
+            context,
+            RpcRequest::Doctor {
+                request: DoctorRequest::default(),
+            },
+        )
+        .await;
+    let RpcResponse::Doctor { response } = doctor.response else {
+        panic!("expected doctor response");
+    };
+
+    assert_eq!(response.status, "degraded");
+    assert_eq!(response.runtime_matters.status, "error");
+    assert_eq!(
+        response.runtime_matters.code.as_deref(),
+        Some("runtime_unavailable")
+    );
+    assert!(
+        response.findings[0]
+            .message
+            .contains("runtime-matters doctor failed")
+    );
 }
 
 #[tokio::test]
@@ -489,7 +517,7 @@ async fn mail_send_rejects_unknown_recipient() {
 }
 
 #[tokio::test]
-async fn nudge_delegates_to_driver_stub() {
+async fn nudge_delegates_delivery_outcome_from_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let recipient = spawn_test_session(&daemon.state, &context, "engineer").await;
@@ -510,8 +538,38 @@ async fn nudge_delegates_to_driver_stub() {
         panic!("expected nudge response");
     };
     assert_eq!(response.nudges.len(), 1);
+    assert!(response.nudges[0].delivered);
+    assert_eq!(response.nudges[0].message, "delivered via rtm");
+}
+
+#[tokio::test]
+async fn nudge_surfaces_failed_outcome_from_driver() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    daemon.driver.set_nudge(sm_driver::NudgeResult {
+        delivered: false,
+        message: "tmux pane dead".to_string(),
+    });
+    let context = local_context();
+    let recipient = spawn_test_session(&daemon.state, &context, "engineer").await;
+    let nudged = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Nudge {
+                request: NudgeRequest {
+                    to: Selector::Id { id: recipient.id },
+                    content: "ping".to_string(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Nudged { response } = nudged.response else {
+        panic!("expected nudge response");
+    };
+    assert_eq!(response.nudges.len(), 1);
     assert!(!response.nudges[0].delivered);
-    assert_eq!(response.nudges[0].message, "nudge skipped");
+    assert_eq!(response.nudges[0].message, "tmux pane dead");
 }
 
 #[tokio::test]
@@ -555,7 +613,10 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
                     workspace: "test".to_string(),
+                    target: "headless".to_string(),
                     agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
                     labels: Vec::new(),
                 },
             },
@@ -628,55 +689,4 @@ async fn send_read_nudge_delete(
         let response = state.handle(context.clone(), request).await.response;
         assert!(!matches!(response, RpcResponse::Error { .. }));
     }
-}
-
-async fn spawn_test_session(state: &DaemonState, context: &RequestContext, role: &str) -> Session {
-    spawn_test_session_with_labels(state, context, role, Vec::new()).await
-}
-
-async fn spawn_test_session_with_labels(
-    state: &DaemonState,
-    context: &RequestContext,
-    role: &str,
-    labels: Vec<Label>,
-) -> Session {
-    let spawned = state
-        .handle(
-            context.clone(),
-            RpcRequest::Spawn {
-                request: SpawnRequest {
-                    runtime: RuntimeKind::Claude,
-                    role: role.to_string(),
-                    workspace: "test".to_string(),
-                    agent_config: None,
-                    labels,
-                },
-            },
-        )
-        .await;
-    let RpcResponse::Spawned { response } = spawned.response else {
-        panic!("expected spawn response");
-    };
-    response.session
-}
-
-async fn mail_count(state: &DaemonState, context: RequestContext, session_id: Uuid) -> usize {
-    let response = state
-        .handle(
-            context,
-            RpcRequest::MailCheck {
-                request: MailCheckRequest {
-                    selector: Selector::Id { id: session_id },
-                },
-            },
-        )
-        .await;
-    let RpcResponse::MailChecked { response } = response.response else {
-        panic!("expected mail check response");
-    };
-    response.unread
-}
-
-fn local_context() -> RequestContext {
-    RequestContext::new(Principal::Local(LOCAL_UID))
 }

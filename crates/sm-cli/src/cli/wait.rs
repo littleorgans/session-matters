@@ -1,16 +1,16 @@
 use std::str::FromStr;
 
 use anyhow::{Result, bail};
-use sm_core::{RpcRequest, RpcResponse, Selector, SmPaths, WaitCondition, WaitRequest};
+use sm_core::{RpcRequest, RpcResponse, Selector, SmEndpoint, WaitCondition, WaitRequest};
 
 use crate::cli::cli_def::WaitArgs;
 use crate::cli::output::print_session_table;
 
 pub async fn run(args: WaitArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let condition = WaitCondition::from_str(&args.condition)?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Wait {
             request: WaitRequest {
                 selector: Selector::from_str(&args.selector)?,

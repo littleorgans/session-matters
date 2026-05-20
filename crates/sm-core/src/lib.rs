@@ -9,17 +9,17 @@ pub use error::{SmError, SmResult};
 pub use mcp::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_PROTOCOL_VERSION, tool_error, tool_success,
 };
-pub use paths::SmPaths;
+pub use paths::{SmEndpoint, SmPaths, SmPathsError, rtmd_socket_path};
 pub use proto::{
-    DaemonStatus, DeleteRequest, DeleteResponse, DoctorFinding, DoctorRequest, DoctorResponse,
-    LabelRequest, LabelResponse, LinkRequest, LinkResponse, ListRequest, ListResponse, LogsRequest,
-    LogsResponse, MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse,
-    MailSendRequest, MailSendResponse, MailStopCheckRequest, MailStopCheckResponse,
-    MailUnreadCount, McpBridgeRequest, McpBridgeResponse, NudgeDelivery, NudgeRequest,
-    NudgeResponse, RpcRequest, RpcResponse, ShutdownResponse, SpawnRequest, SpawnResponse,
-    TargetError, WaitCondition, WaitRequest, WaitResponse,
+    CaptureRequest, CaptureResponse, DaemonStatus, DeleteRequest, DeleteResponse, DoctorFinding,
+    DoctorRequest, DoctorResponse, LabelRequest, LabelResponse, LinkRequest, LinkResponse,
+    ListRequest, ListResponse, LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse,
+    MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
+    MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse, NudgeDelivery,
+    NudgeRequest, NudgeResponse, RpcRequest, RpcResponse, RuntimeDoctorReport, ShutdownResponse,
+    SpawnRequest, SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
 };
 pub use types::{
-    Channel, Label, LabelMutation, LabelOp, Mail, MailStatus, RuntimeKind, Selector, Session,
-    SessionState,
+    Channel, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus, RuntimeKind, Selector,
+    Session, SessionState,
 };

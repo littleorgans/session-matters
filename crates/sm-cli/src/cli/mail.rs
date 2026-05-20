@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use sm_core::{
     MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest, RpcRequest,
-    RpcResponse, Selector, SmPaths,
+    RpcResponse, Selector, SmEndpoint,
 };
 
 use crate::cli::cli_def::{
@@ -115,8 +115,8 @@ async fn unread_count(selector: String) -> Result<usize> {
 }
 
 async fn send_daemon_request(request: RpcRequest) -> Result<RpcResponse> {
-    let paths = SmPaths::from_env()?;
-    sm_daemon::send_request(&paths.socket, &request).await
+    let endpoint = SmEndpoint::from_env()?;
+    sm_daemon::send_request(&endpoint, &request).await
 }
 
 fn env_session_id() -> Option<String> {

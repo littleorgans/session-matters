@@ -1,5 +1,5 @@
 {
-  "description": "Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
+  "description": "Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -24,6 +24,10 @@
           "claude",
           "codex"
         ],
+        "type": "string"
+      },
+      "target": {
+        "description": "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.",
         "type": "string"
       },
       "workspace": {
@@ -97,6 +101,12 @@
           },
           "terminated_at": {
             "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tmux_pane": {
             "type": [
               "string",
               "null"

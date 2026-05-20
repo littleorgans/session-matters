@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 (2026-05-20)
+
+### Features
+
+- Replaced the local runtime stand-in with `rtmd` as the production runtime substrate.
+- Added the `sm run --target` flag for explicit headless and tmux targets.
+- Added `sm capture` for tmux pane scrollback through runtime-matters.
+- Added runtime-matters backed lifecycle, kill, nudge, event cursor, and doctor handling.
+- Auto-link daemon-spawned headless stdout logs while keeping `sm link` for unmanaged sessions.
+- Require `rtmd` with `lilo-rm` protocol 0.6 or newer at daemon startup.
+
+### Release
+
+- `release-please` is prepared for v0.2.0.
+- `cargo dist` is configured for macOS x86 and arm, Linux GNU x86 and arm, and Linux musl x86 and arm tarballs.
+
 ## [0.1.3](https://github.com/littleorgans/session-matters/compare/v0.1.2...v0.1.3) (2026-05-19)
 
 

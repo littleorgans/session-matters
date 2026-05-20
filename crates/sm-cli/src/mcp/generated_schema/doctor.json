@@ -1,5 +1,5 @@
 {
-  "description": "Report session-matters daemon health, LOST sessions, and v1 runtime driver status.",
+  "description": "Report session-matters daemon health, LOST sessions, and runtime-matters status.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {},
@@ -17,6 +17,9 @@
       "runtime": {
         "type": "string"
       },
+      "runtime_matters": {
+        "type": "object"
+      },
       "status": {
         "type": "string"
       }
@@ -24,6 +27,7 @@
     "required": [
       "status",
       "runtime",
+      "runtime_matters",
       "findings"
     ],
     "type": "object"

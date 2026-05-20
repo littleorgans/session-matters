@@ -33,6 +33,8 @@ pub enum Command {
     Link(LinkArgs),
     #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT)]
     Logs(LogsArgs),
+    #[command(about = generated_help::AGENT_CAPTURE_ABOUT, long_about = generated_help::AGENT_CAPTURE_ABOUT)]
+    Capture(CaptureArgs),
     #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT)]
     Wait(WaitArgs),
     #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
@@ -68,6 +70,8 @@ pub struct RunArgs {
     pub labels: Vec<String>,
     #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]
     pub agent_config: Option<String>,
+    #[arg(long, default_value = "headless", help = generated_help::AGENT_RUN_TARGET_HELP)]
+    pub target: String,
     #[arg(long)]
     pub detach: bool,
 }
@@ -127,6 +131,16 @@ pub struct LogsArgs {
     pub follow: bool,
     #[arg(long = "max-bytes", help = generated_help::LOGS_MAX_BYTES_HELP)]
     pub max_bytes: Option<u64>,
+}
+
+#[derive(Debug, Args)]
+pub struct CaptureArgs {
+    #[arg(long, help = generated_help::AGENT_CAPTURE_SELECTOR_HELP)]
+    pub selector: String,
+    #[arg(long = "scrollback-lines", help = generated_help::AGENT_CAPTURE_SCROLLBACK_LINES_HELP)]
+    pub scrollback_lines: Option<u32>,
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]

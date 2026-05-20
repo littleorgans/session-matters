@@ -39,6 +39,7 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "agent_run",
             "agent_list",
             "agent_get",
+            "agent_capture",
             "agent_delete",
             "agent_label",
             "mail_send",
@@ -137,7 +138,11 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(doctor["error"].is_null());
     assert_eq!(
         doctor["result"]["structuredContent"]["runtime"],
-        "in-process driver active"
+        "rtmd (lilo-rm-client 0.6.x, protocol 0.6)"
+    );
+    assert_eq!(
+        doctor["result"]["structuredContent"]["runtime_matters"]["status"],
+        "ok"
     );
 
     let deleted = call_tool(
@@ -150,6 +155,12 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert_eq!(
         deleted["result"]["structuredContent"]["sessions"][0]["state"],
         "TERMINATED"
+    );
+    assert!(
+        deleted["result"]["structuredContent"]["errors"]
+            .as_array()
+            .expect("errors is array")
+            .is_empty()
     );
 
     let rows =
@@ -292,12 +303,18 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
     );
     assert!(nudged["error"].is_null());
     assert_eq!(
+        nudged["result"]["structuredContent"]["nudges"][0]["message"],
+        "nudge unsupported for headless runtime"
+    );
+    assert_eq!(
         nudged["result"]["structuredContent"]["nudges"][0]["delivered"],
         false
     );
-    assert_eq!(
-        nudged["result"]["structuredContent"]["nudges"][0]["message"],
-        "nudge: tmux gateway not available; nudge skipped"
+    assert!(
+        nudged["result"]["structuredContent"]["errors"]
+            .as_array()
+            .expect("nudge errors is array")
+            .is_empty()
     );
 
     let rows =

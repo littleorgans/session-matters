@@ -1,9 +1,10 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 8
 expression: tool
 ---
 {
-  "description": "Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.",
+  "description": "Send an ephemeral nudge to sessions selected by selector. Tmux-backed runtimes deliver through rtmd; headless or ended runtimes return typed failure messages.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {

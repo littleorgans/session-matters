@@ -1,0 +1,51 @@
+{
+  "description": "Capture tmux pane scrollback for one selected session.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "scrollback_lines": {
+        "description": "Maximum tmux scrollback lines to include.",
+        "type": "integer"
+      },
+      "selector": {
+        "description": "Session selector to capture. Usually id:<uuid>.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector"
+    ],
+    "type": "object"
+  },
+  "name": "agent_capture",
+  "outputSchema": {
+    "properties": {
+      "capture": {
+        "properties": {
+          "payload": {
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "captured",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "session": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "session",
+      "capture"
+    ],
+    "type": "object"
+  }
+}

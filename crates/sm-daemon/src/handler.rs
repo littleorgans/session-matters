@@ -1,17 +1,20 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
 use lilo_im_core::Action;
+use lilo_rm_core::{LaunchEnv, ShellResume, capture_caller_env, capture_shell_resume};
 use sm_core::{
-    DeleteRequest, DeleteResponse, LabelRequest, LabelResponse, ListRequest, ListResponse, Mail,
-    MailCheckRequest, MailCheckResponse, MailReadRequest, MailReadResponse, MailSendRequest,
-    MailSendResponse, MailStopCheckRequest, MailStopCheckResponse, MailUnreadCount,
-    McpBridgeResponse, NudgeDelivery, NudgeRequest, NudgeResponse, RpcRequest, RpcResponse,
-    Selector, Session, SessionState, ShutdownResponse, SpawnRequest, SpawnResponse, TargetError,
+    CaptureRequest, CaptureResponse, DeleteRequest, DeleteResponse, LabelRequest, LabelResponse,
+    ListRequest, ListResponse, Mail, MailCheckRequest, MailCheckResponse, MailReadRequest,
+    MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
+    MailStopCheckResponse, MailUnreadCount, McpBridgeResponse, NudgeDelivery, NudgeRequest,
+    NudgeResponse, RpcRequest, RpcResponse, Selector, Session, SessionState, ShutdownResponse,
+    SpawnRequest, SpawnResponse, TargetError,
 };
-use sm_driver::{LaunchEnv, SpawnDriver, SpawnLaunch};
+use sm_driver::{SpawnDriver, SpawnLaunch};
 use sm_store::SqliteStore;
 use uuid::Uuid;
 
@@ -22,6 +25,7 @@ pub struct DaemonState {
     pub store: Mutex<SqliteStore>,
     pub driver: Arc<dyn SpawnDriver>,
     pub(crate) identity: Arc<IdentityClient>,
+    pub(crate) rtmd_socket_path: Option<PathBuf>,
 }
 
 pub struct HandlerResult {
@@ -39,7 +43,13 @@ impl DaemonState {
             store: Mutex::new(store),
             driver,
             identity,
+            rtmd_socket_path: None,
         }
+    }
+
+    pub fn with_rtmd_socket_path(mut self, socket_path: PathBuf) -> Self {
+        self.rtmd_socket_path = Some(socket_path);
+        self
     }
 
     pub async fn handle(&self, context: RequestContext, request: RpcRequest) -> HandlerResult {
@@ -63,7 +73,7 @@ impl DaemonState {
     ) -> HandlerResult {
         match request {
             RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
-            RpcRequest::List { request } => response(self.list(request), false),
+            RpcRequest::List { request } => response(self.list(request).await, false),
             RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
             RpcRequest::MailSend { request } => {
                 response(self.mail_send(&context, request).await, false)
@@ -77,8 +87,11 @@ impl DaemonState {
             RpcRequest::Label { request } => response(self.label(&context, request).await, false),
             RpcRequest::Link { request } => response(self.link(&context, request).await, false),
             RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
+            RpcRequest::Capture { request } => {
+                response(self.capture(&context, request).await, false)
+            }
             RpcRequest::Doctor { request } => response(self.doctor(&context, request).await, false),
-            RpcRequest::Wait { request } => response(self.wait(request), false),
+            RpcRequest::Wait { request } => response(self.wait(request).await, false),
             RpcRequest::McpBridge { .. } => response(
                 Err(anyhow::anyhow!(
                     "nested MCP bridge requests are not supported"
@@ -102,9 +115,14 @@ impl DaemonState {
                 &spawn_resource(&request, id),
             )
             .await?;
+        self.driver
+            .validate_target(&request.target)
+            .await
+            .context("runtime target validation failed")?;
         let spawned = self
             .driver
             .spawn(&id.to_string(), &launch)
+            .await
             .context("spawn driver failed")?;
         let now = Utc::now();
         let session = Session {
@@ -116,7 +134,8 @@ impl DaemonState {
             state: SessionState::Running,
             runtime_pid: spawned.runtime_pid,
             runtime_session: None,
-            transcript_path: None,
+            transcript_path: spawned.stdout_path,
+            tmux_pane: spawned.tmux_pane,
             agent_config: request.agent_config,
             created_at: now,
             started_at: now,
@@ -136,8 +155,7 @@ impl DaemonState {
         })
     }
 
-    fn list(&self, request: ListRequest) -> Result<RpcResponse> {
-        crate::lifecycle::refresh_exits(self)?;
+    async fn list(&self, request: ListRequest) -> Result<RpcResponse> {
         let selector = request.selector.unwrap_or_default();
         let sessions = self
             .store
@@ -148,6 +166,32 @@ impl DaemonState {
 
         Ok(RpcResponse::Listed {
             response: ListResponse { sessions },
+        })
+    }
+
+    async fn capture(
+        &self,
+        context: &RequestContext,
+        request: CaptureRequest,
+    ) -> Result<RpcResponse> {
+        let session = self
+            .resolve_selector(&request.selector, "capture")?
+            .remove(0);
+        self.identity
+            .authorize(
+                &context.principal,
+                Action::Read,
+                &session_resource(session.id),
+            )
+            .await?;
+        let capture = self
+            .driver
+            .capture(&session.id.to_string(), request.scrollback_lines)
+            .await
+            .context("runtime capture failed")?
+            .response;
+        Ok(RpcResponse::Capture {
+            response: CaptureResponse { session, capture },
         })
     }
 
@@ -284,7 +328,7 @@ impl DaemonState {
         self.identity
             .authorize(&context.principal, Action::Kill, &session_resource(id))
             .await?;
-        crate::lifecycle::refresh_exits(self)?;
+        crate::lifecycle::refresh_exits(self).await?;
         let id_string = id.to_string();
         let session = self
             .store
@@ -303,12 +347,15 @@ impl DaemonState {
                 &request.signal,
                 Duration::from_secs(request.grace_secs),
             )
+            .await
             .context("failed to terminate runtime")?
-            .with_context(|| format!("session is not owned by this daemon: {id}"))?;
-        self.store
-            .lock()
-            .expect("store lock poisoned")
-            .mark_session_terminated(&id, exit.exit_code, Utc::now())
+            .with_context(|| {
+                format!(
+                    "runtime did not terminate within {} grace seconds: {id}",
+                    request.grace_secs
+                )
+            })?;
+        crate::lifecycle::persist_child_exit(self, exit)
             .context("failed to persist terminated session")?
             .with_context(|| format!("unknown session: {id}"))
     }
@@ -393,6 +440,7 @@ impl DaemonState {
         let result = self
             .driver
             .nudge(&to, content)
+            .await
             .context("nudge driver failed")?;
         Ok(NudgeDelivery {
             to,
@@ -491,25 +539,63 @@ fn spawn_launch(
     request: &SpawnRequest,
     agent_config: Option<&ResolvedAgentConfig>,
 ) -> SpawnLaunch {
-    let mut env = agent_config
-        .map(|config| config.env.clone())
-        .unwrap_or_default();
+    let mut env = request.env.clone();
+    if env.is_empty() {
+        env = capture_caller_env();
+    }
+    if let Some(config) = agent_config {
+        merge_env(&mut env, config.env.clone());
+    }
     env.retain(|item| !item.key.starts_with("HELIOY_SESSION_"));
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_ID".to_string(),
-        value: id.to_string(),
-    });
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_ROLE".to_string(),
-        value: request.role.clone(),
-    });
-    env.push(LaunchEnv {
-        key: "HELIOY_SESSION_WORKSPACE".to_string(),
-        value: request.workspace.clone(),
-    });
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_ID", id.to_string()),
+    );
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_ROLE", request.role.clone()),
+    );
+    upsert_env(
+        &mut env,
+        LaunchEnv::new("HELIOY_SESSION_WORKSPACE", request.workspace.clone()),
+    );
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let shell_resume = shell_resume(request, &cwd);
     SpawnLaunch {
         runtime: request.runtime,
+        cwd,
+        target: request.target.clone(),
         env,
+        shell_resume,
+    }
+}
+
+fn shell_resume(request: &SpawnRequest, cwd: &std::path::Path) -> Option<ShellResume> {
+    if request.shell_resume.is_some() {
+        return request.shell_resume.clone();
+    }
+    request
+        .target
+        .parse::<lilo_rm_core::SpawnTarget>()
+        .ok()
+        .and_then(|target| {
+            target
+                .tmux_address()
+                .map(|_| capture_shell_resume(cwd.to_path_buf()))
+        })
+}
+
+fn merge_env(env: &mut Vec<LaunchEnv>, next: Vec<LaunchEnv>) {
+    for item in next {
+        upsert_env(env, item);
+    }
+}
+
+fn upsert_env(env: &mut Vec<LaunchEnv>, next: LaunchEnv) {
+    if let Some(existing) = env.iter_mut().find(|item| item.key == next.key) {
+        *existing = next;
+    } else {
+        env.push(next);
     }
 }
 

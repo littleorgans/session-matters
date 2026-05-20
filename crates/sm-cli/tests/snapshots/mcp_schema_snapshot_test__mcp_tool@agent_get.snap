@@ -1,5 +1,6 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 8
 expression: tool
 ---
 {
@@ -76,6 +77,12 @@ expression: tool
           },
           "terminated_at": {
             "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tmux_pane": {
             "type": [
               "string",
               "null"

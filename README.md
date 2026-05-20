@@ -7,14 +7,22 @@ Control plane for Helioy agent sessions.
 ## Runtime
 
 ```bash
+rtm daemon start
 sm daemon start
 sm run claude --role general --workspace test --detach
+sm run codex --role reviewer --workspace test --target tmux:agents:0.1 --detach
+sm capture --selector id:<session-id>
 sm get agents
+sm logs id:<session-id>
+sm doctor
 sm daemon stop
+rtm daemon stop
 ```
 
 The daemon uses `~/.sm/sm.pid`, `~/.sm/sock`, and `~/.sm/sm.db` by default.
 Set `SM_HOME` to use an alternate runtime directory.
+The daemon connects to runtime-matters through `~/.rtm/sock`, or `RTM_SOCKET_PATH`.
+`smd` requires `rtmd` with runtime protocol 0.6 or newer.
 
 ## MCP Server
 
@@ -26,20 +34,21 @@ sm mcp
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `agent_run` | `sm run` | Start an agent runtime through the session-matters daemon. This v1 pass supports claude and codex runtimes, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `agent_run` | `sm run` | Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `agent_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b). |
 | `agent_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `agent_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
 | `agent_delete` | `sm delete agent` | Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period. |
 | `agent_label` | `sm label` | Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
 | `mail_send` | `sm mail send` | Send durable mail to sessions selected by selector. |
 | `mail_read` | `sm mail read` | Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true. |
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
 | `mail_stop_check` | `sm mail stop-check` | Return the unread mail count for stop-hook decisions without draining mail. |
-| `nudge` | `sm nudge` | Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver. |
-| `link` | `sm link` | Attach a runtime session id and transcript path to one session. Reusing the same runtime_session is idempotent. |
+| `nudge` | `sm nudge` | Send an ephemeral nudge to sessions selected by selector. Tmux-backed runtimes deliver through rtmd; headless or ended runtimes return typed failure messages. |
+| `link` | `sm link` | Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically. |
 | `logs` | `sm logs` | Read the transcript linked to one selected session. |
 | `wait` | `sm wait` | Wait until a selector satisfies running, terminated, or count=N. |
-| `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and v1 runtime driver status. |
+| `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and runtime-matters status. |
 
 ## Examples
 
@@ -53,6 +62,7 @@ sm mcp
   ],
   "role": "engineer",
   "runtime": "claude",
+  "target": "headless",
   "workspace": "session-matters"
 }
 ```
@@ -73,6 +83,15 @@ sm mcp
 }
 ```
 
+### `agent_capture`
+
+```json
+{
+  "scrollback_lines": 500,
+  "selector": "id:019e32e3-0000-7000-8000-000000000000"
+}
+```
+
 ### `agent_delete`
 
 ```json
@@ -88,12 +107,15 @@ sm mcp
 
 ## Session Control Workflow
 
+Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
 Use `agent_run` to start a local agent runtime through the session-matters daemon.
 Use `agent_list` to inspect live and terminated sessions.
 Use `agent_get` before acting on one session id.
+Use `agent_capture` to read tmux pane scrollback for a tmux backed session.
 Use `agent_delete` to terminate daemon owned sessions.
 Use `agent_label` to add or remove labels on selected sessions.
-Use `link`, `logs`, `wait`, and `doctor` for runtime linkback and diagnostics.
+Use `logs` for daemon-spawned headless transcripts, and `link` only for unmanaged sessions.
+Use `wait` and `doctor` for lifecycle and runtime-matters diagnostics.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
 Use `nudge` for the ephemeral notification surface.
 ## Development

@@ -1,23 +1,29 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use lilo_rm_client::ClientError;
+pub use lilo_rm_core::LaunchEnv;
+use lilo_rm_core::{CaptureError, CaptureResponse, ShellResume, SpawnConflictKind};
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnedProcess {
     pub runtime_pid: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LaunchEnv {
-    pub key: String,
-    pub value: String,
+    pub log_dir: Option<PathBuf>,
+    pub stdout_path: Option<PathBuf>,
+    pub stderr_path: Option<PathBuf>,
+    pub tmux_pane: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnLaunch {
     pub runtime: RuntimeKind,
+    pub cwd: PathBuf,
+    pub target: String,
     pub env: Vec<LaunchEnv>,
+    pub shell_resume: Option<ShellResume>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,30 +31,46 @@ pub struct ChildExit {
     pub session_id: String,
     pub runtime_pid: u32,
     pub exit_code: Option<i32>,
+    pub transcript_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DriverProbe {
     pub verified: bool,
     pub evidence: String,
+    pub transcript_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Error)]
 pub enum DriverError {
-    #[error(transparent)]
-    Nix(#[from] nix::Error),
-    #[error("runtime pid out of range: {0}")]
-    PidOutOfRange(i32),
-    #[error("stored runtime pid out of range: {0}")]
-    StoredPidOutOfRange(u32),
-    #[error("runtime command contains a null byte")]
-    InvalidRuntimeCommand,
-    #[error("launch environment contains a null byte")]
-    InvalidEnvironment,
     #[error("unsupported signal: {0}")]
     InvalidSignal(String),
-    #[error("runtime process did not terminate after SIGKILL")]
-    TerminationTimeout,
+    #[error(transparent)]
+    Client(#[from] ClientError),
+    #[error("invalid runtime session id: {0}")]
+    InvalidSessionId(String),
+    #[error("runtime session has no runtime pid: {0}")]
+    MissingRuntimePid(String),
+    #[error("unsupported driver operation {operation}; scheduled for {pass}")]
+    Unsupported {
+        operation: &'static str,
+        pass: &'static str,
+    },
+    #[error("unknown runtime variant: {variant}")]
+    UnknownRuntimeVariant { variant: String },
+    #[error("runtime spawn conflict: {kind:?} {lifecycle}")]
+    SpawnConflict {
+        kind: SpawnConflictKind,
+        lifecycle: String,
+    },
+    #[error("invalid runtime target: {0}")]
+    InvalidTarget(String),
+    #[error("tmux pane is unavailable: {0}")]
+    TmuxPaneDead(String),
+    #[error("unsupported runtime target: {0}")]
+    UnsupportedTarget(String),
+    #[error("runtime capture failed: {0:?}")]
+    CaptureFailed(CaptureError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,22 +79,43 @@ pub struct NudgeResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureResult {
+    pub response: CaptureResponse,
+}
+
+#[async_trait]
 pub trait SpawnDriver: Send + Sync {
-    fn spawn(&self, session_id: &str, launch: &SpawnLaunch) -> Result<SpawnedProcess, DriverError>;
+    async fn spawn(
+        &self,
+        session_id: &str,
+        launch: &SpawnLaunch,
+    ) -> Result<SpawnedProcess, DriverError>;
 
-    fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
+    async fn validate_target(&self, target: &str) -> Result<(), DriverError>;
 
-    fn probe_session(&self, session_id: &str, runtime_pid: u32)
-    -> Result<DriverProbe, DriverError>;
+    async fn capture(
+        &self,
+        session_id: &str,
+        scrollback_lines: Option<u32>,
+    ) -> Result<CaptureResult, DriverError>;
 
-    fn terminate(
+    async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError>;
+
+    async fn probe_session(
+        &self,
+        session_id: &str,
+        runtime_pid: u32,
+    ) -> Result<DriverProbe, DriverError>;
+
+    async fn terminate(
         &self,
         session_id: &str,
         signal: &str,
         grace: Duration,
     ) -> Result<Option<ChildExit>, DriverError>;
 
-    fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError>;
+    async fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError>;
 
     fn terminate_all(&self);
 }

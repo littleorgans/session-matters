@@ -1,14 +1,14 @@
 use anyhow::{Result, bail};
 use std::str::FromStr;
 
-use sm_core::{NudgeRequest, RpcRequest, RpcResponse, Selector, SmPaths};
+use sm_core::{NudgeRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
 
 use crate::cli::cli_def::NudgeArgs;
 
 pub async fn run(args: NudgeArgs) -> Result<()> {
-    let paths = SmPaths::from_env()?;
+    let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
-        &paths.socket,
+        &endpoint,
         &RpcRequest::Nudge {
             request: NudgeRequest {
                 to: Selector::from_str(&args.to)?,
