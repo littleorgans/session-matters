@@ -1,7 +1,7 @@
 mod common;
 
 use common::{LOCAL_UID, TestDaemon, local_context};
-use lilo_rm_core::{CaptureResponse, PaneSnapshot};
+use lilo_rm_core::{CaptureError, CaptureResponse, PaneSnapshot};
 use sm_core::{CaptureRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest};
 
 #[tokio::test]
@@ -37,29 +37,39 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
 #[tokio::test]
 async fn spawn_rejects_invalid_target_before_launch() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
-    let context = local_context();
 
-    let response = daemon
-        .state
-        .handle(
-            context,
-            RpcRequest::Spawn {
-                request: SpawnRequest {
-                    runtime: RuntimeKind::Claude,
-                    role: "engineer".to_string(),
-                    workspace: "test".to_string(),
-                    target: "tmux:not-a-pane".to_string(),
-                    agent_config: None,
-                    labels: Vec::new(),
-                },
-            },
-        )
-        .await;
+    let response = spawn_with_target(&daemon, "tmux:not-a-pane").await;
 
     let RpcResponse::Error { message } = response.response else {
         panic!("expected target validation error");
     };
     assert!(message.contains("invalid runtime target"), "{message}");
+    assert!(daemon.driver.launches().is_empty());
+}
+
+#[tokio::test]
+async fn spawn_rejects_tmux_pane_dead_target_before_launch() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+
+    let response = spawn_with_target(&daemon, "tmux:dead:0.0").await;
+
+    let RpcResponse::Error { message } = response.response else {
+        panic!("expected target validation error");
+    };
+    assert!(message.contains("tmux pane is unavailable"), "{message}");
+    assert!(daemon.driver.launches().is_empty());
+}
+
+#[tokio::test]
+async fn spawn_rejects_unsupported_target_before_launch() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+
+    let response = spawn_with_target(&daemon, "ssh:host").await;
+
+    let RpcResponse::Error { message } = response.response else {
+        panic!("expected target validation error");
+    };
+    assert!(message.contains("unsupported runtime target"), "{message}");
     assert!(daemon.driver.launches().is_empty());
 }
 
@@ -98,4 +108,54 @@ async fn capture_delegates_to_driver_for_selected_session() {
         panic!("expected captured snapshot");
     };
     assert_eq!(snapshot.content, "pane text\n");
+}
+
+#[tokio::test]
+async fn capture_surfaces_pane_unavailable_failure() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    daemon
+        .driver
+        .set_capture(CaptureResponse::Failed(CaptureError::PaneUnavailable));
+    let session = common::spawn_test_session(&daemon.state, &context, "engineer").await;
+
+    let response = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Capture {
+                request: CaptureRequest {
+                    selector: Selector::Id { id: session.id },
+                    scrollback_lines: Some(20),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Capture { response } = response.response else {
+        panic!("expected capture response");
+    };
+    assert_eq!(
+        response.capture,
+        CaptureResponse::Failed(CaptureError::PaneUnavailable)
+    );
+}
+
+async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::handler::HandlerResult {
+    daemon
+        .state
+        .handle(
+            local_context(),
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "engineer".to_string(),
+                    workspace: "test".to_string(),
+                    target: target.to_string(),
+                    agent_config: None,
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await
 }
