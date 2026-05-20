@@ -12,8 +12,8 @@ use sm_core::{
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
 use sm_driver::{
-    CaptureResult, ChildExit, DriverError, DriverProbe, LaunchEnv, SpawnDriver, SpawnLaunch,
-    SpawnedProcess,
+    CaptureResult, ChildExit, DriverError, DriverProbe, LaunchEnv, NudgeResult, SpawnDriver,
+    SpawnLaunch, SpawnedProcess,
 };
 use sm_store::SqliteStore;
 use uuid::Uuid;
@@ -28,6 +28,7 @@ pub struct MockDriver {
     spawn_tmux_pane: Mutex<Option<String>>,
     terminate_exit: Mutex<Option<ChildExit>>,
     capture: Mutex<Option<lilo_rm_core::CaptureResponse>>,
+    nudge: Mutex<NudgeResult>,
 }
 
 impl MockDriver {
@@ -45,6 +46,10 @@ impl MockDriver {
                 transcript_path: None,
             })),
             capture: Mutex::new(None),
+            nudge: Mutex::new(NudgeResult {
+                delivered: true,
+                message: "delivered via rtm".to_string(),
+            }),
         }
     }
 
@@ -75,6 +80,10 @@ impl MockDriver {
 
     pub fn set_capture(&self, response: lilo_rm_core::CaptureResponse) {
         *self.capture.lock().expect("capture lock poisoned") = Some(response);
+    }
+
+    pub fn set_nudge(&self, result: NudgeResult) {
+        *self.nudge.lock().expect("nudge lock poisoned") = result;
     }
 
     pub fn set_terminate_exit(&self, exit: Option<ChildExit>) {
@@ -185,15 +194,8 @@ impl SpawnDriver for MockDriver {
             }))
     }
 
-    async fn nudge(
-        &self,
-        _session_id: &str,
-        _content: &str,
-    ) -> Result<sm_driver::NudgeResult, DriverError> {
-        Ok(sm_driver::NudgeResult {
-            delivered: false,
-            message: "nudge skipped".to_string(),
-        })
+    async fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
+        Ok(self.nudge.lock().expect("nudge lock poisoned").clone())
     }
 
     fn terminate_all(&self) {}

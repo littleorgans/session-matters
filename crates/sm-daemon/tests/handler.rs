@@ -398,7 +398,7 @@ async fn mail_send_rejects_unknown_recipient() {
 }
 
 #[tokio::test]
-async fn nudge_delegates_to_driver_stub() {
+async fn nudge_delegates_delivery_outcome_from_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let recipient = spawn_test_session(&daemon.state, &context, "engineer").await;
@@ -419,8 +419,38 @@ async fn nudge_delegates_to_driver_stub() {
         panic!("expected nudge response");
     };
     assert_eq!(response.nudges.len(), 1);
+    assert!(response.nudges[0].delivered);
+    assert_eq!(response.nudges[0].message, "delivered via rtm");
+}
+
+#[tokio::test]
+async fn nudge_surfaces_failed_outcome_from_driver() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    daemon.driver.set_nudge(sm_driver::NudgeResult {
+        delivered: false,
+        message: "tmux pane dead".to_string(),
+    });
+    let context = local_context();
+    let recipient = spawn_test_session(&daemon.state, &context, "engineer").await;
+    let nudged = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Nudge {
+                request: NudgeRequest {
+                    to: Selector::Id { id: recipient.id },
+                    content: "ping".to_string(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Nudged { response } = nudged.response else {
+        panic!("expected nudge response");
+    };
+    assert_eq!(response.nudges.len(), 1);
     assert!(!response.nudges[0].delivered);
-    assert_eq!(response.nudges[0].message, "nudge skipped");
+    assert_eq!(response.nudges[0].message, "tmux pane dead");
 }
 
 #[tokio::test]

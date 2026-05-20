@@ -7,9 +7,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState,
-    RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictPayload, SpawnRequest,
-    SpawnTarget as RtmdSpawnTarget, StatusFilter, ValidateTargetOutcome,
+    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
+    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
+    SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
+    ValidateTargetOutcome,
 };
 use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
@@ -190,11 +191,16 @@ impl SpawnDriver for RtmdDriver {
         Ok(exit)
     }
 
-    async fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
-        Err(DriverError::Unsupported {
-            operation: "nudge",
-            pass: "Pass 5",
-        })
+    async fn nudge(&self, session_id: &str, content: &str) -> Result<NudgeResult, DriverError> {
+        let session_id = parse_session_id(session_id)?;
+        let response = self
+            .client
+            .nudge(NudgeRequest {
+                session_id,
+                content: content.to_string(),
+            })
+            .await?;
+        Ok(nudge_result(response.outcome))
     }
 
     fn terminate_all(&self) {}
@@ -246,6 +252,35 @@ fn runtime_pid(lifecycle: &Lifecycle) -> Result<u32, DriverError> {
     lifecycle
         .runtime_pid
         .ok_or_else(|| DriverError::MissingRuntimePid(lifecycle.session_id.to_string()))
+}
+
+fn nudge_result(outcome: NudgeOutcome) -> NudgeResult {
+    match outcome {
+        NudgeOutcome::Delivered => NudgeResult {
+            delivered: true,
+            message: "delivered via rtm".to_string(),
+        },
+        NudgeOutcome::Unsupported(NudgeFailureReason::HeadlessLifecycle) => NudgeResult {
+            delivered: false,
+            message: "nudge unsupported for headless runtime".to_string(),
+        },
+        NudgeOutcome::Failed(NudgeFailureReason::SessionEnded) => NudgeResult {
+            delivered: false,
+            message: "session ended before nudge delivered".to_string(),
+        },
+        NudgeOutcome::Failed(NudgeFailureReason::TmuxPaneDead) => NudgeResult {
+            delivered: false,
+            message: "tmux pane dead".to_string(),
+        },
+        NudgeOutcome::Unsupported(reason) => NudgeResult {
+            delivered: false,
+            message: format!("nudge unsupported: {}", reason.as_str()),
+        },
+        NudgeOutcome::Failed(reason) => NudgeResult {
+            delivered: false,
+            message: format!("nudge failed: {}", reason.as_str()),
+        },
+    }
 }
 
 fn terminal_child_exit(lifecycle: &Lifecycle) -> Result<Option<ChildExit>, DriverError> {

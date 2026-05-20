@@ -1,5 +1,5 @@
 {
-  "description": "Send an ephemeral nudge to sessions selected by selector. The v1 in-process driver logs that the tmux gateway is unavailable and does not deliver.",
+  "description": "Send an ephemeral nudge to sessions selected by selector. Tmux-backed runtimes deliver through rtmd; headless or ended runtimes return typed failure messages.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
