@@ -12,3 +12,6 @@ rusqlite.workspace = true
 sm-core.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1227,6 +1227,7 @@ dependencies = [
  "lilo-rm-core",
  "rusqlite",
  "sm-core",
+ "tempfile",
  "thiserror",
  "uuid",
 ]

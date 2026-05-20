@@ -268,6 +268,20 @@ mod tests {
         assert_eq!(store.event_cursor().expect("cursor loads"), Some(77));
     }
 
+    #[test]
+    fn persists_cursor_across_reopen() {
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let db_path = dir.path().join("store.sqlite");
+        {
+            let mut store = SqliteStore::open(&db_path).expect("store opens");
+            store.apply_cursor(42).expect("cursor applies");
+        }
+
+        let store = SqliteStore::open(&db_path).expect("store reopens");
+
+        assert_eq!(store.event_cursor().expect("cursor loads"), Some(42));
+    }
+
     fn test_session() -> Session {
         let now = Utc::now();
         Session {
