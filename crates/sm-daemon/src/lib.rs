@@ -1,4 +1,5 @@
 pub mod agent_config;
+pub mod events;
 pub mod handler;
 pub mod identity_client;
 pub mod lifecycle;

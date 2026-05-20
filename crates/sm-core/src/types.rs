@@ -8,6 +8,8 @@ use uuid::Uuid;
 
 use crate::{SmError, SmResult};
 
+pub use lilo_rm_core::LostEvidence;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeKind {
@@ -48,7 +50,7 @@ pub enum SessionState {
     Spawning,
     Running,
     Terminated,
-    Lost,
+    Lost { evidence: LostEvidence },
 }
 
 impl fmt::Display for SessionState {
@@ -57,20 +59,31 @@ impl fmt::Display for SessionState {
             Self::Spawning => f.write_str("SPAWNING"),
             Self::Running => f.write_str("RUNNING"),
             Self::Terminated => f.write_str("TERMINATED"),
-            Self::Lost => f.write_str("LOST"),
+            Self::Lost { evidence } => write!(f, "Lost({evidence})"),
         }
     }
 }
 
-impl FromStr for SessionState {
-    type Err = SmError;
+impl SessionState {
+    pub fn sql_name(&self) -> &'static str {
+        match self {
+            Self::Spawning => "SPAWNING",
+            Self::Running => "RUNNING",
+            Self::Terminated => "TERMINATED",
+            Self::Lost { .. } => "LOST",
+        }
+    }
 
-    fn from_str(value: &str) -> SmResult<Self> {
+    pub fn from_sql(value: &str, lost_evidence: Option<LostEvidence>) -> SmResult<Self> {
         match value {
             "SPAWNING" => Ok(Self::Spawning),
             "RUNNING" => Ok(Self::Running),
             "TERMINATED" => Ok(Self::Terminated),
-            "LOST" => Ok(Self::Lost),
+            "LOST" => Ok(Self::Lost {
+                evidence: lost_evidence.ok_or_else(|| {
+                    SmError::Message("lost session missing lost_evidence".to_string())
+                })?,
+            }),
             other => Err(SmError::Message(format!(
                 "unsupported session state: {other}"
             ))),

@@ -14,7 +14,6 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::handler::DaemonState;
 use crate::identity_client::{IdentityClient, RequestContext};
 use crate::lifecycle::LifecycleTask;
-use crate::reconcile::ReconcileTask;
 
 pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::create_dir_all(&paths.dir).context("failed to create runtime directory")?;
@@ -28,23 +27,22 @@ pub async fn run_daemon(paths: SmPaths) -> Result<()> {
     fs::write(&paths.pidfile, std::process::id().to_string()).context("failed to write pidfile")?;
 
     let store = SqliteStore::open(&paths.database).context("failed to open sqlite store")?;
-    let driver = RtmdDriver::new(rtmd_socket_path);
+    let driver = RtmdDriver::new(rtmd_socket_path.clone());
     let identity = IdentityClient::connect_default()
         .await
         .context("failed to initialize identity client")?;
-    let state = Arc::new(DaemonState::new(
-        store,
-        Arc::new(driver),
-        Arc::new(identity),
-    ));
+    let state = Arc::new(
+        DaemonState::new(store, Arc::new(driver), Arc::new(identity))
+            .with_rtmd_socket_path(rtmd_socket_path.clone()),
+    );
     crate::reconcile::reconcile_once(&state)
         .await
         .context("failed to reconcile sessions on startup")?;
     let lifecycle = LifecycleTask::spawn(Arc::clone(&state));
-    let reconcile = ReconcileTask::spawn(Arc::clone(&state));
+    let events = crate::events::RuntimeEventTask::spawn(Arc::clone(&state), rtmd_socket_path);
 
     let result = serve(listener, &state).await;
-    drop(reconcile);
+    drop(events);
     drop(lifecycle);
     state.driver.terminate_all();
     cleanup_paths(&paths, &endpoint);

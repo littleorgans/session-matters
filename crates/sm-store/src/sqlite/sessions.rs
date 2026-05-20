@@ -2,11 +2,12 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Row, params, params_from_iter};
-use sm_core::{LabelOp, RuntimeKind, Selector, Session, SessionState};
+use sm_core::{LabelOp, LostEvidence, RuntimeKind, Selector, Session, SessionState};
 use thiserror::Error;
 use uuid::Uuid;
 
 use super::SqliteStore;
+use super::events::{lost_evidence_from_sql, lost_evidence_to_sql};
 use super::time::{parse_optional_timestamp, parse_timestamp};
 
 #[derive(Debug, Error)]
@@ -27,16 +28,17 @@ impl SqliteStore {
     pub fn insert_session(&self, session: &Session) -> Result<(), SessionRowError> {
         self.connection.execute(
             "INSERT INTO sessions
-                (id, runtime, role, workspace, state, runtime_pid, runtime_session,
-                 transcript_path, tmux_pane, agent_config, created_at, started_at, terminated_at,
-                 exit_code, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                (id, runtime, role, workspace, state, lost_evidence, runtime_pid,
+                 runtime_session, transcript_path, tmux_pane, agent_config, created_at,
+                 started_at, terminated_at, exit_code, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 session.id.to_string(),
                 session.runtime.to_string(),
                 &session.role,
                 &session.workspace,
-                session.state.to_string(),
+                session.state.sql_name(),
+                session_lost_evidence(&session.state),
                 session.runtime_pid,
                 session.runtime_session.as_deref(),
                 session
@@ -183,14 +185,16 @@ impl SqliteStore {
     pub fn mark_session_lost(
         &self,
         id: &Uuid,
+        evidence: LostEvidence,
         updated_at: DateTime<Utc>,
     ) -> Result<Option<Session>, SessionRowError> {
         self.connection.execute(
             "UPDATE sessions
-             SET state = ?1, updated_at = ?2
-             WHERE id = ?3",
+             SET state = ?1, lost_evidence = ?2, updated_at = ?3
+             WHERE id = ?4",
             params![
-                SessionState::Lost.to_string(),
+                SessionState::Lost { evidence }.sql_name(),
+                lost_evidence_to_sql(evidence),
                 updated_at.to_rfc3339(),
                 id.to_string(),
             ],
@@ -263,7 +267,7 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         runtime: RuntimeKind::from_str(&row.get::<_, String>("runtime")?)?,
         role: row.get("role")?,
         workspace: row.get("workspace")?,
-        state: SessionState::from_str(&row.get::<_, String>("state")?)?,
+        state: session_state_from_row(row)?,
         runtime_pid,
         runtime_session: row.get("runtime_session")?,
         transcript_path: row
@@ -278,6 +282,24 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         updated_at: parse_timestamp(&row.get::<_, String>("updated_at")?)?,
         labels: Vec::new(),
     })
+}
+
+fn session_state_from_row(row: &Row<'_>) -> Result<SessionState, SessionRowError> {
+    let lost_evidence = row
+        .get::<_, Option<String>>("lost_evidence")?
+        .as_deref()
+        .and_then(lost_evidence_from_sql);
+    Ok(SessionState::from_sql(
+        &row.get::<_, String>("state")?,
+        lost_evidence,
+    )?)
+}
+
+fn session_lost_evidence(state: &SessionState) -> Option<&'static str> {
+    match state {
+        SessionState::Lost { evidence } => Some(lost_evidence_to_sql(*evidence)),
+        _ => None,
+    }
 }
 
 fn optional_i32(row: &Row<'_>, column: &'static str) -> Result<Option<i32>, SessionRowError> {
@@ -388,10 +410,15 @@ mod tests {
         );
 
         let lost = store
-            .mark_session_lost(&session.id, Utc::now())
+            .mark_session_lost(&session.id, LostEvidence::PidNotAlive, Utc::now())
             .expect("session marks lost")
             .expect("session exists");
-        assert_eq!(lost.state, SessionState::Lost);
+        assert_eq!(
+            lost.state,
+            SessionState::Lost {
+                evidence: LostEvidence::PidNotAlive
+            }
+        );
     }
 
     #[test]

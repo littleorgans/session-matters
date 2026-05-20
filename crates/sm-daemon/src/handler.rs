@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -24,6 +25,7 @@ pub struct DaemonState {
     pub store: Mutex<SqliteStore>,
     pub driver: Arc<dyn SpawnDriver>,
     pub(crate) identity: Arc<IdentityClient>,
+    pub(crate) rtmd_socket_path: Option<PathBuf>,
 }
 
 pub struct HandlerResult {
@@ -41,7 +43,13 @@ impl DaemonState {
             store: Mutex::new(store),
             driver,
             identity,
+            rtmd_socket_path: None,
         }
+    }
+
+    pub fn with_rtmd_socket_path(mut self, socket_path: PathBuf) -> Self {
+        self.rtmd_socket_path = Some(socket_path);
+        self
     }
 
     pub async fn handle(&self, context: RequestContext, request: RpcRequest) -> HandlerResult {
@@ -148,7 +156,6 @@ impl DaemonState {
     }
 
     async fn list(&self, request: ListRequest) -> Result<RpcResponse> {
-        crate::lifecycle::refresh_exits(self).await?;
         let selector = request.selector.unwrap_or_default();
         let sessions = self
             .store

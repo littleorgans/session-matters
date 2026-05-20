@@ -20,6 +20,6 @@ pub use proto::{
     SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
 };
 pub use types::{
-    Channel, Label, LabelMutation, LabelOp, Mail, MailStatus, RuntimeKind, Selector, Session,
-    SessionState,
+    Channel, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus, RuntimeKind, Selector,
+    Session, SessionState,
 };

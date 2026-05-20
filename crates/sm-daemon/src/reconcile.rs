@@ -1,18 +1,8 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use anyhow::{Context, Result};
 use chrono::Utc;
-use sm_core::{Selector, SessionState};
-use tokio::task::JoinHandle;
+use lilo_rm_core::{Lifecycle, LifecycleState, LogAvailability, LostEvidence, StatusFilter};
 
 use crate::handler::DaemonState;
-
-const RECONCILE_INTERVAL: Duration = Duration::from_secs(30);
-
-pub struct ReconcileTask {
-    handle: JoinHandle<()>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconcileFinding {
@@ -20,67 +10,75 @@ pub struct ReconcileFinding {
     pub evidence: String,
 }
 
-impl ReconcileTask {
-    pub fn spawn(state: Arc<DaemonState>) -> Self {
-        let handle = tokio::spawn(async move {
-            loop {
-                if let Err(error) = reconcile_once(&state).await {
-                    eprintln!("failed to reconcile sessions: {error:#}");
-                }
-                tokio::time::sleep(RECONCILE_INTERVAL).await;
-            }
-        });
-
-        Self { handle }
-    }
-}
-
-impl Drop for ReconcileTask {
-    fn drop(&mut self) {
-        self.handle.abort();
-    }
-}
-
 pub async fn reconcile_once(state: &DaemonState) -> Result<Vec<ReconcileFinding>> {
-    let sessions = state
-        .store
-        .lock()
-        .expect("store lock poisoned")
-        .list_sessions_by_selector(&Selector::All)
-        .context("failed to list sessions for reconciliation")?;
+    let socket_path = state
+        .rtmd_socket_path
+        .as_ref()
+        .context("rtmd socket path is not configured")?;
+    let payload = lilo_rm_client::RuntimeClient::new(socket_path.clone())
+        .status(StatusFilter::empty())
+        .await
+        .context("failed to load rtmd lifecycle status")?;
+    reconcile_lifecycles(state, &payload.lifecycles)
+}
+
+pub fn reconcile_lifecycles(
+    state: &DaemonState,
+    lifecycles: &[Lifecycle],
+) -> Result<Vec<ReconcileFinding>> {
     let mut findings = Vec::new();
-    for session in sessions.into_iter().filter(|session| {
-        matches!(
-            session.state,
-            SessionState::Running | SessionState::Spawning
-        )
-    }) {
-        let probe = state
-            .driver
-            .probe_session(&session.id.to_string(), session.runtime_pid)
-            .await
-            .context("failed to probe runtime session")?;
-        if let Some(transcript_path) = probe.transcript_path {
+    for lifecycle in lifecycles {
+        if let Some(path) = lifecycle_transcript_path(lifecycle) {
             state
                 .store
                 .lock()
                 .expect("store lock poisoned")
-                .record_transcript_path(&session.id, &transcript_path, Utc::now())
+                .record_transcript_path(&lifecycle.session_id, path, Utc::now())
                 .context("failed to persist transcript path")?;
         }
-        if probe.verified {
-            continue;
+        match lifecycle.state {
+            LifecycleState::Forking | LifecycleState::Running => {}
+            LifecycleState::Exited(exit) => {
+                state
+                    .store
+                    .lock()
+                    .expect("store lock poisoned")
+                    .mark_session_terminated(&lifecycle.session_id, exit.code, Utc::now())
+                    .context("failed to mark session terminated")?;
+            }
+            LifecycleState::Lost(evidence) => {
+                mark_lost(state, lifecycle, evidence)?;
+                findings.push(ReconcileFinding {
+                    session_id: lifecycle.session_id.to_string(),
+                    evidence: format!("rtmd lifecycle lost: {evidence}"),
+                });
+            }
+            _ => {
+                findings.push(ReconcileFinding {
+                    session_id: lifecycle.session_id.to_string(),
+                    evidence: format!("unsupported rtmd lifecycle state: {:?}", lifecycle.state),
+                });
+            }
         }
-        state
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .mark_session_lost(&session.id, Utc::now())
-            .context("failed to mark session lost")?;
-        findings.push(ReconcileFinding {
-            session_id: session.id.to_string(),
-            evidence: probe.evidence,
-        });
     }
     Ok(findings)
+}
+
+fn mark_lost(state: &DaemonState, lifecycle: &Lifecycle, evidence: LostEvidence) -> Result<()> {
+    state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .mark_session_lost(&lifecycle.session_id, evidence, Utc::now())
+        .context("failed to mark session lost")?;
+    Ok(())
+}
+
+fn lifecycle_transcript_path(lifecycle: &Lifecycle) -> Option<&std::path::Path> {
+    match lifecycle.log_availability.as_ref() {
+        Some(LogAvailability::Headless { stdout_path, .. }) => Some(stdout_path.as_path()),
+        Some(LogAvailability::TmuxPaneSnapshot | LogAvailability::Unavailable { .. }) | None => {
+            None
+        }
+    }
 }

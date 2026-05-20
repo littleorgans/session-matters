@@ -94,7 +94,11 @@ impl DaemonState {
         self.identity
             .authorize(&context.principal, Action::Doctor, &Default::default())
             .await?;
-        let fresh_findings = crate::reconcile::reconcile_once(self).await?;
+        let fresh_findings = if self.rtmd_socket_path.is_some() {
+            crate::reconcile::reconcile_once(self).await?
+        } else {
+            Vec::new()
+        };
         let sessions = self
             .store
             .lock()
@@ -103,7 +107,7 @@ impl DaemonState {
             .context("failed to list sessions")?;
         let mut findings = sessions
             .into_iter()
-            .filter(|session| session.state == SessionState::Lost)
+            .filter(|session| matches!(session.state, SessionState::Lost { .. }))
             .map(|session| DoctorFinding {
                 severity: "error".to_string(),
                 session_id: Some(session.id.to_string()),
@@ -129,8 +133,6 @@ impl DaemonState {
     pub(crate) async fn wait(&self, request: WaitRequest) -> Result<RpcResponse> {
         let deadline = Instant::now() + Duration::from_secs(request.timeout_secs);
         loop {
-            crate::lifecycle::refresh_exits(self).await?;
-            let _ = crate::reconcile::reconcile_once(self).await?;
             let sessions = self
                 .store
                 .lock()
@@ -189,9 +191,12 @@ fn wait_condition_met(condition: &WaitCondition, sessions: &[Session]) -> bool {
         WaitCondition::Running => sessions
             .iter()
             .any(|session| session.state == SessionState::Running),
-        WaitCondition::Terminated => sessions
-            .iter()
-            .any(|session| matches!(session.state, SessionState::Terminated | SessionState::Lost)),
+        WaitCondition::Terminated => sessions.iter().any(|session| {
+            matches!(
+                session.state,
+                SessionState::Terminated | SessionState::Lost { .. }
+            )
+        }),
         WaitCondition::Count { count } => sessions.len() == *count,
     }
 }
@@ -210,10 +215,8 @@ fn lost_session_evidence(
         .iter()
         .find(|finding| finding.session_id == session.id.to_string())
         .map(|finding| finding.evidence.clone())
-        .unwrap_or_else(|| {
-            format!(
-                "session is LOST; runtime pid {} cannot be verified by the v1 in-process driver",
-                session.runtime_pid
-            )
+        .unwrap_or_else(|| match session.state {
+            SessionState::Lost { evidence } => format!("session is LOST: {evidence}"),
+            _ => format!("session is not LOST: {}", session.state),
         })
 }

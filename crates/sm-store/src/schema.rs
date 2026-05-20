@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     role TEXT NOT NULL,
     workspace TEXT NOT NULL,
     state TEXT NOT NULL,
+    lost_evidence TEXT,
     runtime_pid INTEGER NOT NULL,
     runtime_session TEXT,
     transcript_path TEXT,
@@ -38,4 +39,10 @@ CREATE TABLE IF NOT EXISTS labels (
 
 CREATE INDEX IF NOT EXISTS idx_labels_key_value_session
     ON labels(key, value, session_id);
+
+CREATE TABLE IF NOT EXISTS event_cursor (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    cursor BLOB NOT NULL,
+    updated_at TEXT NOT NULL
+);
 "#;

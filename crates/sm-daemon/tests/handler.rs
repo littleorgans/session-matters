@@ -6,7 +6,7 @@ use common::{
 };
 use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, MailReadRequest,
+    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, LostEvidence, MailReadRequest,
     MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
     SpawnRequest, WaitCondition, WaitRequest,
 };
@@ -258,7 +258,13 @@ async fn link_logs_wait_and_doctor_polish_paths_work() {
     };
     assert!(response.matched);
 
-    daemon.driver.set_probe_verified(false);
+    daemon
+        .state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .mark_session_lost(&session.id, LostEvidence::PidNotAlive, chrono::Utc::now())
+        .expect("session marks lost");
     let doctor = daemon
         .state
         .handle(
@@ -276,7 +282,7 @@ async fn link_logs_wait_and_doctor_polish_paths_work() {
         response.findings[0].session_id,
         Some(session.id.to_string())
     );
-    assert!(response.findings[0].message.contains("probe failed"));
+    assert!(response.findings[0].message.contains("PidNotAlive"));
 }
 
 #[tokio::test]
