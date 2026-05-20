@@ -1,5 +1,7 @@
 mod common;
 
+use std::path::Path;
+
 use common::DaemonFixture;
 use lilo_im_core::{Action, AuditDecision};
 use serde_json::{Value, json};
@@ -79,7 +81,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         json!({
             "runtime": "codex",
             "role": "engineer",
-            "workspace": "mcp-test"
+            "workspace": daemon.dir.path().display().to_string()
         }),
     );
     assert!(spawned["error"].is_null());
@@ -92,7 +94,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(found["error"].is_null());
     assert_eq!(
         found["result"]["structuredContent"]["session"]["workspace"],
-        "mcp-test"
+        daemon.dir.path().display().to_string()
     );
 
     let transcript = daemon.dir.path().join("transcript.jsonl");
@@ -188,8 +190,20 @@ async fn tools_call_can_select_and_label_agents() {
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
-    let auth = spawn_agent_with_labels(&mut mcp, 2, "engineer", json!(["area=auth"]));
-    let ui = spawn_agent_with_labels(&mut mcp, 3, "engineer", json!(["area=ui"]));
+    let auth = spawn_agent_with_labels(
+        &mut mcp,
+        2,
+        "engineer",
+        daemon.dir.path(),
+        json!(["area=auth"]),
+    );
+    let ui = spawn_agent_with_labels(
+        &mut mcp,
+        3,
+        "engineer",
+        daemon.dir.path(),
+        json!(["area=ui"]),
+    );
 
     let selected = call_tool(
         &mut mcp,
@@ -234,8 +248,8 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
-    let sender = spawn_agent(&mut mcp, 2, "pm");
-    let recipient = spawn_agent(&mut mcp, 3, "engineer");
+    let sender = spawn_agent(&mut mcp, 2, "pm", daemon.dir.path());
+    let recipient = spawn_agent(&mut mcp, 3, "engineer", daemon.dir.path());
 
     let sent = call_tool(
         &mut mcp,
@@ -355,14 +369,15 @@ fn call_tool(mcp: &mut common::McpFixture, id: u64, name: &str, arguments: Value
     }))
 }
 
-fn spawn_agent(mcp: &mut common::McpFixture, id: u64, role: &str) -> String {
-    spawn_agent_with_labels(mcp, id, role, json!([]))
+fn spawn_agent(mcp: &mut common::McpFixture, id: u64, role: &str, workspace: &Path) -> String {
+    spawn_agent_with_labels(mcp, id, role, workspace, json!([]))
 }
 
 fn spawn_agent_with_labels(
     mcp: &mut common::McpFixture,
     id: u64,
     role: &str,
+    workspace: &Path,
     labels: Value,
 ) -> String {
     let spawned = call_tool(
@@ -372,7 +387,7 @@ fn spawn_agent_with_labels(
         json!({
             "runtime": "codex",
             "role": role,
-            "workspace": "mcp-mail-test",
+            "workspace": workspace.display().to_string(),
             "labels": labels
         }),
     );

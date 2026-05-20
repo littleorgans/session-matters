@@ -143,6 +143,14 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
 }
 
 #[tokio::test]
+async fn spawn_launch_cwd_is_request_workspace() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    spawn_test_session(&daemon.state, &local_context(), "pm").await;
+    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert_eq!(launch.cwd, std::path::PathBuf::from("test"));
+}
+
+#[tokio::test]
 async fn spawn_persists_driver_stdout_path_for_logs() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();

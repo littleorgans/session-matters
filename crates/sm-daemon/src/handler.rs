@@ -559,7 +559,7 @@ fn spawn_launch(
         &mut env,
         LaunchEnv::new("HELIOY_SESSION_WORKSPACE", request.workspace.clone()),
     );
-    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let cwd = std::path::PathBuf::from(&request.workspace);
     let shell_resume = shell_resume(request, &cwd);
     SpawnLaunch {
         runtime: request.runtime,

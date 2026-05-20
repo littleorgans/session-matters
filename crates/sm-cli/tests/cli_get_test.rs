@@ -15,7 +15,7 @@ fn singular_agent_resource_lists_without_id_and_gets_with_id() {
             "--role",
             "engineer",
             "--workspace",
-            "session-matters",
+            &daemon.dir.path().display().to_string(),
             "--detach",
         ])
         .output()
