@@ -34,6 +34,11 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
+      - name: Install runtime-matters
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/littleorgans/runtime-matters/releases/download/v0.2.1/rtm-cli-installer.sh | sh
+          rtm --version
+
       - name: Check
         run: just check
 
