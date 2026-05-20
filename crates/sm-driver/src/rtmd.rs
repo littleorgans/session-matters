@@ -7,10 +7,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
-    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictKind,
-    SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
-    ValidateTargetOutcome,
+    CaptureError, CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState,
+    NudgeFailureReason, NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
+    SpawnConflictKind, SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget,
+    StatusFilter, ValidateTargetOutcome,
 };
 use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
@@ -348,10 +348,23 @@ fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
     }
 }
 
+pub fn humanize_capture_error(error: &CaptureError) -> String {
+    match error {
+        CaptureError::NotATmuxTarget => "capture is only supported for tmux targets".to_string(),
+        CaptureError::PaneUnavailable => "tmux pane is no longer available".to_string(),
+        CaptureError::SessionMissing => "tmux session has gone away".to_string(),
+        CaptureError::TmuxNotAvailable => "tmux is not available on this host".to_string(),
+        CaptureError::CapturePaneFailed { stderr } => {
+            format!("tmux capture-pane failed: {}", stderr.trim())
+        }
+        _ => format!("unknown capture error ({error:?})"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lilo_rm_core::{LifecycleState, TmuxAddress};
+    use lilo_rm_core::TmuxAddress;
 
     fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
         Lifecycle {
@@ -390,6 +403,49 @@ mod tests {
         assert_eq!(
             message,
             "session 00000000-0000-0000-0000-000000000000 is already running claude (pid 29032)"
+        );
+    }
+
+    #[test]
+    fn humanize_not_a_tmux_target() {
+        assert_eq!(
+            humanize_capture_error(&CaptureError::NotATmuxTarget),
+            "capture is only supported for tmux targets"
+        );
+    }
+
+    #[test]
+    fn humanize_pane_unavailable() {
+        assert_eq!(
+            humanize_capture_error(&CaptureError::PaneUnavailable),
+            "tmux pane is no longer available"
+        );
+    }
+
+    #[test]
+    fn humanize_session_missing() {
+        assert_eq!(
+            humanize_capture_error(&CaptureError::SessionMissing),
+            "tmux session has gone away"
+        );
+    }
+
+    #[test]
+    fn humanize_tmux_not_available() {
+        assert_eq!(
+            humanize_capture_error(&CaptureError::TmuxNotAvailable),
+            "tmux is not available on this host"
+        );
+    }
+
+    #[test]
+    fn humanize_capture_pane_failed_trims_stderr() {
+        let error = CaptureError::CapturePaneFailed {
+            stderr: "  no server running\n".to_string(),
+        };
+        assert_eq!(
+            humanize_capture_error(&error),
+            "tmux capture-pane failed: no server running"
         );
     }
 }
