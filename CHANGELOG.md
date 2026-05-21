@@ -15,6 +15,13 @@
 - CLI selector reads default to the resolved namespace from `--namespace`, `.sm/namespace`, or `default`. Use `-A` or `--all-namespaces` for cross namespace reads.
 - The future hard cut master will remove compatibility surfaces such as `SpawnRequest.workspace`, `sessions.workspace`, and `agent_*` MCP aliases after the migration window.
 
+## [0.2.3](https://github.com/littleorgans/session-matters/compare/v0.2.2...v0.2.3) (2026-05-21)
+
+
+### Features
+
+* namespace primitive + workspace→namespace dual-publish migration ([#11](https://github.com/littleorgans/session-matters/issues/11)) ([96cc491](https://github.com/littleorgans/session-matters/commit/96cc491244fae037efec397e25ac01a1e1206c60))
+
 ## [0.2.2](https://github.com/littleorgans/session-matters/compare/v0.2.1...v0.2.2) (2026-05-20)
 
 
