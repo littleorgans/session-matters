@@ -9,11 +9,7 @@ use uuid::Uuid;
 use super::SqliteStore;
 use super::time::parse_timestamp;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NamespaceRecord {
-    pub namespace: Namespace,
-    pub created_at: DateTime<Utc>,
-}
+pub use sm_core::NamespaceRecord;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionNamespace {

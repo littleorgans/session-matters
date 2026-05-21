@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub const DEFAULT_NAMESPACE: &str = "default";
@@ -9,6 +10,12 @@ pub const RESERVED_NAMESPACE_PREFIX: &str = "sm-";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Namespace(String);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceRecord {
+    pub namespace: Namespace,
+    pub created_at: DateTime<Utc>,
+}
 
 impl Namespace {
     /// DNS label length is capped at 63 octets. Namespace slugs use ASCII only,

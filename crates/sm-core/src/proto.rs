@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use chrono::{DateTime, Utc};
 use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
-use crate::{LabelMutation, Mail, Namespace, RuntimeKind, Selector, Session, SmError, SmResult};
+use crate::{
+    LabelMutation, Mail, Namespace, NamespaceRecord, RuntimeKind, Selector, Session, SmError,
+    SmResult,
+};
 
 fn default_spawn_target() -> String {
     "headless".to_string()
@@ -46,12 +48,6 @@ pub struct ListRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ListResponse {
     pub sessions: Vec<Session>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct NamespaceRecord {
-    pub namespace: Namespace,
-    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

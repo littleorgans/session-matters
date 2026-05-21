@@ -2,10 +2,8 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use sm_core::{
     Namespace, NamespaceCreateRequest, NamespaceCreateResponse, NamespaceGetRequest,
-    NamespaceGetResponse, NamespaceListRequest, NamespaceListResponse, NamespaceRecord,
-    RpcResponse,
+    NamespaceGetResponse, NamespaceListRequest, NamespaceListResponse, RpcResponse,
 };
-use sm_store::sqlite::NamespaceRecord as StoreNamespaceRecord;
 
 use crate::handler::DaemonState;
 
@@ -39,7 +37,7 @@ impl DaemonState {
 
         Ok(RpcResponse::NamespaceCreated {
             response: NamespaceCreateResponse {
-                namespace: namespace_record(record.0),
+                namespace: record.0,
                 created: record.1,
             },
         })
@@ -54,10 +52,7 @@ impl DaemonState {
             .lock()
             .expect("store lock poisoned")
             .list_namespaces()
-            .context("failed to list namespaces")?
-            .into_iter()
-            .map(namespace_record)
-            .collect();
+            .context("failed to list namespaces")?;
 
         Ok(RpcResponse::NamespacesListed {
             response: NamespaceListResponse { namespaces },
@@ -73,18 +68,10 @@ impl DaemonState {
             .list_namespaces()
             .context("failed to list namespaces")?
             .into_iter()
-            .find(|record| record.namespace == namespace)
-            .map(namespace_record);
+            .find(|record| record.namespace == namespace);
 
         Ok(RpcResponse::NamespaceGot {
             response: NamespaceGetResponse { namespace },
         })
-    }
-}
-
-fn namespace_record(record: StoreNamespaceRecord) -> NamespaceRecord {
-    NamespaceRecord {
-        namespace: record.namespace,
-        created_at: record.created_at,
     }
 }
