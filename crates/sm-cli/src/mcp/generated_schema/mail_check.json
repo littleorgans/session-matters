@@ -3,6 +3,14 @@
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
+        "type": "string"
+      },
       "selector": {
         "description": "Inbox owner selector.",
         "type": "string"

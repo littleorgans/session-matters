@@ -6,6 +6,6 @@ Pass 1 provides the tracer bullet:
 
 - `sm daemon start`
 - `sm daemon status`
-- `sm run claude --role general --workspace test --detach`
+- `sm run claude --role general --dir test --detach`
 - `sm get agents`
 - `sm daemon stop`

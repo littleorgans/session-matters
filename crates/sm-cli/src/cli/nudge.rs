@@ -1,9 +1,9 @@
 use anyhow::{Result, bail};
-use std::str::FromStr;
 
-use sm_core::{NudgeRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
+use sm_core::{NudgeRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::NudgeArgs;
+use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: NudgeArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
@@ -11,7 +11,7 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Nudge {
             request: NudgeRequest {
-                to: Selector::from_str(&args.to)?,
+                to: scoped_selector(Some(&args.to), &args.scope)?.expect("selector is present"),
                 content: args.content,
             },
         },

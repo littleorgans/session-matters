@@ -321,6 +321,8 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
+                    dir: None,
+                    namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
                     env: Vec::new(),

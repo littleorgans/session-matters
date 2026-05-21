@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
 use anyhow::{Result, bail};
-use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
+use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::LabelArgs;
 use crate::cli::output::print_session_line;
+use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: LabelArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
@@ -12,7 +13,8 @@ pub async fn run(args: LabelArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Label {
             request: LabelRequest {
-                selector: Selector::from_str(&args.selector)?,
+                selector: scoped_selector(Some(&args.selector), &args.scope)?
+                    .expect("selector is present"),
                 mutation: LabelMutation::from_str(&args.mutation)?,
             },
         },

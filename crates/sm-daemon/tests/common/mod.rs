@@ -260,6 +260,8 @@ pub async fn spawn_test_session_with_labels(
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
                     workspace: daemon._dir.path().display().to_string(),
+                    dir: None,
+                    namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
                     env: Vec::new(),

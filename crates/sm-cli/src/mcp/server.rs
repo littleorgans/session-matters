@@ -17,7 +17,10 @@ pub async fn run_stdio_bridge(_paths: SmPaths) -> Result<()> {
         let response = sm_daemon::send_request(
             &endpoint,
             &RpcRequest::McpBridge {
-                request: McpBridgeRequest { line },
+                request: McpBridgeRequest {
+                    line,
+                    caller_session_id: std::env::var("HELIOY_SESSION_ID").ok(),
+                },
             },
         )
         .await?;

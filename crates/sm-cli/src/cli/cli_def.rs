@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use sm_core::RuntimeKind;
+use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
+use crate::cli::selector_scope::NamespaceScopeArgs;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -22,6 +23,9 @@ pub enum Command {
     Daemon(DaemonArgs),
     #[command(about = generated_help::AGENT_RUN_ABOUT, long_about = generated_help::AGENT_RUN_ABOUT)]
     Run(RunArgs),
+    #[command(about = "Create namespace records")]
+    Create(CreateArgs),
+    #[command(about = "Inspect sessions and namespaces")]
     Get(GetArgs),
     Delete(DeleteArgs),
     #[command(about = generated_help::DOCTOR_ABOUT, long_about = generated_help::DOCTOR_ABOUT)]
@@ -64,8 +68,10 @@ pub struct RunArgs {
     pub runtime: RuntimeKind,
     #[arg(long, help = generated_help::AGENT_RUN_ROLE_HELP)]
     pub role: String,
-    #[arg(long, help = generated_help::AGENT_RUN_WORKSPACE_HELP)]
-    pub workspace: String,
+    #[arg(long, help = generated_help::AGENT_RUN_DIR_HELP)]
+    pub dir: Option<PathBuf>,
+    #[arg(long, help = generated_help::AGENT_RUN_NAMESPACE_HELP)]
+    pub namespace: Option<Namespace>,
     #[arg(long = "label", help = "Session label as key=value")]
     pub labels: Vec<String>,
     #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]
@@ -82,6 +88,8 @@ pub struct GetArgs {
     pub id: Option<String>,
     #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
     pub selector: Option<String>,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long)]
     pub json: bool,
 }
@@ -90,6 +98,24 @@ pub struct GetArgs {
 pub enum GetResource {
     Agent,
     Agents,
+    Namespace,
+}
+
+#[derive(Debug, Args)]
+pub struct CreateArgs {
+    #[command(subcommand)]
+    pub resource: CreateResource,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CreateResource {
+    #[command(about = "Create a namespace before spawning sessions into it")]
+    Namespace(NamespaceCreateArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct NamespaceCreateArgs {
+    pub slug: String,
 }
 
 #[derive(Debug, Args)]
@@ -97,6 +123,8 @@ pub struct DeleteArgs {
     pub resource: DeleteResource,
     #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
     pub selector: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, default_value = "SIGTERM", help = generated_help::AGENT_DELETE_SIGNAL_HELP)]
     pub signal: String,
     #[arg(long, default_value_t = 5, help = generated_help::AGENT_DELETE_GRACE_SECS_HELP)]
@@ -175,6 +203,8 @@ pub enum MailAction {
 pub struct MailSendArgs {
     #[arg(long, help = generated_help::MAIL_SEND_TO_HELP)]
     pub to: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, help = generated_help::MAIL_SEND_FROM_HELP)]
     pub from: Option<String>,
     #[arg(long, help = generated_help::MAIL_SEND_CONTENT_HELP)]
@@ -204,6 +234,8 @@ pub struct MailStopCheckArgs {
 #[derive(Debug, Args)]
 pub struct LabelArgs {
     pub selector: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     pub mutation: String,
 }
 
@@ -211,6 +243,8 @@ pub struct LabelArgs {
 pub struct NudgeArgs {
     #[arg(long, help = generated_help::NUDGE_TO_HELP)]
     pub to: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, help = generated_help::NUDGE_CONTENT_HELP)]
     pub content: String,
 }

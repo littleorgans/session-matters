@@ -9,36 +9,37 @@ pub struct ToolExample {
 pub fn examples() -> Vec<ToolExample> {
     vec![
         ToolExample {
-            tool: "agent_run",
+            tool: "session_run",
             arguments: json!({
                 "runtime": "claude",
                 "role": "engineer",
-                "workspace": "/Users/you/code/session-matters",
+                "dir": "/Users/you/code/session-matters",
+                "namespace": "project-alpha",
                 "target": "headless",
                 "labels": ["area=auth", "pri=high"]
             }),
         },
         ToolExample {
-            tool: "agent_list",
+            tool: "session_list",
             arguments: json!({
-                "selector": "role:engineer"
+                "selector": "namespace:project-alpha"
             }),
         },
         ToolExample {
-            tool: "agent_get",
+            tool: "session_get",
             arguments: json!({
                 "id": "019e32e3-0000-7000-8000-000000000000"
             }),
         },
         ToolExample {
-            tool: "agent_capture",
+            tool: "session_capture",
             arguments: json!({
                 "selector": "id:019e32e3-0000-7000-8000-000000000000",
                 "scrollback_lines": 500
             }),
         },
         ToolExample {
-            tool: "agent_delete",
+            tool: "session_delete",
             arguments: json!({
                 "selector": "id:019e32e3-0000-7000-8000-000000000000",
                 "signal": "SIGTERM",

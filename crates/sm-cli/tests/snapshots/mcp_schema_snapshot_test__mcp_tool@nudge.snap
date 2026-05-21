@@ -8,8 +8,16 @@ expression: tool
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
       "content": {
         "description": "Nudge content.",
+        "type": "string"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"
       },
       "to": {

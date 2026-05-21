@@ -4,7 +4,10 @@ use std::str::FromStr;
 use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
-use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
+use crate::{
+    LabelMutation, Mail, Namespace, NamespaceRecord, RuntimeKind, Selector, Session, SmError,
+    SmResult,
+};
 
 fn default_spawn_target() -> String {
     "headless".to_string()
@@ -14,7 +17,12 @@ fn default_spawn_target() -> String {
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
+    #[serde(default)]
     pub workspace: String,
+    #[serde(default)]
+    pub dir: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<Namespace>,
     #[serde(default = "default_spawn_target")]
     pub target: String,
     #[serde(default)]
@@ -40,6 +48,35 @@ pub struct ListRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ListResponse {
     pub sessions: Vec<Session>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceCreateRequest {
+    pub slug: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceCreateResponse {
+    pub namespace: NamespaceRecord,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceGetRequest {
+    pub slug: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceGetResponse {
+    pub namespace: Option<NamespaceRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct NamespaceListRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceListResponse {
+    pub namespaces: Vec<NamespaceRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -263,6 +300,8 @@ pub struct TargetError {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct McpBridgeRequest {
     pub line: String,
+    #[serde(default)]
+    pub caller_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -288,6 +327,9 @@ pub struct DaemonStatus {
 pub enum RpcRequest {
     Spawn { request: SpawnRequest },
     List { request: ListRequest },
+    NamespaceCreate { request: NamespaceCreateRequest },
+    NamespaceGet { request: NamespaceGetRequest },
+    NamespaceList { request: NamespaceListRequest },
     Delete { request: DeleteRequest },
     MailSend { request: MailSendRequest },
     MailRead { request: MailReadRequest },
@@ -309,6 +351,9 @@ pub enum RpcRequest {
 pub enum RpcResponse {
     Spawned { response: SpawnResponse },
     Listed { response: ListResponse },
+    NamespaceCreated { response: NamespaceCreateResponse },
+    NamespaceGot { response: NamespaceGetResponse },
+    NamespacesListed { response: NamespaceListResponse },
     Deleted { response: DeleteResponse },
     MailSent { response: MailSendResponse },
     MailRead { response: MailReadResponse },
@@ -331,6 +376,9 @@ impl RpcResponse {
         match self {
             RpcResponse::Spawned { .. } => "Spawned",
             RpcResponse::Listed { .. } => "Listed",
+            RpcResponse::NamespaceCreated { .. } => "NamespaceCreated",
+            RpcResponse::NamespaceGot { .. } => "NamespaceGot",
+            RpcResponse::NamespacesListed { .. } => "NamespacesListed",
             RpcResponse::Deleted { .. } => "Deleted",
             RpcResponse::MailSent { .. } => "MailSent",
             RpcResponse::MailRead { .. } => "MailRead",
@@ -361,6 +409,8 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                dir: None,
+                namespace: None,
                 target: "headless".to_string(),
                 agent_config: None,
                 env: Vec::new(),
@@ -373,6 +423,49 @@ mod tests {
         let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
 
         assert_eq!(decoded, request);
+    }
+
+    #[test]
+    fn spawn_request_decodes_legacy_payload_without_new_fields() {
+        let json = r#"{
+            "type": "spawn",
+            "request": {
+                "runtime": "claude",
+                "role": "general",
+                "workspace": "/tmp/project"
+            }
+        }"#;
+
+        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes legacy request");
+        let RpcRequest::Spawn { request } = decoded else {
+            panic!("expected spawn request");
+        };
+        assert_eq!(request.workspace, "/tmp/project");
+        assert_eq!(request.dir, None);
+        assert_eq!(request.namespace, None);
+        assert_eq!(request.target, "headless");
+    }
+
+    #[test]
+    fn spawn_request_decodes_new_payload_without_legacy_workspace() {
+        let json = r#"{
+            "type": "spawn",
+            "request": {
+                "runtime": "claude",
+                "role": "general",
+                "dir": "/tmp/project",
+                "namespace": "alpha"
+            }
+        }"#;
+
+        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes new request");
+        let RpcRequest::Spawn { request } = decoded else {
+            panic!("expected spawn request");
+        };
+        assert_eq!(request.workspace, "");
+        assert_eq!(request.dir.as_deref(), Some("/tmp/project"));
+        assert_eq!(request.namespace.unwrap().as_str(), "alpha");
+        assert_eq!(request.target, "headless");
     }
 
     #[test]

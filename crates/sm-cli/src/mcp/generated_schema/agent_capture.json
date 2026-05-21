@@ -1,8 +1,16 @@
 {
-  "description": "Capture tmux pane scrollback for one selected session.",
+  "description": "Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
+        "type": "string"
+      },
       "scrollback_lines": {
         "description": "Maximum tmux scrollback lines to include.",
         "type": "integer"

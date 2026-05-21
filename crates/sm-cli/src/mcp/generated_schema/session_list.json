@@ -1,0 +1,127 @@
+{
+  "description": "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
+        "type": "string"
+      },
+      "selector": {
+        "description": "Optional session selector. Defaults to all.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "name": "session_list",
+  "outputSchema": {
+    "properties": {
+      "sessions": {
+        "items": {
+          "properties": {
+            "agent_config": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "created_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "runtime": {
+              "enum": [
+                "claude",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "runtime_pid": {
+              "type": "integer"
+            },
+            "runtime_session": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "started_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "SPAWNING",
+                "RUNNING",
+                "TERMINATED",
+                "LOST"
+              ],
+              "type": "string"
+            },
+            "terminated_at": {
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tmux_pane": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "transcript_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "workspace": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "runtime",
+            "role",
+            "workspace",
+            "state",
+            "runtime_pid",
+            "created_at",
+            "started_at",
+            "updated_at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "sessions"
+    ],
+    "type": "object"
+  }
+}

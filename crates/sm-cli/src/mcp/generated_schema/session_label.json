@@ -1,0 +1,43 @@
+{
+  "description": "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "mutation": {
+        "description": "Label mutation as key=value or key-.",
+        "type": "string"
+      },
+      "selector": {
+        "description": "Session selector to mutate.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "selector",
+      "mutation"
+    ],
+    "type": "object"
+  },
+  "name": "session_label",
+  "outputSchema": {
+    "properties": {
+      "errors": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "sessions": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "sessions",
+      "errors"
+    ],
+    "type": "object"
+  }
+}

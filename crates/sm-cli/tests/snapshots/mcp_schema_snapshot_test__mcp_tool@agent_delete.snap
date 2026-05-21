@@ -3,7 +3,7 @@ source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
 expression: tool
 ---
 {
-  "description": "Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
+  "description": "Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {

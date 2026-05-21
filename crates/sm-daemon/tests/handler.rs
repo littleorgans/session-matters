@@ -1,18 +1,14 @@
 mod common;
 
+use chrono::Utc;
 use common::{
-    LOCAL_UID, TestDaemon, launch_env, local_context, mail_count, mock_rtmd_doctor,
-    runtime_doctor_response, spawn_test_session, spawn_test_session_with_labels,
+    LOCAL_UID, TestDaemon, launch_env, local_context, mock_rtmd_doctor, runtime_doctor_response,
+    spawn_test_session,
 };
-use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, DoctorRequest, Label, LinkRequest, LogsRequest, LostEvidence, MailReadRequest,
-    MailSendRequest, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
-    SpawnRequest, WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, LinkRequest, LogsRequest, LostEvidence, Namespace, RpcRequest,
+    RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest, WaitCondition, WaitRequest,
 };
-use sm_daemon::handler::DaemonState;
-use sm_daemon::identity_client::RequestContext;
-use uuid::Uuid;
 
 #[tokio::test]
 async fn drives_session_through_delete_lifecycle() {
@@ -63,6 +59,8 @@ async fn agent_config_env_reaches_spawn_driver() {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
+                    dir: None,
+                    namespace: None,
                     target: "headless".to_string(),
                     agent_config: Some(config.display().to_string()),
                     env: Vec::new(),
@@ -116,6 +114,8 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
+                    dir: None,
+                    namespace: None,
                     target: "tmux:test:0.0".to_string(),
                     agent_config: None,
                     env: vec![
@@ -145,9 +145,162 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
 #[tokio::test]
 async fn spawn_launch_cwd_is_request_workspace() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
-    spawn_test_session(&daemon, &local_context(), "pm").await;
+    let session = spawn_test_session(&daemon, &local_context(), "pm").await;
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
     assert_eq!(launch.cwd, daemon._dir.path());
+    assert_eq!(session.namespace, Namespace::default());
+    assert_eq!(session.dir, daemon._dir.path());
+}
+
+#[tokio::test]
+async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let namespace = create_namespace(&daemon, "alpha");
+    let dir = daemon._dir.path().display().to_string();
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: String::new(),
+                    dir: Some(dir.clone()),
+                    namespace: Some(namespace.clone()),
+                    target: "headless".to_string(),
+                    agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { response } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    assert_eq!(response.session.workspace, dir);
+    assert_eq!(response.session.namespace, namespace);
+    assert_eq!(response.session.dir, daemon._dir.path());
+}
+
+#[tokio::test]
+async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let namespace = create_namespace(&daemon, "alpha");
+    let legacy_workspace = tempfile::tempdir().expect("legacy workspace creates");
+    let dir = daemon._dir.path().display().to_string();
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: legacy_workspace.path().display().to_string(),
+                    dir: Some(dir.clone()),
+                    namespace: Some(namespace.clone()),
+                    target: "headless".to_string(),
+                    agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { response } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert_eq!(launch.cwd, daemon._dir.path());
+    assert_eq!(response.session.workspace, dir);
+    assert_eq!(response.session.namespace, namespace);
+}
+
+#[tokio::test]
+async fn spawn_rejects_unknown_namespace_before_launch() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let namespace = Namespace::new("missing").expect("namespace validates");
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: String::new(),
+                    dir: Some(daemon._dir.path().display().to_string()),
+                    namespace: Some(namespace),
+                    target: "headless".to_string(),
+                    agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Error { message } = spawned.response else {
+        panic!("expected error response");
+    };
+    assert!(message.contains("namespace not found: missing"));
+    assert!(daemon.driver.launches().is_empty());
+}
+
+#[tokio::test]
+async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let child = daemon._dir.path().join("child");
+    std::fs::create_dir(&child).expect("child dir creates");
+    let raw_dir = child.join("..").display().to_string();
+
+    let spawned = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: String::new(),
+                    dir: Some(raw_dir.clone()),
+                    namespace: None,
+                    target: "headless".to_string(),
+                    agent_config: None,
+                    env: Vec::new(),
+                    shell_resume: None,
+                    labels: Vec::new(),
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { response } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    let session_namespace = daemon
+        .state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .get_session_namespace(&response.session.id)
+        .expect("session namespace loads")
+        .expect("session namespace exists");
+    assert_eq!(session_namespace.dir.display().to_string(), raw_dir);
 }
 
 #[tokio::test]
@@ -180,6 +333,18 @@ async fn spawn_persists_driver_stdout_path_for_logs() {
         panic!("expected logs response");
     };
     assert_eq!(response.content, "daemon spawned\n");
+}
+
+fn create_namespace(daemon: &TestDaemon, value: &str) -> Namespace {
+    let namespace = Namespace::for_create(value).expect("namespace validates");
+    daemon
+        .state
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .create_namespace(&namespace, Utc::now())
+        .expect("namespace creates");
+    namespace
 }
 
 #[tokio::test]

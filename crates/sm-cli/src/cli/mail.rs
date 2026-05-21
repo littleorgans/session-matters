@@ -10,6 +10,7 @@ use crate::cli::cli_def::{
     MailAction, MailArgs, MailCheckArgs, MailReadArgs, MailSendArgs, MailStopCheckArgs,
 };
 use crate::cli::output::print_mail;
+use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: MailArgs) -> Result<()> {
     match args.action {
@@ -24,7 +25,7 @@ async fn send(args: MailSendArgs) -> Result<()> {
     let response = send_daemon_request(RpcRequest::MailSend {
         request: MailSendRequest {
             from: args.from.or_else(env_session_id),
-            to: Selector::from_str(&args.to)?,
+            to: scoped_selector(Some(&args.to), &args.scope)?.expect("selector is present"),
             content: args.content,
         },
     })

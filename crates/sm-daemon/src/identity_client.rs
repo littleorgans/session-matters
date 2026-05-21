@@ -12,11 +12,20 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct RequestContext {
     pub principal: Principal,
+    pub mcp_caller_session_id: Option<Uuid>,
 }
 
 impl RequestContext {
     pub fn new(principal: Principal) -> Self {
-        Self { principal }
+        Self {
+            principal,
+            mcp_caller_session_id: None,
+        }
+    }
+
+    pub fn with_mcp_caller_session_id(mut self, id: Uuid) -> Self {
+        self.mcp_caller_session_id = Some(id);
+        self
     }
 }
 

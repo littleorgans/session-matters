@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use crate::agent_config::{ResolvedAgentConfig, resolve_agent_config};
 use crate::identity_client::{IdentityClient, RequestContext, session_resource, spawn_resource};
+use crate::spawn_request::normalize_spawn_request;
 
 pub struct DaemonState {
     pub store: Mutex<SqliteStore>,
@@ -54,14 +55,31 @@ impl DaemonState {
 
     pub async fn handle(&self, context: RequestContext, request: RpcRequest) -> HandlerResult {
         match request {
-            RpcRequest::McpBridge { request } => HandlerResult {
-                response: RpcResponse::McpBridge {
-                    response: McpBridgeResponse {
-                        line: crate::mcp_bridge::handle_line(self, &context, &request.line).await,
+            RpcRequest::McpBridge { request } => {
+                let context = match request.caller_session_id.as_deref() {
+                    Some(raw) => match Uuid::parse_str(raw) {
+                        Ok(id) => context.with_mcp_caller_session_id(id),
+                        Err(error) => {
+                            return HandlerResult {
+                                response: RpcResponse::Error {
+                                    message: format!("invalid MCP caller session id: {error}"),
+                                },
+                                shutdown: false,
+                            };
+                        }
                     },
-                },
-                shutdown: false,
-            },
+                    None => context,
+                };
+                HandlerResult {
+                    response: RpcResponse::McpBridge {
+                        response: McpBridgeResponse {
+                            line: crate::mcp_bridge::handle_line(self, &context, &request.line)
+                                .await,
+                        },
+                    },
+                    shutdown: false,
+                }
+            }
             request => self.handle_direct(context, request).await,
         }
     }
@@ -74,6 +92,15 @@ impl DaemonState {
         match request {
             RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
             RpcRequest::List { request } => response(self.list(request).await, false),
+            RpcRequest::NamespaceCreate { request } => {
+                response(self.create_namespace(request).await, false)
+            }
+            RpcRequest::NamespaceGet { request } => {
+                response(self.get_namespace(request).await, false)
+            }
+            RpcRequest::NamespaceList { request } => {
+                response(self.list_namespaces(request).await, false)
+            }
             RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
             RpcRequest::MailSend { request } => {
                 response(self.mail_send(&context, request).await, false)
@@ -102,9 +129,16 @@ impl DaemonState {
         }
     }
 
-    async fn spawn(&self, context: &RequestContext, request: SpawnRequest) -> Result<RpcResponse> {
+    async fn spawn(
+        &self,
+        context: &RequestContext,
+        mut request: SpawnRequest,
+    ) -> Result<RpcResponse> {
         let id = Uuid::now_v7();
-        validate_workspace(&request.workspace)?;
+        let location = {
+            let store = self.store.lock().expect("store lock poisoned");
+            normalize_spawn_request(&mut request, &store)?
+        };
         let agent_config = resolve_agent_config(request.agent_config.as_deref())?;
         let launch = spawn_launch(id, &request, agent_config.as_ref());
         let mut labels = request.labels.clone();
@@ -131,6 +165,8 @@ impl DaemonState {
             runtime: request.runtime,
             role: request.role,
             workspace: request.workspace,
+            namespace: location.namespace,
+            dir: location.dir,
             labels,
             state: SessionState::Running,
             runtime_pid: spawned.runtime_pid,
@@ -576,22 +612,6 @@ fn spawn_launch(
         env,
         shell_resume,
     }
-}
-
-fn validate_workspace(workspace: &str) -> Result<()> {
-    if workspace.is_empty() {
-        anyhow::bail!("workspace must not be empty");
-    }
-    let path = std::path::Path::new(workspace);
-    if !path.is_absolute() {
-        anyhow::bail!(
-            "workspace must be an absolute path; got {workspace} (resolve relative paths in the caller)"
-        );
-    }
-    if !path.is_dir() {
-        anyhow::bail!("workspace must point to an existing directory: {workspace}");
-    }
-    Ok(())
 }
 
 fn shell_resume(request: &SpawnRequest, cwd: &std::path::Path) -> Option<ShellResume> {

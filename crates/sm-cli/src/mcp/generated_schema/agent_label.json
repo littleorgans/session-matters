@@ -1,5 +1,5 @@
 {
-  "description": "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.",
+  "description": "Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {

@@ -3,6 +3,10 @@
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
       "follow": {
         "description": "CLI only: follow appended transcript bytes.",
         "type": "boolean"
@@ -10,6 +14,10 @@
       "max_bytes": {
         "description": "Maximum bytes to return from the end of the transcript.",
         "type": "integer"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
+        "type": "string"
       },
       "selector": {
         "description": "Selector that must match exactly one session with transcript logs.",

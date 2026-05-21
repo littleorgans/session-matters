@@ -7,12 +7,12 @@ workflow = """
 ## Session Control Workflow
 
 Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
-Use `agent_run` to start a local agent runtime through the session-matters daemon.
-Use `agent_list` to inspect live and terminated sessions.
-Use `agent_get` before acting on one session id.
-Use `agent_capture` to read tmux pane scrollback for a tmux backed session.
-Use `agent_delete` to terminate daemon owned sessions.
-Use `agent_label` to add or remove labels on selected sessions.
+Use `session_run` to start a local session through the session-matters daemon.
+Use `session_list` to inspect live and terminated sessions.
+Use `session_get` before acting on one session id.
+Use `session_capture` to read tmux pane scrollback for a tmux backed session.
+Use `session_delete` to terminate daemon owned sessions.
+Use `session_label` to add or remove labels on selected sessions.
 Use `logs` for daemon-spawned headless transcripts, and `link` only for unmanaged sessions.
 Use `wait` and `doctor` for lifecycle and runtime-matters diagnostics.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
@@ -21,7 +21,7 @@ Use `nudge` for the ephemeral notification surface.
 
 [tools.agent_run]
 cli_name        = "run"
-mcp_description = "Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+mcp_description = "Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
 cli_about       = "Start an agent runtime through the session-matters daemon."
 output_schema   = '''
 {
@@ -71,12 +71,26 @@ cli_help        = "Role label recorded on the session."
 cli_flag        = "--role"
 
 [[tools.agent_run.params]]
+name            = "dir"
+type            = "string"
+required        = false
+mcp_description = "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory."
+cli_help        = "Filesystem directory used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
+cli_flag        = "--dir"
+
+[[tools.agent_run.params]]
+name            = "namespace"
+type            = "string"
+required        = false
+mcp_description = "Namespace slug for the spawned session. The namespace must already exist before spawning."
+cli_help        = "Namespace slug for the spawned session. Overrides .sm/namespace marker discovery."
+cli_flag        = "--namespace"
+
+[[tools.agent_run.params]]
 name            = "workspace"
 type            = "string"
-required        = true
-mcp_description = "Filesystem path used as the runtime's working directory. Caller-relative paths are resolved against the caller's cwd and must point to an existing directory. The absolute path is stored on the session."
-cli_help        = "Filesystem path used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
-cli_flag        = "--workspace"
+required        = false
+mcp_description = "Deprecated compatibility alias for dir. Use dir for new callers."
 
 [[tools.agent_run.params]]
 name            = "labels"
@@ -103,10 +117,15 @@ mcp_description = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Def
 cli_help        = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless."
 cli_flag        = "--target"
 
+[[tools.agent_run.mcp_aliases]]
+name            = "session_run"
+mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+
 [tools.agent_list]
 cli_name        = "get agents"
-mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b)."
+mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
 cli_about       = "List session records known to the session-matters daemon."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -148,10 +167,15 @@ mcp_description = "Optional session selector. Defaults to all."
 cli_help        = "Optional session selector."
 cli_flag        = "--selector"
 
+[[tools.agent_list.mcp_aliases]]
+name            = "session_list"
+mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
+
 [tools.agent_get]
 cli_name        = "get agent"
-mcp_description = "Get one session record by id. The tool returns an error envelope when the id is unknown."
+mcp_description = "Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown."
 cli_about       = "Get one session record by id."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -190,10 +214,15 @@ mcp_description = "Session id to load."
 cli_help        = "Session id to load."
 cli_flag        = "id"
 
+[[tools.agent_get.mcp_aliases]]
+name            = "session_get"
+mcp_description = "Get one session record by id. The tool returns an error envelope when the id is unknown."
+
 [tools.agent_capture]
 cli_name        = "capture"
-mcp_description = "Capture tmux pane scrollback for one selected session."
+mcp_description = "Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session."
 cli_about       = "Capture tmux pane scrollback for one selected session."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -228,9 +257,13 @@ mcp_description = "Maximum tmux scrollback lines to include."
 cli_help        = "Maximum tmux scrollback lines to include."
 cli_flag        = "--scrollback-lines"
 
+[[tools.agent_capture.mcp_aliases]]
+name            = "session_capture"
+mcp_description = "Capture tmux pane scrollback for one selected session."
+
 [tools.agent_delete]
 cli_name        = "delete agent"
-mcp_description = "Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period."
+mcp_description = "Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period."
 cli_about       = "Terminate daemon owned agent runtimes by selector."
 output_schema   = '''
 {
@@ -267,9 +300,13 @@ mcp_description = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_help        = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_flag        = "--grace"
 
+[[tools.agent_delete.mcp_aliases]]
+name            = "session_delete"
+mcp_description = "Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period."
+
 [tools.agent_label]
 cli_name        = "label"
-mcp_description = "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
+mcp_description = "Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
 cli_about       = "Add or remove labels on selected sessions."
 output_schema   = '''
 {
@@ -297,6 +334,10 @@ required        = true
 mcp_description = "Label mutation as key=value or key-."
 cli_help        = "Label mutation as key=value or key-."
 cli_flag        = "mutation"
+
+[[tools.agent_label.mcp_aliases]]
+name            = "session_label"
+mcp_description = "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
 
 [tools.mail_send]
 cli_name        = "mail send"
@@ -341,6 +382,7 @@ cli_flag        = "--content"
 cli_name        = "mail read"
 mcp_description = "Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true."
 cli_about       = "Read unread mail for selected sessions."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -372,6 +414,7 @@ cli_flag        = "--peek"
 cli_name        = "mail check"
 mcp_description = "Return the unread mail count for sessions selected by selector without draining mail."
 cli_about       = "Return unread mail count for selected sessions."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -395,6 +438,7 @@ cli_flag        = "--selector"
 cli_name        = "mail stop-check"
 mcp_description = "Return the unread mail count for stop-hook decisions without draining mail."
 cli_about       = "Check unread mail for stop-hook decisions."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -418,6 +462,7 @@ cli_flag        = "--selector"
 cli_name        = "nudge"
 mcp_description = "Send an ephemeral nudge to sessions selected by selector. Tmux-backed runtimes deliver through rtmd; headless or ended runtimes return typed failure messages."
 cli_about       = "Send an ephemeral nudge to selected sessions."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -495,6 +540,7 @@ cli_flag        = "--transcript"
 cli_name        = "logs"
 mcp_description = "Read the transcript linked to one selected session."
 cli_about       = "Read linked transcript logs for one session."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",
@@ -535,6 +581,7 @@ cli_flag        = "--max-bytes"
 cli_name        = "wait"
 mcp_description = "Wait until a selector satisfies running, terminated, or count=N."
 cli_about       = "Wait until a selector satisfies a condition."
+mcp_namespace_scope = true
 output_schema   = '''
 {
   "type": "object",

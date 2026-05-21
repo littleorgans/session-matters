@@ -1,8 +1,16 @@
 {
-  "description": "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b).",
+  "description": "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
+        "type": "string"
+      },
       "selector": {
         "description": "Optional session selector. Defaults to all.",
         "type": "string"

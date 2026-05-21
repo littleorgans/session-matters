@@ -14,8 +14,9 @@ Control plane for Helioy agent sessions.
 ```bash
 rtm daemon start
 sm daemon start
-sm run claude --role general --workspace "$PWD" --detach
-sm run codex --role reviewer --workspace "$PWD" --target tmux:agents:0.1 --detach
+sm create namespace project-alpha
+sm run claude --role general --dir "$PWD" --detach
+sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --detach
 sm capture --selector id:<session-id>
 sm get agents
 sm logs id:<session-id>
@@ -28,6 +29,50 @@ The daemon uses `~/.sm/sm.pid`, `~/.sm/sock`, and `~/.sm/sm.db` by default.
 Set `SM_HOME` to use an alternate runtime directory.
 The daemon connects to runtime-matters through `~/.rtm/sock`, or `RTM_SOCKET_PATH`.
 `smd` requires `rtmd` with runtime protocol 0.6 or newer.
+
+## Namespaces
+
+Namespaces group sessions under explicit, operator created slugs. The `default`
+namespace always exists, and pre migration session rows are backfilled into
+`default` on upgrade.
+
+### Migration Guide
+
+Create the namespace before spawning into it:
+
+```bash
+sm create namespace project-alpha
+mkdir -p .sm
+echo project-alpha > .sm/namespace
+```
+
+The marker is a UTF-8 text file at `.sm/namespace` containing one namespace
+slug. CLI marker discovery walks from the selected directory toward the
+filesystem root and stops after checking `$HOME`. If no marker resolves, the CLI
+uses `default`. `--namespace <slug>` overrides marker discovery, and the
+namespace must already exist.
+
+`sm run --dir <path>` is the directory flag. New callers should use `--dir` and
+`--namespace`.
+
+Selectors support `namespace:<slug>` and `dir:<path>`. `workspace:<path>` selectors
+were removed in this migration. Use `dir:<path>` for path based selection or
+`namespace:<slug>` for namespace based selection.
+
+CLI selector reads default to the resolved namespace when a marker or
+`--namespace` resolves. This applies to the selector consuming surfaces in this
+release: `sm get agent`, `sm get agents`, `sm mail send --to <selector>`,
+`sm nudge --to <selector>`, `sm label`, and `sm delete agent`. Use `-A` or
+`--all-namespaces` to bypass default scoping.
+
+MCP callers should use `session_*` tools. `agent_*` tools remain deprecated
+compatibility aliases during this release. MCP read tools accept `namespace` to
+scope reads and `all_namespaces` to bypass scoping. When neither is supplied, the
+daemon falls back to the caller session's stored namespace. The daemon does not
+walk the MCP server process cwd.
+
+A future hard cut master will remove the compatibility surfaces after the
+migration window.
 
 ## MCP Server
 
@@ -49,8 +94,10 @@ just test
 pub fn render_server_instructions(skill: Option<&SkillConfig>, tools: &[ToolContract]) -> String {
     let mut out = String::new();
     out.push_str("session-matters controls local Helioy agent sessions through smd.\n\n");
-    out.push_str("Use agent_run to spawn a session, agent_list to inspect sessions, ");
-    out.push_str("agent_get before acting on one id, and agent_delete to terminate a session.\n\n");
+    out.push_str("Use session_run to spawn a session, session_list to inspect sessions, ");
+    out.push_str(
+        "session_get before acting on one id, and session_delete to terminate a session.\n\n",
+    );
     append_tool_bullets(&mut out, tools);
     if let Some(skill) = skill {
         out.push('\n');

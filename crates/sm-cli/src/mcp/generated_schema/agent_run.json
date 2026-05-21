@@ -1,10 +1,14 @@
 {
-  "description": "Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
+  "description": "Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
       "agent_config": {
         "description": "Agent config name resolved as ~/.agm/<name>/agent.toml, or an explicit agent.toml path.",
+        "type": "string"
+      },
+      "dir": {
+        "description": "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory.",
         "type": "string"
       },
       "labels": {
@@ -13,6 +17,10 @@
           "type": "string"
         },
         "type": "array"
+      },
+      "namespace": {
+        "description": "Namespace slug for the spawned session. The namespace must already exist before spawning.",
+        "type": "string"
       },
       "role": {
         "description": "Role label recorded on the session.",
@@ -31,14 +39,13 @@
         "type": "string"
       },
       "workspace": {
-        "description": "Filesystem path used as the runtime's working directory. Caller-relative paths are resolved against the caller's cwd and must point to an existing directory. The absolute path is stored on the session.",
+        "description": "Deprecated compatibility alias for dir. Use dir for new callers.",
         "type": "string"
       }
     },
     "required": [
       "runtime",
-      "role",
-      "workspace"
+      "role"
     ],
     "type": "object"
   },

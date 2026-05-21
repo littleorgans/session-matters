@@ -9,8 +9,9 @@ Control plane for Helioy agent sessions.
 ```bash
 rtm daemon start
 sm daemon start
-sm run claude --role general --workspace "$PWD" --detach
-sm run codex --role reviewer --workspace "$PWD" --target tmux:agents:0.1 --detach
+sm create namespace project-alpha
+sm run claude --role general --dir "$PWD" --detach
+sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --detach
 sm capture --selector id:<session-id>
 sm get agents
 sm logs id:<session-id>
@@ -24,6 +25,50 @@ Set `SM_HOME` to use an alternate runtime directory.
 The daemon connects to runtime-matters through `~/.rtm/sock`, or `RTM_SOCKET_PATH`.
 `smd` requires `rtmd` with runtime protocol 0.6 or newer.
 
+## Namespaces
+
+Namespaces group sessions under explicit, operator created slugs. The `default`
+namespace always exists, and pre migration session rows are backfilled into
+`default` on upgrade.
+
+### Migration Guide
+
+Create the namespace before spawning into it:
+
+```bash
+sm create namespace project-alpha
+mkdir -p .sm
+echo project-alpha > .sm/namespace
+```
+
+The marker is a UTF-8 text file at `.sm/namespace` containing one namespace
+slug. CLI marker discovery walks from the selected directory toward the
+filesystem root and stops after checking `$HOME`. If no marker resolves, the CLI
+uses `default`. `--namespace <slug>` overrides marker discovery, and the
+namespace must already exist.
+
+`sm run --dir <path>` is the directory flag. New callers should use `--dir` and
+`--namespace`.
+
+Selectors support `namespace:<slug>` and `dir:<path>`. `workspace:<path>` selectors
+were removed in this migration. Use `dir:<path>` for path based selection or
+`namespace:<slug>` for namespace based selection.
+
+CLI selector reads default to the resolved namespace when a marker or
+`--namespace` resolves. This applies to the selector consuming surfaces in this
+release: `sm get agent`, `sm get agents`, `sm mail send --to <selector>`,
+`sm nudge --to <selector>`, `sm label`, and `sm delete agent`. Use `-A` or
+`--all-namespaces` to bypass default scoping.
+
+MCP callers should use `session_*` tools. `agent_*` tools remain deprecated
+compatibility aliases during this release. MCP read tools accept `namespace` to
+scope reads and `all_namespaces` to bypass scoping. When neither is supplied, the
+daemon falls back to the caller session's stored namespace. The daemon does not
+walk the MCP server process cwd.
+
+A future hard cut master will remove the compatibility surfaces after the
+migration window.
+
 ## MCP Server
 
 ```bash
@@ -34,12 +79,18 @@ sm mcp
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `agent_run` | `sm run` | Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `agent_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b). |
-| `agent_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
-| `agent_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
-| `agent_delete` | `sm delete agent` | Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period. |
-| `agent_label` | `sm label` | Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `agent_list` | `sm get agents` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `session_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `agent_get` | `sm get agent` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `session_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
+| `session_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
+| `agent_delete` | `sm delete agent` | Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period. |
+| `session_delete` | `sm delete agent` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
+| `agent_label` | `sm label` | Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `session_label` | `sm label` | Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
 | `mail_send` | `sm mail send` | Send durable mail to sessions selected by selector. |
 | `mail_read` | `sm mail read` | Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true. |
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
@@ -52,30 +103,31 @@ sm mcp
 
 ## Examples
 
-### `agent_run`
+### `session_run`
 
 ```json
 {
+  "dir": "/Users/you/code/session-matters",
   "labels": [
     "area=auth",
     "pri=high"
   ],
+  "namespace": "project-alpha",
   "role": "engineer",
   "runtime": "claude",
-  "target": "headless",
-  "workspace": "/Users/you/code/session-matters"
+  "target": "headless"
 }
 ```
 
-### `agent_list`
+### `session_list`
 
 ```json
 {
-  "selector": "role:engineer"
+  "selector": "namespace:project-alpha"
 }
 ```
 
-### `agent_get`
+### `session_get`
 
 ```json
 {
@@ -83,7 +135,7 @@ sm mcp
 }
 ```
 
-### `agent_capture`
+### `session_capture`
 
 ```json
 {
@@ -92,7 +144,7 @@ sm mcp
 }
 ```
 
-### `agent_delete`
+### `session_delete`
 
 ```json
 {
@@ -108,12 +160,12 @@ sm mcp
 ## Session Control Workflow
 
 Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
-Use `agent_run` to start a local agent runtime through the session-matters daemon.
-Use `agent_list` to inspect live and terminated sessions.
-Use `agent_get` before acting on one session id.
-Use `agent_capture` to read tmux pane scrollback for a tmux backed session.
-Use `agent_delete` to terminate daemon owned sessions.
-Use `agent_label` to add or remove labels on selected sessions.
+Use `session_run` to start a local session through the session-matters daemon.
+Use `session_list` to inspect live and terminated sessions.
+Use `session_get` before acting on one session id.
+Use `session_capture` to read tmux pane scrollback for a tmux backed session.
+Use `session_delete` to terminate daemon owned sessions.
+Use `session_label` to add or remove labels on selected sessions.
 Use `logs` for daemon-spawned headless transcripts, and `link` only for unmanaged sessions.
 Use `wait` and `doctor` for lifecycle and runtime-matters diagnostics.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.

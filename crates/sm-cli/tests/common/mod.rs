@@ -65,12 +65,20 @@ impl DaemonFixture {
     }
 
     pub fn spawn_mcp(&self) -> McpFixture {
+        let child = self.mcp_command().spawn().expect("sm mcp starts");
+        McpFixture {
+            child,
+            stdin: None,
+            stdout: None,
+        }
+        .with_pipes()
+    }
+
+    pub fn spawn_mcp_for_session(&self, session_id: &str, current_dir: &Path) -> McpFixture {
         let child = self
-            .command()
-            .arg("mcp")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .mcp_command()
+            .env("HELIOY_SESSION_ID", session_id)
+            .current_dir(current_dir)
             .spawn()
             .expect("sm mcp starts");
         McpFixture {
@@ -94,6 +102,16 @@ impl DaemonFixture {
         command
             .env("SM_HOME", self.dir.path())
             .env("HOME", self.dir.path());
+        command
+    }
+
+    fn mcp_command(&self) -> Command {
+        let mut command = self.command();
+        command
+            .arg("mcp")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
         command
     }
 

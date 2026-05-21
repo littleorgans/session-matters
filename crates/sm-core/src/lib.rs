@@ -1,7 +1,13 @@
 pub mod error;
+pub mod label;
+pub mod mail;
 pub mod mcp;
+pub mod namespace;
 pub mod paths;
 pub mod proto;
+pub mod runtime;
+pub mod selector;
+pub mod session;
 pub mod tool_contracts;
 pub mod types;
 
@@ -15,11 +21,14 @@ pub use proto::{
     DoctorRequest, DoctorResponse, LabelRequest, LabelResponse, LinkRequest, LinkResponse,
     ListRequest, ListResponse, LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse,
     MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
-    MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse, NudgeDelivery,
-    NudgeRequest, NudgeResponse, RpcRequest, RpcResponse, RuntimeDoctorReport, ShutdownResponse,
-    SpawnRequest, SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
+    MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse,
+    NamespaceCreateRequest, NamespaceCreateResponse, NamespaceGetRequest, NamespaceGetResponse,
+    NamespaceListRequest, NamespaceListResponse, NudgeDelivery, NudgeRequest, NudgeResponse,
+    RpcRequest, RpcResponse, RuntimeDoctorReport, ShutdownResponse, SpawnRequest, SpawnResponse,
+    TargetError, WaitCondition, WaitRequest, WaitResponse,
 };
 pub use types::{
-    Channel, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus, RuntimeKind, Selector,
-    Session, SessionState,
+    Channel, DEFAULT_NAMESPACE, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus,
+    NAMESPACE_MAX_LEN, Namespace, NamespaceError, NamespaceRecord, NamespaceScope,
+    RESERVED_NAMESPACE_PREFIX, RuntimeKind, Selector, Session, SessionState,
 };

@@ -1,15 +1,22 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
-assertion_line: 8
 expression: tool
 ---
 {
-  "description": "Get one session record by id. The tool returns an error envelope when the id is unknown.",
+  "description": "Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
+      },
       "id": {
         "description": "Session id to load.",
+        "type": "string"
+      },
+      "namespace": {
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"
       }
     },

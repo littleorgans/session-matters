@@ -1,16 +1,17 @@
 use anyhow::{Result, bail};
-use std::str::FromStr;
 
 use sm_core::{ListRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
 
 use crate::cli::cli_def::{GetArgs, GetResource};
 use crate::cli::output::{print_session_line, print_session_table};
+use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: GetArgs) -> Result<()> {
     match args.resource {
         GetResource::Agent if args.id.is_some() => get_agent(args).await,
         GetResource::Agent => list_agents(args).await,
         GetResource::Agents => list_agents(args).await,
+        GetResource::Namespace => crate::cli::namespace::get(args.id, args.json).await,
     }
 }
 
@@ -19,7 +20,7 @@ async fn get_agent(args: GetArgs) -> Result<()> {
         .id
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("sm get agent requires a session id"))?;
-    let response = send_list(Some(Selector::from_str(id)?)).await?;
+    let response = send_list(scoped_selector(Some(id), &args.scope)?).await?;
 
     match response {
         RpcResponse::Listed { response } if args.json => {
@@ -48,13 +49,7 @@ async fn get_agent(args: GetArgs) -> Result<()> {
 }
 
 async fn list_agents(args: GetArgs) -> Result<()> {
-    let response = send_list(
-        args.selector
-            .as_deref()
-            .map(Selector::from_str)
-            .transpose()?,
-    )
-    .await?;
+    let response = send_list(scoped_selector(args.selector.as_deref(), &args.scope)?).await?;
 
     match response {
         RpcResponse::Listed { response } if args.json => {

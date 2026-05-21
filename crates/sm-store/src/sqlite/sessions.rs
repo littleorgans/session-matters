@@ -1,8 +1,9 @@
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Row, params, params_from_iter};
-use sm_core::{LabelOp, LostEvidence, RuntimeKind, Selector, Session, SessionState};
+use sm_core::{LabelOp, LostEvidence, Namespace, RuntimeKind, Selector, Session, SessionState};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -20,6 +21,8 @@ pub enum SessionRowError {
     Uuid(#[from] uuid::Error),
     #[error(transparent)]
     Core(#[from] sm_core::SmError),
+    #[error(transparent)]
+    Namespace(#[from] sm_core::NamespaceError),
     #[error("{field} out of range: {value}")]
     IntegerOutOfRange { field: &'static str, value: i64 },
 }
@@ -28,15 +31,17 @@ impl SqliteStore {
     pub fn insert_session(&self, session: &Session) -> Result<(), SessionRowError> {
         self.connection.execute(
             "INSERT INTO sessions
-                (id, runtime, role, workspace, state, lost_evidence, runtime_pid,
+                (id, runtime, role, workspace, namespace, dir, state, lost_evidence, runtime_pid,
                  runtime_session, transcript_path, tmux_pane, agent_config, created_at,
                  started_at, terminated_at, exit_code, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             params![
                 session.id.to_string(),
                 session.runtime.to_string(),
                 &session.role,
                 &session.workspace,
+                session.namespace.as_str(),
+                session.dir.display().to_string(),
                 session.state.sql_name(),
                 session_lost_evidence(&session.state),
                 session.runtime_pid,
@@ -95,10 +100,15 @@ impl SqliteStore {
                 "SELECT * FROM sessions WHERE role = ?1 ORDER BY created_at",
                 [name.clone()],
             ),
-            Selector::Workspace { name } => self.query_sessions(
-                "SELECT * FROM sessions WHERE workspace = ?1 ORDER BY created_at",
-                [name.clone()],
+            Selector::Namespace { namespace } => self.query_sessions(
+                "SELECT * FROM sessions WHERE namespace = ?1 ORDER BY created_at",
+                [namespace.as_str().to_string()],
             ),
+            Selector::Dir { path } => self.query_sessions(
+                "SELECT * FROM sessions WHERE dir = ?1 ORDER BY created_at",
+                [path.display().to_string()],
+            ),
+            Selector::And { selectors } => self.query_and_sessions(selectors),
             Selector::Label {
                 key,
                 op: LabelOp::Eq { value },
@@ -140,6 +150,14 @@ impl SqliteStore {
             .chain(values.iter().cloned())
             .collect::<Vec<_>>();
         self.query_sessions(&sql, params)
+    }
+
+    fn query_and_sessions(&self, selectors: &[Selector]) -> Result<Vec<Session>, SessionRowError> {
+        let mut sessions = self.list_sessions_by_selector(&Selector::All)?;
+        for selector in selectors {
+            sessions.retain(|session| session_matches_selector(session, selector));
+        }
+        Ok(sessions)
     }
 
     fn query_sessions<P>(&self, sql: &str, params: P) -> Result<Vec<Session>, SessionRowError>
@@ -257,6 +275,33 @@ impl SqliteStore {
     }
 }
 
+fn session_matches_selector(session: &Session, selector: &Selector) -> bool {
+    match selector {
+        Selector::All => true,
+        Selector::Id { id } => session.id == *id,
+        Selector::Role { name } => session.role == *name,
+        Selector::Namespace { namespace } => session.namespace == *namespace,
+        Selector::Dir { path } => session.dir == *path,
+        Selector::And { selectors } => selectors
+            .iter()
+            .all(|selector| session_matches_selector(session, selector)),
+        Selector::Label {
+            key,
+            op: LabelOp::Eq { value },
+        } => session
+            .labels
+            .iter()
+            .any(|label| label.key == *key && label.value == *value),
+        Selector::Label {
+            key,
+            op: LabelOp::In { values },
+        } => session
+            .labels
+            .iter()
+            .any(|label| label.key == *key && values.contains(&label.value)),
+    }
+}
+
 fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
     let runtime_pid = row.get::<_, i64>("runtime_pid")?;
     let runtime_pid =
@@ -267,6 +312,8 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         runtime: RuntimeKind::from_str(&row.get::<_, String>("runtime")?)?,
         role: row.get("role")?,
         workspace: row.get("workspace")?,
+        namespace: Namespace::new(row.get::<_, String>("namespace")?)?,
+        dir: PathBuf::from(row.get::<_, String>("dir")?),
         state: session_state_from_row(row)?,
         runtime_pid,
         runtime_session: row.get("runtime_session")?,
@@ -313,299 +360,5 @@ fn integer_out_of_range(field: &'static str, value: i64) -> SessionRowError {
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::Utc;
-
-    use sm_core::{Label, LabelOp, Selector};
-
-    use super::*;
-
-    #[test]
-    fn inserts_and_lists_sessions() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let now = Utc::now();
-        let session = Session {
-            id: Uuid::now_v7(),
-            runtime: RuntimeKind::Claude,
-            role: "general".to_string(),
-            workspace: "test".to_string(),
-            state: SessionState::Running,
-            runtime_pid: 42,
-            runtime_session: None,
-            transcript_path: None,
-            tmux_pane: None,
-            agent_config: None,
-            created_at: now,
-            started_at: now,
-            terminated_at: None,
-            exit_code: None,
-            updated_at: now,
-            labels: Vec::new(),
-        };
-
-        store.insert_session(&session).expect("session inserts");
-
-        assert_eq!(
-            store.list_sessions(None).expect("sessions list"),
-            vec![session]
-        );
-    }
-
-    #[test]
-    fn marks_session_terminated() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let now = Utc::now();
-        let session = Session {
-            id: Uuid::now_v7(),
-            runtime: RuntimeKind::Claude,
-            role: "general".to_string(),
-            workspace: "test".to_string(),
-            state: SessionState::Running,
-            runtime_pid: 42,
-            runtime_session: None,
-            transcript_path: None,
-            tmux_pane: None,
-            agent_config: None,
-            created_at: now,
-            started_at: now,
-            terminated_at: None,
-            exit_code: None,
-            updated_at: now,
-            labels: Vec::new(),
-        };
-        store.insert_session(&session).expect("session inserts");
-
-        let terminated_at = Utc::now();
-        let terminated = store
-            .mark_session_terminated(&session.id, Some(137), terminated_at)
-            .expect("session updates")
-            .expect("session exists");
-
-        assert_eq!(terminated.state, SessionState::Terminated);
-        assert_eq!(terminated.exit_code, Some(137));
-        assert_eq!(terminated.terminated_at, Some(terminated_at));
-    }
-
-    #[test]
-    fn links_runtime_metadata_and_marks_lost() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let session = test_session("engineer", "test", Vec::new());
-        store.insert_session(&session).expect("session inserts");
-        let transcript = std::path::Path::new("/tmp/session.jsonl");
-
-        let linked = store
-            .link_session(&session.id, "runtime-1", transcript, Utc::now())
-            .expect("session links")
-            .expect("session exists");
-
-        assert_eq!(linked.runtime_session.as_deref(), Some("runtime-1"));
-        assert_eq!(linked.transcript_path.as_deref(), Some(transcript));
-        assert_eq!(
-            store
-                .get_session_by_runtime_session("runtime-1")
-                .expect("runtime session loads")
-                .expect("runtime session exists")
-                .id,
-            session.id
-        );
-
-        let lost = store
-            .mark_session_lost(&session.id, LostEvidence::PidNotAlive, Utc::now())
-            .expect("session marks lost")
-            .expect("session exists");
-        assert_eq!(
-            lost.state,
-            SessionState::Lost {
-                evidence: LostEvidence::PidNotAlive
-            }
-        );
-    }
-
-    #[test]
-    fn records_transcript_path_without_runtime_session() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let session = test_session("engineer", "test", Vec::new());
-        store.insert_session(&session).expect("session inserts");
-        let transcript = std::path::Path::new("/tmp/rtmd-stdout.log");
-
-        let recorded_at = Utc::now();
-        let updated = store
-            .record_transcript_path(&session.id, transcript, recorded_at)
-            .expect("transcript records")
-            .expect("session exists");
-
-        assert_eq!(updated.runtime_session, None);
-        assert_eq!(updated.transcript_path.as_deref(), Some(transcript));
-        assert_eq!(updated.updated_at, recorded_at);
-
-        let later = recorded_at + chrono::Duration::seconds(30);
-        let unchanged = store
-            .record_transcript_path(&session.id, transcript, later)
-            .expect("transcript no-ops")
-            .expect("session exists");
-
-        assert_eq!(unchanged.updated_at, recorded_at);
-    }
-
-    #[test]
-    fn selector_queries_return_sessions_with_labels() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let auth_pm = test_session(
-            "pm",
-            "test",
-            vec![
-                Label {
-                    key: "area".to_string(),
-                    value: "auth".to_string(),
-                },
-                Label {
-                    key: "pri".to_string(),
-                    value: "high".to_string(),
-                },
-            ],
-        );
-        let auth_engineer = test_session(
-            "engineer",
-            "test",
-            vec![Label {
-                key: "area".to_string(),
-                value: "auth".to_string(),
-            }],
-        );
-        let ui_engineer = test_session(
-            "engineer",
-            "test",
-            vec![Label {
-                key: "area".to_string(),
-                value: "ui".to_string(),
-            }],
-        );
-        for session in [&auth_pm, &auth_engineer, &ui_engineer] {
-            store.insert_session(session).expect("session inserts");
-        }
-
-        let engineers = store
-            .list_sessions_by_selector(&Selector::Role {
-                name: "engineer".to_string(),
-            })
-            .expect("role selector resolves");
-        assert_eq!(
-            session_ids(&engineers),
-            vec![auth_engineer.id, ui_engineer.id]
-        );
-
-        let auth_area = store
-            .list_sessions_by_selector(&Selector::Label {
-                key: "area".to_string(),
-                op: LabelOp::Eq {
-                    value: "auth".to_string(),
-                },
-            })
-            .expect("label selector resolves");
-        assert_eq!(session_ids(&auth_area), vec![auth_pm.id, auth_engineer.id]);
-        assert_eq!(
-            auth_area[0].labels,
-            vec![
-                Label {
-                    key: "area".to_string(),
-                    value: "auth".to_string(),
-                },
-                Label {
-                    key: "pri".to_string(),
-                    value: "high".to_string(),
-                },
-            ]
-        );
-
-        let in_area = store
-            .list_sessions_by_selector(&Selector::Label {
-                key: "area".to_string(),
-                op: LabelOp::In {
-                    values: vec!["auth".to_string(), "ui".to_string()],
-                },
-            })
-            .expect("label in selector resolves");
-        assert_eq!(
-            session_ids(&in_area),
-            vec![auth_pm.id, auth_engineer.id, ui_engineer.id]
-        );
-    }
-
-    #[test]
-    fn migrates_pass1_schema() {
-        let path = std::env::temp_dir().join(format!("sm-store-{}.db", Uuid::now_v7()));
-        let created_at = Utc::now().to_rfc3339();
-        {
-            let connection = rusqlite::Connection::open(&path).expect("v0 database opens");
-            connection
-                .execute_batch(
-                    "CREATE TABLE sessions (
-                        id TEXT PRIMARY KEY NOT NULL,
-                        runtime TEXT NOT NULL,
-                        role TEXT NOT NULL,
-                        workspace TEXT NOT NULL,
-                        state TEXT NOT NULL,
-                        runtime_pid INTEGER NOT NULL,
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL
-                    );",
-                )
-                .expect("v0 schema creates");
-            connection
-                .execute(
-                    "INSERT INTO sessions
-                        (id, runtime, role, workspace, state, runtime_pid, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![
-                        Uuid::now_v7().to_string(),
-                        RuntimeKind::Claude.to_string(),
-                        "general",
-                        "test",
-                        SessionState::Running.to_string(),
-                        42,
-                        created_at,
-                        created_at,
-                    ],
-                )
-                .expect("v0 row inserts");
-        }
-
-        let store = SqliteStore::open(&path).expect("store migrates");
-        let sessions = store.list_sessions(None).expect("sessions list");
-
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].started_at, sessions[0].created_at);
-        assert_eq!(sessions[0].terminated_at, None);
-        assert_eq!(sessions[0].exit_code, None);
-        assert_eq!(sessions[0].runtime_session, None);
-        assert_eq!(sessions[0].transcript_path, None);
-        assert_eq!(sessions[0].agent_config, None);
-        let _ = std::fs::remove_file(path);
-    }
-
-    fn test_session(role: &str, workspace: &str, labels: Vec<Label>) -> Session {
-        let now = Utc::now();
-        Session {
-            id: Uuid::now_v7(),
-            runtime: RuntimeKind::Claude,
-            role: role.to_string(),
-            workspace: workspace.to_string(),
-            state: SessionState::Running,
-            runtime_pid: 42,
-            runtime_session: None,
-            transcript_path: None,
-            tmux_pane: None,
-            agent_config: None,
-            created_at: now,
-            started_at: now,
-            terminated_at: None,
-            exit_code: None,
-            updated_at: now,
-            labels,
-        }
-    }
-
-    fn session_ids(sessions: &[Session]) -> Vec<Uuid> {
-        sessions.iter().map(|session| session.id).collect()
-    }
-}
+#[path = "sessions_tests.rs"]
+mod sessions_tests;

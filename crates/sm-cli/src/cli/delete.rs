@@ -1,10 +1,10 @@
 use anyhow::{Result, bail};
-use std::str::FromStr;
 
-use sm_core::{DeleteRequest, RpcRequest, RpcResponse, Selector, SmEndpoint};
+use sm_core::{DeleteRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::{DeleteArgs, DeleteResource};
 use crate::cli::output::print_session_line;
+use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: DeleteArgs) -> Result<()> {
     match args.resource {
@@ -18,7 +18,8 @@ async fn delete_agent(args: DeleteArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Delete {
             request: DeleteRequest {
-                selector: Selector::from_str(&args.selector)?,
+                selector: scoped_selector(Some(&args.selector), &args.scope)?
+                    .expect("selector is present"),
                 signal: args.signal,
                 grace_secs: args.grace,
             },
