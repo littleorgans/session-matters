@@ -42,6 +42,12 @@ pub enum NamespaceScope {
     Explicit,
 }
 
+enum NamespaceMatch<'a> {
+    None,
+    Matches,
+    Conflict(&'a Namespace),
+}
+
 impl Selector {
     pub fn scoped_to_namespace(
         selector: Option<Self>,
@@ -52,43 +58,46 @@ impl Selector {
             return Ok(Self::Namespace { namespace });
         };
 
-        if let Some(conflict) = selector.conflicting_namespace(&namespace) {
-            if scope == NamespaceScope::Explicit {
-                return Err(SmError::Message(format!(
-                    "namespace selector conflict: --namespace {namespace} cannot scope selector containing namespace:{conflict}"
-                )));
+        match selector.namespace_match(&namespace) {
+            NamespaceMatch::None => Ok(match selector {
+                Self::All => Self::Namespace { namespace },
+                other => Self::And {
+                    selectors: vec![Self::Namespace { namespace }, other],
+                },
+            }),
+            NamespaceMatch::Matches => Ok(selector),
+            NamespaceMatch::Conflict(_) if scope == NamespaceScope::Default => Ok(selector),
+            NamespaceMatch::Conflict(conflict) => Err(SmError::Message(format!(
+                "namespace conflict: requested {namespace} but selector specifies namespace:{conflict}"
+            ))),
+        }
+    }
+
+    fn namespace_match(&self, target: &Namespace) -> NamespaceMatch<'_> {
+        match self {
+            Self::Namespace { namespace } => {
+                if namespace == target {
+                    NamespaceMatch::Matches
+                } else {
+                    NamespaceMatch::Conflict(namespace)
+                }
             }
-            return Ok(selector);
-        }
-
-        if selector.contains_namespace() {
-            return Ok(selector);
-        }
-
-        if selector == Self::All {
-            return Ok(Self::Namespace { namespace });
-        }
-
-        Ok(Self::And {
-            selectors: vec![Self::Namespace { namespace }, selector],
-        })
-    }
-
-    pub fn contains_namespace(&self) -> bool {
-        match self {
-            Self::Namespace { .. } => true,
-            Self::And { selectors } => selectors.iter().any(Self::contains_namespace),
-            _ => false,
-        }
-    }
-
-    fn conflicting_namespace(&self, namespace: &Namespace) -> Option<&Namespace> {
-        match self {
-            Self::Namespace { namespace: found } if found != namespace => Some(found),
-            Self::And { selectors } => selectors
-                .iter()
-                .find_map(|selector| selector.conflicting_namespace(namespace)),
-            _ => None,
+            Self::And { selectors } => {
+                let mut state = NamespaceMatch::None;
+                for selector in selectors {
+                    match selector.namespace_match(target) {
+                        NamespaceMatch::Conflict(found) => return NamespaceMatch::Conflict(found),
+                        NamespaceMatch::Matches => state = NamespaceMatch::Matches,
+                        NamespaceMatch::None => {}
+                    }
+                }
+                state
+            }
+            Self::Id { .. }
+            | Self::Label { .. }
+            | Self::Dir { .. }
+            | Self::Role { .. }
+            | Self::All => NamespaceMatch::None,
         }
     }
 }
@@ -500,7 +509,8 @@ mod tests {
         .unwrap_err()
         .to_string();
 
-        assert!(error.contains("--namespace alpha"));
+        assert!(error.contains("namespace conflict"));
+        assert!(error.contains("alpha"));
         assert!(error.contains("namespace:beta"));
     }
 }

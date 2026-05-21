@@ -104,7 +104,8 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
         .output()
         .expect("sm nudge conflicting namespace flag executes");
     assert!(!conflicting_namespace_flag.status.success());
-    assert!(stderr(&conflicting_namespace_flag).contains("--namespace alpha"));
+    assert!(stderr(&conflicting_namespace_flag).contains("namespace conflict"));
+    assert!(stderr(&conflicting_namespace_flag).contains("alpha"));
     assert!(stderr(&conflicting_namespace_flag).contains("namespace:beta"));
 
     let beta_dir_selector = format!("dir:{}", canonical(&beta_dir));
