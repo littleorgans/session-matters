@@ -1,5 +1,5 @@
 {
-  "description": "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).",
+  "description": "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -18,7 +18,7 @@
     },
     "type": "object"
   },
-  "name": "agent_list",
+  "name": "session_list",
   "outputSchema": {
     "properties": {
       "sessions": {

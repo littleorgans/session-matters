@@ -1,27 +1,28 @@
+---
+source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+expression: tool
+---
 {
-  "description": "Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
+  "description": "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
-      "grace_secs": {
-        "description": "Seconds to wait before SIGKILL. Defaults to 5.",
-        "type": "integer"
-      },
-      "selector": {
-        "description": "Session selector to terminate.",
+      "mutation": {
+        "description": "Label mutation as key=value or key-.",
         "type": "string"
       },
-      "signal": {
-        "description": "Signal to send. Defaults to SIGTERM.",
+      "selector": {
+        "description": "Session selector to mutate.",
         "type": "string"
       }
     },
     "required": [
-      "selector"
+      "selector",
+      "mutation"
     ],
     "type": "object"
   },
-  "name": "agent_delete",
+  "name": "session_label",
   "outputSchema": {
     "properties": {
       "errors": {

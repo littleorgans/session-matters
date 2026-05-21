@@ -1,6 +1,7 @@
 mod common;
 
 use std::path::Path;
+use std::process::Stdio;
 
 use common::DaemonFixture;
 use lilo_im_core::{Action, AuditDecision};
@@ -39,11 +40,17 @@ fn initialize_and_tools_list_follow_mcp_shape() {
         names,
         vec![
             "agent_run",
+            "session_run",
             "agent_list",
+            "session_list",
             "agent_get",
+            "session_get",
             "agent_capture",
+            "session_capture",
             "agent_delete",
+            "session_delete",
             "agent_label",
+            "session_label",
             "mail_send",
             "mail_read",
             "mail_check",
@@ -55,6 +62,8 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "doctor"
         ]
     );
+    assert_deprecation_hint(&listed["result"]["tools"], "agent_list", "session_list");
+    assert_deprecation_hint(&listed["result"]["tools"], "agent_get", "session_get");
 }
 
 #[tokio::test]
@@ -242,6 +251,53 @@ async fn tools_call_can_select_and_label_agents() {
 }
 
 #[tokio::test]
+async fn session_tools_share_agent_handlers_and_namespace_read_scope() {
+    let runtime_path = common::fake_runtime_path("codex");
+    let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
+    create_namespace(&daemon, "alpha");
+    create_namespace(&daemon, "beta");
+
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let caller = spawn_agent_in_namespace(&mut mcp, 2, "caller", daemon.dir.path(), "alpha");
+    let alpha_peer = spawn_agent_in_namespace(&mut mcp, 3, "engineer", daemon.dir.path(), "alpha");
+    let beta_peer = spawn_agent_in_namespace(&mut mcp, 4, "engineer", daemon.dir.path(), "beta");
+
+    let agent_all = call_tool(&mut mcp, 5, "agent_list", json!({ "all_namespaces": true }));
+    let session_all = call_tool(
+        &mut mcp,
+        6,
+        "session_list",
+        json!({ "all_namespaces": true }),
+    );
+    assert_eq!(
+        agent_all["result"]["structuredContent"],
+        session_all["result"]["structuredContent"]
+    );
+
+    let explicit_alpha = call_tool(&mut mcp, 7, "session_list", json!({ "namespace": "alpha" }));
+    assert_session_ids(&explicit_alpha, &[&caller, &alpha_peer]);
+
+    let bypass = call_tool(
+        &mut mcp,
+        8,
+        "session_list",
+        json!({ "all_namespaces": true }),
+    );
+    assert_session_ids(&bypass, &[&caller, &alpha_peer, &beta_peer]);
+
+    let marked_cwd = daemon.dir.path().join("marked-cwd");
+    std::fs::create_dir_all(marked_cwd.join(".sm")).expect("marker dir creates");
+    std::fs::write(marked_cwd.join(".sm").join("namespace"), "beta").expect("marker writes");
+    let mut caller_mcp = daemon.spawn_mcp_for_session(&caller, &marked_cwd);
+    caller_mcp.send(&json!({"jsonrpc": "2.0", "id": 9, "method": "initialize", "params": {}}));
+
+    let implicit_alpha = call_tool(&mut caller_mcp, 10, "session_list", json!({}));
+    assert_session_ids(&implicit_alpha, &[&caller, &alpha_peer]);
+}
+
+#[tokio::test]
 async fn tools_call_can_send_read_check_mail_and_nudge() {
     let runtime_path = common::fake_runtime_path("codex");
     let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
@@ -373,6 +429,31 @@ fn spawn_agent(mcp: &mut common::McpFixture, id: u64, role: &str, workspace: &Pa
     spawn_agent_with_labels(mcp, id, role, workspace, json!([]))
 }
 
+fn spawn_agent_in_namespace(
+    mcp: &mut common::McpFixture,
+    id: u64,
+    role: &str,
+    workspace: &Path,
+    namespace: &str,
+) -> String {
+    let spawned = call_tool(
+        mcp,
+        id,
+        "session_run",
+        json!({
+            "runtime": "codex",
+            "role": role,
+            "dir": workspace.display().to_string(),
+            "namespace": namespace
+        }),
+    );
+    assert!(spawned["error"].is_null());
+    spawned["result"]["structuredContent"]["session"]["id"]
+        .as_str()
+        .expect("spawn returns session id")
+        .to_string()
+}
+
 fn spawn_agent_with_labels(
     mcp: &mut common::McpFixture,
     id: u64,
@@ -405,4 +486,50 @@ fn tool_names(tools: &Value) -> Vec<&str> {
         .iter()
         .map(|tool| tool["name"].as_str().expect("tool name"))
         .collect()
+}
+
+fn create_namespace(daemon: &DaemonFixture, name: &str) {
+    let status = daemon
+        .command()
+        .args(["create", "namespace", name])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .expect("namespace create runs");
+    assert!(status.success());
+}
+
+fn assert_deprecation_hint(tools: &Value, deprecated: &str, replacement: &str) {
+    let description = tools
+        .as_array()
+        .expect("tools is array")
+        .iter()
+        .find(|tool| tool["name"] == deprecated)
+        .expect("deprecated tool exists")["description"]
+        .as_str()
+        .expect("description is string");
+    assert!(description.contains("Deprecated compatibility alias"));
+    assert!(description.contains(replacement));
+}
+
+fn assert_session_ids(response: &Value, expected: &[&str]) {
+    assert!(response["error"].is_null());
+    let mut actual = response["result"]["structuredContent"]["sessions"]
+        .as_array()
+        .expect("sessions is array")
+        .iter()
+        .map(|session| {
+            session["id"]
+                .as_str()
+                .expect("session id is string")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    let mut expected = expected
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect::<Vec<_>>();
+    actual.sort();
+    expected.sort();
+    assert_eq!(actual, expected);
 }

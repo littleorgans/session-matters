@@ -1,5 +1,5 @@
 {
-  "description": "Read the transcript linked to one selected session.",
+  "description": "Capture tmux pane scrollback for one selected session.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -7,20 +7,16 @@
         "description": "Bypass namespace scoping and read across all namespaces.",
         "type": "boolean"
       },
-      "follow": {
-        "description": "CLI only: follow appended transcript bytes.",
-        "type": "boolean"
-      },
-      "max_bytes": {
-        "description": "Maximum bytes to return from the end of the transcript.",
-        "type": "integer"
-      },
       "namespace": {
         "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"
       },
+      "scrollback_lines": {
+        "description": "Maximum tmux scrollback lines to include.",
+        "type": "integer"
+      },
       "selector": {
-        "description": "Selector that must match exactly one session with transcript logs.",
+        "description": "Session selector to capture. Usually id:<uuid>.",
         "type": "string"
       }
     },
@@ -29,23 +25,34 @@
     ],
     "type": "object"
   },
-  "name": "logs",
+  "name": "session_capture",
   "outputSchema": {
     "properties": {
-      "content": {
-        "type": "string"
+      "capture": {
+        "properties": {
+          "payload": {
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "captured",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
       "session": {
         "type": "object"
-      },
-      "transcript_path": {
-        "type": "string"
       }
     },
     "required": [
       "session",
-      "transcript_path",
-      "content"
+      "capture"
     ],
     "type": "object"
   }

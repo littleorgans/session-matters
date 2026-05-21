@@ -1,5 +1,5 @@
 {
-  "description": "Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period.",
+  "description": "Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -21,7 +21,7 @@
     ],
     "type": "object"
   },
-  "name": "agent_delete",
+  "name": "session_delete",
   "outputSchema": {
     "properties": {
       "errors": {

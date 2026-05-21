@@ -55,14 +55,31 @@ impl DaemonState {
 
     pub async fn handle(&self, context: RequestContext, request: RpcRequest) -> HandlerResult {
         match request {
-            RpcRequest::McpBridge { request } => HandlerResult {
-                response: RpcResponse::McpBridge {
-                    response: McpBridgeResponse {
-                        line: crate::mcp_bridge::handle_line(self, &context, &request.line).await,
+            RpcRequest::McpBridge { request } => {
+                let context = match request.caller_session_id.as_deref() {
+                    Some(raw) => match Uuid::parse_str(raw) {
+                        Ok(id) => context.with_mcp_caller_session_id(id),
+                        Err(error) => {
+                            return HandlerResult {
+                                response: RpcResponse::Error {
+                                    message: format!("invalid MCP caller session id: {error}"),
+                                },
+                                shutdown: false,
+                            };
+                        }
                     },
-                },
-                shutdown: false,
-            },
+                    None => context,
+                };
+                HandlerResult {
+                    response: RpcResponse::McpBridge {
+                        response: McpBridgeResponse {
+                            line: crate::mcp_bridge::handle_line(self, &context, &request.line)
+                                .await,
+                        },
+                    },
+                    shutdown: false,
+                }
+            }
             request => self.handle_direct(context, request).await,
         }
     }

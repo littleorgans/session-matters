@@ -300,6 +300,8 @@ pub struct TargetError {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct McpBridgeRequest {
     pub line: String,
+    #[serde(default)]
+    pub caller_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

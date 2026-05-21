@@ -49,8 +49,10 @@ just test
 pub fn render_server_instructions(skill: Option<&SkillConfig>, tools: &[ToolContract]) -> String {
     let mut out = String::new();
     out.push_str("session-matters controls local Helioy agent sessions through smd.\n\n");
-    out.push_str("Use agent_run to spawn a session, agent_list to inspect sessions, ");
-    out.push_str("agent_get before acting on one id, and agent_delete to terminate a session.\n\n");
+    out.push_str("Use session_run to spawn a session, session_list to inspect sessions, ");
+    out.push_str(
+        "session_get before acting on one id, and session_delete to terminate a session.\n\n",
+    );
     append_tool_bullets(&mut out, tools);
     if let Some(skill) = skill {
         out.push('\n');

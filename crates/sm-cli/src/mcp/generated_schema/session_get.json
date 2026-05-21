@@ -1,55 +1,27 @@
 {
-  "description": "Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
+  "description": "Get one session record by id. The tool returns an error envelope when the id is unknown.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
-      "agent_config": {
-        "description": "Agent config name resolved as ~/.agm/<name>/agent.toml, or an explicit agent.toml path.",
-        "type": "string"
+      "all_namespaces": {
+        "description": "Bypass namespace scoping and read across all namespaces.",
+        "type": "boolean"
       },
-      "dir": {
-        "description": "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory.",
+      "id": {
+        "description": "Session id to load.",
         "type": "string"
-      },
-      "labels": {
-        "description": "Optional session labels as key=value strings.",
-        "items": {
-          "type": "string"
-        },
-        "type": "array"
       },
       "namespace": {
-        "description": "Namespace slug for the spawned session. The namespace must already exist before spawning.",
-        "type": "string"
-      },
-      "role": {
-        "description": "Role label recorded on the session.",
-        "type": "string"
-      },
-      "runtime": {
-        "description": "Runtime command to launch.",
-        "enum": [
-          "claude",
-          "codex"
-        ],
-        "type": "string"
-      },
-      "target": {
-        "description": "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.",
-        "type": "string"
-      },
-      "workspace": {
-        "description": "Deprecated compatibility alias for dir. Use dir for new callers.",
+        "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"
       }
     },
     "required": [
-      "runtime",
-      "role"
+      "id"
     ],
     "type": "object"
   },
-  "name": "agent_run",
+  "name": "session_get",
   "outputSchema": {
     "properties": {
       "session": {

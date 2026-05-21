@@ -30,8 +30,23 @@ impl ToolContractRegistry {
         let tools = parsed
             .tools
             .into_iter()
-            .map(|(name, raw)| ToolContract::from_raw(name, raw))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|(name, raw)| {
+                let aliases = raw.mcp_aliases.clone();
+                let tool = ToolContract::from_raw(name, raw)?;
+                let mut tools = Vec::with_capacity(aliases.len() + 1);
+                tools.push(tool.clone());
+                tools.extend(
+                    aliases
+                        .into_iter()
+                        .map(|alias| tool.alias(alias))
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
+                Ok(tools)
+            })
+            .collect::<Result<Vec<_>, String>>()?
+            .into_iter()
+            .flatten()
+            .collect();
 
         Ok(Self {
             skill: parsed.skill,
@@ -74,11 +89,14 @@ pub struct ToolContract {
 
 impl ToolContract {
     fn from_raw(name: String, raw: RawToolDef) -> Result<Self, String> {
-        let params = raw
+        let mut params = raw
             .params
             .into_iter()
             .map(|param| ToolParamContract::from_raw(&name, param))
             .collect::<Result<Vec<_>, _>>()?;
+        if raw.mcp_namespace_scope {
+            params.extend(mcp_namespace_scope_params());
+        }
         let output_schema = parse_optional_json(&name, "output_schema", raw.output_schema)?;
 
         Ok(Self {
@@ -122,6 +140,20 @@ impl ToolContract {
             entry["outputSchema"] = schema.clone();
         }
         entry
+    }
+
+    fn alias(&self, raw: RawToolAlias) -> Result<Self, String> {
+        if raw.name.trim().is_empty() {
+            return Err(format!("{}.mcp_aliases name must not be empty", self.name));
+        }
+        Ok(Self {
+            artifacts: ArtifactRenderMetadata::for_tool(&raw.name),
+            cli: self.cli.clone(),
+            mcp_description: raw.mcp_description,
+            name: raw.name,
+            output_schema: self.output_schema.clone(),
+            params: self.params.clone(),
+        })
     }
 }
 
@@ -235,7 +267,11 @@ struct RawToolDef {
     cli_about: String,
     output_schema: Option<String>,
     #[serde(default)]
+    mcp_namespace_scope: bool,
+    #[serde(default)]
     params: Vec<RawParamDef>,
+    #[serde(default)]
+    mcp_aliases: Vec<RawToolAlias>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +287,35 @@ struct RawParamDef {
     cli_help: Option<String>,
     cli_flag: Option<String>,
     mcp_schema: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawToolAlias {
+    name: String,
+    mcp_description: String,
+}
+
+fn mcp_namespace_scope_params() -> Vec<ToolParamContract> {
+    vec![
+        ToolParamContract {
+            name: "namespace".to_string(),
+            required: false,
+            enum_values: None,
+            mcp_description: "Namespace slug to scope this read. Overrides the caller session namespace fallback.".to_string(),
+            cli_help: None,
+            cli_flag: None,
+            shape: ParamShape::Scalar("string".to_string()),
+        },
+        ToolParamContract {
+            name: "all_namespaces".to_string(),
+            required: false,
+            enum_values: None,
+            mcp_description: "Bypass namespace scoping and read across all namespaces.".to_string(),
+            cli_help: None,
+            cli_flag: None,
+            shape: ParamShape::Scalar("boolean".to_string()),
+        },
+    ]
 }
 
 fn parse_optional_json(

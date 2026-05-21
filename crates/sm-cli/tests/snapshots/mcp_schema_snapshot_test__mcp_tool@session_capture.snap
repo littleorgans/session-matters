@@ -3,7 +3,7 @@ source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
 expression: tool
 ---
 {
-  "description": "Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true.",
+  "description": "Capture tmux pane scrollback for one selected session.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -15,12 +15,12 @@ expression: tool
         "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"
       },
-      "peek": {
-        "description": "Return unread mail without marking it read.",
-        "type": "boolean"
+      "scrollback_lines": {
+        "description": "Maximum tmux scrollback lines to include.",
+        "type": "integer"
       },
       "selector": {
-        "description": "Inbox owner selector.",
+        "description": "Session selector to capture. Usually id:<uuid>.",
         "type": "string"
       }
     },
@@ -29,24 +29,34 @@ expression: tool
     ],
     "type": "object"
   },
-  "name": "mail_read",
+  "name": "session_capture",
   "outputSchema": {
     "properties": {
-      "errors": {
-        "items": {
-          "type": "object"
+      "capture": {
+        "properties": {
+          "payload": {
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "captured",
+              "failed"
+            ],
+            "type": "string"
+          }
         },
-        "type": "array"
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
-      "mail": {
-        "items": {
-          "type": "object"
-        },
-        "type": "array"
+      "session": {
+        "type": "object"
       }
     },
     "required": [
-      "mail"
+      "session",
+      "capture"
     ],
     "type": "object"
   }
