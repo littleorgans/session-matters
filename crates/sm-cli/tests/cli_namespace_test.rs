@@ -59,10 +59,7 @@ fn create_namespace_rejects_default() {
 
 #[test]
 fn init_command_is_rejected_by_clap() {
-    let daemon = common::DaemonFixture::start();
-
-    let output = daemon
-        .command()
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .arg("init")
         .output()
         .expect("sm init executes");
@@ -73,10 +70,7 @@ fn init_command_is_rejected_by_clap() {
 
 #[test]
 fn init_namespace_command_is_rejected_by_clap() {
-    let daemon = common::DaemonFixture::start();
-
-    let output = daemon
-        .command()
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["init", "namespace", "alpha"])
         .output()
         .expect("sm init namespace executes");
