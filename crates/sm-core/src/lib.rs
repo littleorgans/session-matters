@@ -1,7 +1,13 @@
 pub mod error;
+pub mod label;
+pub mod mail;
 pub mod mcp;
+pub mod namespace;
 pub mod paths;
 pub mod proto;
+pub mod runtime;
+pub mod selector;
+pub mod session;
 pub mod tool_contracts;
 pub mod types;
 
@@ -20,6 +26,7 @@ pub use proto::{
     SpawnRequest, SpawnResponse, TargetError, WaitCondition, WaitRequest, WaitResponse,
 };
 pub use types::{
-    Channel, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus, RuntimeKind, Selector,
+    Channel, DEFAULT_NAMESPACE, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus,
+    NAMESPACE_MAX_LEN, Namespace, NamespaceError, RESERVED_NAMESPACE_PREFIX, RuntimeKind, Selector,
     Session, SessionState,
 };
