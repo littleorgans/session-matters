@@ -16,7 +16,7 @@ fn singular_agent_resource_lists_without_id_and_gets_with_id() {
             "claude",
             "--role",
             "engineer",
-            "--workspace",
+            "--dir",
             &daemon.dir.path().display().to_string(),
             "--detach",
         ])
@@ -101,30 +101,7 @@ fn run_persists_canonical_dir_from_cli_resolution() {
 }
 
 #[test]
-fn workspace_alias_warns_and_runs() {
-    let runtime_path = common::fake_runtime_path("claude");
-    let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
-
-    let run = daemon
-        .command()
-        .args([
-            "run",
-            "claude",
-            "--role",
-            "engineer",
-            "--workspace",
-            &daemon.dir.path().display().to_string(),
-            "--detach",
-        ])
-        .output()
-        .expect("sm run executes");
-
-    assert_success("sm run --workspace", &run);
-    assert!(String::from_utf8_lossy(&run.stderr).contains("--workspace is deprecated"));
-}
-
-#[test]
-fn dir_and_workspace_conflict_errors_clearly() {
+fn workspace_arg_is_rejected_by_clap() {
     let daemon = common::DaemonFixture::start();
 
     let run = daemon
@@ -144,8 +121,8 @@ fn dir_and_workspace_conflict_errors_clearly() {
 
     assert!(!run.status.success());
     let stderr = String::from_utf8_lossy(&run.stderr);
-    assert!(stderr.contains("--dir"));
-    assert!(stderr.contains("--workspace"));
+    assert!(stderr.contains("unexpected argument '--workspace'"));
+    assert!(!stderr.contains("--workspace is deprecated"));
 }
 
 #[test]

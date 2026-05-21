@@ -92,13 +92,7 @@ fn spawn_bench_agent(daemon: &common::DaemonFixture) -> Uuid {
     let output = daemon
         .command()
         .args([
-            "run",
-            "codex",
-            "--role",
-            "bench",
-            "--workspace",
-            "bench",
-            "--detach",
+            "run", "codex", "--role", "bench", "--dir", "bench", "--detach",
         ])
         .output()
         .expect("sm run starts");

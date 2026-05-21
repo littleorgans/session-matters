@@ -74,13 +74,6 @@ pub struct RunArgs {
     pub dir: Option<PathBuf>,
     #[arg(long, help = generated_help::AGENT_RUN_NAMESPACE_HELP)]
     pub namespace: Option<Namespace>,
-    #[arg(
-        long,
-        value_name = "DIR",
-        conflicts_with = "dir",
-        help = generated_help::AGENT_RUN_WORKSPACE_HELP
-    )]
-    pub workspace: Option<PathBuf>,
     #[arg(long = "label", help = "Session label as key=value")]
     pub labels: Vec<String>,
     #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]

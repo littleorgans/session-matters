@@ -11,8 +11,6 @@ pub const AGENT_RUN_DIR_HELP: &str = "Filesystem directory used as the runtime's
 #[rustfmt::skip]
 pub const AGENT_RUN_NAMESPACE_HELP: &str = "Namespace slug for the spawned session. Overrides .sm/namespace marker discovery.";
 #[rustfmt::skip]
-pub const AGENT_RUN_WORKSPACE_HELP: &str = "Deprecated compatibility alias for --dir. Emits a warning when used.";
-#[rustfmt::skip]
 pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]
 pub const AGENT_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
@@ -29,8 +27,6 @@ pub const SESSION_RUN_ROLE_HELP: &str = "Role label recorded on the session.";
 pub const SESSION_RUN_DIR_HELP: &str = "Filesystem directory used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist.";
 #[rustfmt::skip]
 pub const SESSION_RUN_NAMESPACE_HELP: &str = "Namespace slug for the spawned session. Overrides .sm/namespace marker discovery.";
-#[rustfmt::skip]
-pub const SESSION_RUN_WORKSPACE_HELP: &str = "Deprecated compatibility alias for --dir. Emits a warning when used.";
 #[rustfmt::skip]
 pub const SESSION_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]

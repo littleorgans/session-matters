@@ -10,9 +10,6 @@ use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
     let spawn_location = resolve_spawn_location(&args)?;
-    if spawn_location.used_workspace_alias {
-        eprintln!("warning: --workspace is deprecated; use --dir instead");
-    }
     let endpoint = SmEndpoint::from_env()?;
     let env = lilo_rm_core::capture_caller_env();
     let target = SpawnTarget::from_str(&args.target).ok();
@@ -67,18 +64,14 @@ pub async fn run(args: RunArgs) -> Result<()> {
 struct SpawnLocation {
     namespace: Namespace,
     dir: String,
-    used_workspace_alias: bool,
 }
 
 fn resolve_spawn_location(args: &RunArgs) -> Result<SpawnLocation> {
-    let (start_dir, used_workspace_alias) = match (&args.dir, &args.workspace) {
-        (Some(dir), None) => (dir.clone(), false),
-        (None, Some(workspace)) => (workspace.clone(), true),
-        (None, None) => (
-            std::env::current_dir().context("cannot read current directory to resolve --dir")?,
-            false,
-        ),
-        (Some(_), Some(_)) => bail!("--dir and --workspace cannot be used together"),
+    let start_dir = match &args.dir {
+        Some(dir) => dir.clone(),
+        None => {
+            std::env::current_dir().context("cannot read current directory to resolve --dir")?
+        }
     };
     let (namespace, canonical_dir) =
         resolve_namespace_dir(&start_dir, args.namespace.clone())?.into_pair();
@@ -86,7 +79,6 @@ fn resolve_spawn_location(args: &RunArgs) -> Result<SpawnLocation> {
     Ok(SpawnLocation {
         namespace,
         dir: canonical_dir.display().to_string(),
-        used_workspace_alias,
     })
 }
 
@@ -103,7 +95,6 @@ mod tests {
             role: "engineer".to_string(),
             dir,
             namespace,
-            workspace: None,
             labels: Vec::new(),
             agent_config: None,
             target: "headless".to_string(),
@@ -127,7 +118,6 @@ mod tests {
             PathBuf::from(resolved.dir),
             std::fs::canonicalize(project).expect("canonical project")
         );
-        assert!(!resolved.used_workspace_alias);
     }
 
     #[test]
@@ -182,32 +172,5 @@ mod tests {
             PathBuf::from(resolved.dir),
             std::fs::canonicalize(project.path()).expect("canonical project")
         );
-    }
-
-    #[test]
-    fn workspace_alias_uses_same_resolution_path() {
-        let project = tempfile::tempdir().expect("tempdir");
-        let mut args = run_args(None, None);
-        args.workspace = Some(project.path().to_path_buf());
-
-        let resolved = resolve_spawn_location(&args).expect("resolves workspace alias");
-
-        assert_eq!(resolved.namespace, Namespace::default());
-        assert!(resolved.used_workspace_alias);
-        assert_eq!(
-            PathBuf::from(resolved.dir),
-            std::fs::canonicalize(project.path()).expect("canonical project")
-        );
-    }
-
-    #[test]
-    fn rejects_dir_workspace_conflict() {
-        let project = tempfile::tempdir().expect("tempdir");
-        let mut args = run_args(Some(project.path().to_path_buf()), None);
-        args.workspace = Some(project.path().to_path_buf());
-
-        let err = resolve_spawn_location(&args).expect_err("conflict fails");
-
-        assert!(err.to_string().contains("--dir and --workspace"));
     }
 }

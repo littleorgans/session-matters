@@ -48,9 +48,8 @@ from the selected directory toward the filesystem root and stops after checking
 `$HOME`. If no marker resolves, the CLI uses `default`. `--namespace <slug>`
 overrides marker discovery, and the namespace must already exist.
 
-`sm run --dir <path>` is the current directory flag. `--workspace <path>` remains
-a deprecated compatibility alias for `--dir` during this release and emits a
-warning. New callers should use `--dir` and `--namespace`.
+`sm run --dir <path>` is the directory flag. New callers should use `--dir` and
+`--namespace`.
 
 Selectors support `namespace:<slug>` and `dir:<path>`. `workspace:<path>` selectors
 were removed in this migration. Use `dir:<path>` for path based selection or

@@ -91,8 +91,6 @@ name            = "workspace"
 type            = "string"
 required        = false
 mcp_description = "Deprecated compatibility alias for dir. Use dir for new callers."
-cli_help        = "Deprecated compatibility alias for --dir. Emits a warning when used."
-cli_flag        = "--workspace"
 
 [[tools.agent_run.params]]
 name            = "labels"

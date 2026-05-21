@@ -6,14 +6,14 @@
 
 - Add namespaces as the session grouping primitive. The `default` namespace is created automatically, existing rows are backfilled into `default`, and new sessions can target a namespace only after the namespace record exists.
 - Add `.sm/namespace` marker discovery with `$HOME` bounded walk up, `sm create namespace`, and `sm init namespace` for operator setup.
-- Add `sm run --dir` and `sm run --namespace`; keep `--workspace` as a deprecated alias for `--dir` during the compatibility window.
+- Add `sm run --dir` and `sm run --namespace` for spawn directory and namespace selection.
 - Add `namespace:<slug>` and `dir:<path>` selectors. `workspace:<path>` selectors are removed in this migration.
 - Add `session_*` MCP tools alongside deprecated `agent_*` aliases. MCP read tools accept `namespace` and `all_namespaces`; when neither is supplied, they fall back to the caller session namespace.
 
 ### Migration Notes
 
 - CLI selector reads default to the resolved namespace from `--namespace`, `.sm/namespace`, or `default`. Use `-A` or `--all-namespaces` for cross namespace reads.
-- The future hard cut master will remove compatibility surfaces such as `--workspace`, `SpawnRequest.workspace`, `sessions.workspace`, and `agent_*` MCP aliases after the migration window.
+- The future hard cut master will remove compatibility surfaces such as `SpawnRequest.workspace`, `sessions.workspace`, and `agent_*` MCP aliases after the migration window.
 
 ## [0.2.2](https://github.com/littleorgans/session-matters/compare/v0.2.1...v0.2.2) (2026-05-20)
 
