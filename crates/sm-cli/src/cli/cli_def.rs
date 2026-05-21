@@ -27,8 +27,6 @@ pub enum Command {
     Create(CreateArgs),
     #[command(about = "Inspect sessions and namespaces")]
     Get(GetArgs),
-    #[command(about = "Initialize local session-matters metadata")]
-    Init(InitArgs),
     Delete(DeleteArgs),
     #[command(about = generated_help::DOCTOR_ABOUT, long_about = generated_help::DOCTOR_ABOUT)]
     Doctor(DoctorArgs),
@@ -118,25 +116,6 @@ pub enum CreateResource {
 #[derive(Debug, Args)]
 pub struct NamespaceCreateArgs {
     pub slug: String,
-}
-
-#[derive(Debug, Args)]
-pub struct InitArgs {
-    #[command(subcommand)]
-    pub resource: InitResource,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum InitResource {
-    #[command(about = "Create a namespace and write .sm/namespace in a directory")]
-    Namespace(NamespaceInitArgs),
-}
-
-#[derive(Debug, Args)]
-pub struct NamespaceInitArgs {
-    pub slug: String,
-    #[arg(long, help = "Directory that receives the .sm/namespace marker")]
-    pub dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]

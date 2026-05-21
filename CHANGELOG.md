@@ -5,7 +5,7 @@
 ### Features
 
 - Add namespaces as the session grouping primitive. The `default` namespace is created automatically, existing rows are backfilled into `default`, and new sessions can target a namespace only after the namespace record exists.
-- Add `.sm/namespace` marker discovery with `$HOME` bounded walk up, `sm create namespace`, and `sm init namespace` for operator setup.
+- Add `.sm/namespace` marker discovery with `$HOME` bounded walk up, and `sm create namespace` for operator setup.
 - Add `sm run --dir` and `sm run --namespace` for spawn directory and namespace selection.
 - Add `namespace:<slug>` and `dir:<path>` selectors. `workspace:<path>` selectors are removed in this migration.
 - Add `session_*` MCP tools alongside deprecated `agent_*` aliases. MCP read tools accept `namespace` and `all_namespaces`; when neither is supplied, they fall back to the caller session namespace.

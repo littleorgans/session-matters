@@ -58,60 +58,31 @@ fn create_namespace_rejects_default() {
 }
 
 #[test]
-fn init_namespace_creates_record_and_marker() {
+fn init_command_is_rejected_by_clap() {
     let daemon = common::DaemonFixture::start();
-    let project = daemon.dir.path().join("project");
-    std::fs::create_dir(&project).expect("project dir creates");
-    let project_arg = project.display().to_string();
 
-    let initialized = daemon
+    let output = daemon
         .command()
-        .args(["init", "namespace", "alpha", "--dir", &project_arg])
+        .arg("init")
         .output()
-        .expect("sm init namespace executes");
-    assert_success("sm init namespace", &initialized);
-    assert!(stdout(&initialized).contains("created namespace: alpha"));
+        .expect("sm init executes");
 
-    let marker = project.join(".sm").join("namespace");
-    assert_eq!(
-        std::fs::read_to_string(marker).expect("marker reads"),
-        "alpha\n"
-    );
-
-    let got = daemon
-        .command()
-        .args(["get", "namespace", "alpha", "--json"])
-        .output()
-        .expect("sm get namespace alpha executes");
-    assert_success("sm get namespace alpha", &got);
-    let namespace: Value = serde_json::from_slice(&got.stdout).expect("namespace JSON parses");
-    assert_eq!(namespace["namespace"], "alpha");
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("unrecognized subcommand 'init'"));
 }
 
 #[test]
-fn init_namespace_refuses_marker_conflict_before_create() {
+fn init_namespace_command_is_rejected_by_clap() {
     let daemon = common::DaemonFixture::start();
-    let project = daemon.dir.path().join("project");
-    let marker_dir = project.join(".sm");
-    std::fs::create_dir_all(&marker_dir).expect("marker dir creates");
-    std::fs::write(marker_dir.join("namespace"), "beta\n").expect("marker writes");
-    let project_arg = project.display().to_string();
 
-    let initialized = daemon
+    let output = daemon
         .command()
-        .args(["init", "namespace", "alpha", "--dir", &project_arg])
+        .args(["init", "namespace", "alpha"])
         .output()
         .expect("sm init namespace executes");
-    assert!(!initialized.status.success());
-    assert!(stderr(&initialized).contains("namespace marker already exists"));
 
-    let got = daemon
-        .command()
-        .args(["get", "namespace", "alpha"])
-        .output()
-        .expect("sm get namespace alpha executes");
-    assert!(!got.status.success());
-    assert!(stderr(&got).contains("unknown namespace: alpha"));
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("unrecognized subcommand 'init'"));
 }
 
 fn assert_success(command: &str, output: &std::process::Output) {

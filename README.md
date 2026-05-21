@@ -9,7 +9,7 @@ Control plane for Helioy agent sessions.
 ```bash
 rtm daemon start
 sm daemon start
-sm init namespace project-alpha
+sm create namespace project-alpha
 sm run claude --role general --dir "$PWD" --detach
 sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --detach
 sm capture --selector id:<session-id>
@@ -41,12 +41,11 @@ mkdir -p .sm
 echo project-alpha > .sm/namespace
 ```
 
-`sm init namespace project-alpha` performs both steps for the current directory,
-or use `--dir <path>` to write the marker elsewhere. The marker is a UTF-8 text
-file at `.sm/namespace` containing one namespace slug. CLI marker discovery walks
-from the selected directory toward the filesystem root and stops after checking
-`$HOME`. If no marker resolves, the CLI uses `default`. `--namespace <slug>`
-overrides marker discovery, and the namespace must already exist.
+The marker is a UTF-8 text file at `.sm/namespace` containing one namespace
+slug. CLI marker discovery walks from the selected directory toward the
+filesystem root and stops after checking `$HOME`. If no marker resolves, the CLI
+uses `default`. `--namespace <slug>` overrides marker discovery, and the
+namespace must already exist.
 
 `sm run --dir <path>` is the directory flag. New callers should use `--dir` and
 `--namespace`.

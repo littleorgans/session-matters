@@ -16,7 +16,6 @@ pub async fn run() -> anyhow::Result<()> {
         Command::Run(args) => cli::run::run(args).await,
         Command::Create(args) => cli::namespace::create(args).await,
         Command::Get(args) => cli::get::run(args).await,
-        Command::Init(args) => cli::namespace::init(args).await,
         Command::Delete(args) => cli::delete::run(args).await,
         Command::Doctor(args) => cli::doctor::run(args).await,
         Command::Mail(args) => cli::mail::run(args).await,

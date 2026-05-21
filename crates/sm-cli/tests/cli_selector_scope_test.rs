@@ -10,8 +10,8 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     let beta_dir = daemon.dir.path().join("beta");
     std::fs::create_dir_all(&alpha_dir).expect("alpha dir");
     std::fs::create_dir_all(&beta_dir).expect("beta dir");
-    init_namespace(&daemon, "alpha", &alpha_dir);
-    init_namespace(&daemon, "beta", &beta_dir);
+    create_namespace_with_marker(&daemon, "alpha", &alpha_dir);
+    create_namespace_with_marker(&daemon, "beta", &beta_dir);
 
     let alpha_id = run_session(&daemon, "alpha", &alpha_dir);
     let beta_id = run_session(&daemon, "beta", &beta_dir);
@@ -204,19 +204,17 @@ fn legacy_workspace_selector_is_rejected_by_cli() {
     assert!(stderr(&selected).contains("unsupported selector"));
 }
 
-fn init_namespace(daemon: &common::DaemonFixture, namespace: &str, dir: &Path) {
+fn create_namespace_with_marker(daemon: &common::DaemonFixture, namespace: &str, dir: &Path) {
     let output = daemon
         .command()
-        .args([
-            "init",
-            "namespace",
-            namespace,
-            "--dir",
-            &dir.display().to_string(),
-        ])
+        .args(["create", "namespace", namespace])
         .output()
-        .expect("sm init namespace executes");
-    assert_success("sm init namespace", &output);
+        .expect("sm create namespace executes");
+    assert_success("sm create namespace", &output);
+
+    let marker_dir = dir.join(".sm");
+    std::fs::create_dir_all(&marker_dir).expect("marker dir creates");
+    std::fs::write(marker_dir.join("namespace"), format!("{namespace}\n")).expect("marker writes");
 }
 
 fn run_session(daemon: &common::DaemonFixture, namespace: &str, dir: &Path) -> String {
