@@ -30,6 +30,10 @@ const MIGRATIONS: &[Migration] = &[
         id: "005_event_cursor_and_lost_evidence",
         apply: add_event_cursor_and_lost_evidence,
     },
+    Migration {
+        id: "006_namespace_storage",
+        apply: add_namespace_storage,
+    },
 ];
 
 pub fn run(connection: &Connection) -> Result<()> {
@@ -97,6 +101,37 @@ fn add_event_cursor_and_lost_evidence(connection: &Connection) -> Result<()> {
             cursor BLOB NOT NULL,
             updated_at TEXT NOT NULL
         )",
+        [],
+    )?;
+    Ok(())
+}
+
+fn add_namespace_storage(connection: &Connection) -> Result<()> {
+    if add_column_if_missing(connection, "namespace", "TEXT NOT NULL DEFAULT 'default'")? {
+        connection.execute(
+            "UPDATE sessions SET namespace = 'default' WHERE namespace IS NULL",
+            [],
+        )?;
+    }
+    if add_column_if_missing(connection, "dir", "TEXT NOT NULL DEFAULT ''")? {
+        connection.execute("UPDATE sessions SET dir = workspace WHERE dir = ''", [])?;
+    }
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS namespaces (
+            slug TEXT PRIMARY KEY NOT NULL,
+            created_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+    connection.execute(
+        "INSERT OR IGNORE INTO namespaces (slug, created_at)
+         VALUES ('default', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+        [],
+    )?;
+    connection.execute(
+        // Partition GC count guard lookups by namespace, then terminated state.
+        "CREATE INDEX IF NOT EXISTS idx_sessions_namespace_terminated
+            ON sessions(namespace, terminated_at)",
         [],
     )?;
     Ok(())

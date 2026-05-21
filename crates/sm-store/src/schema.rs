@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     runtime TEXT NOT NULL,
     role TEXT NOT NULL,
     workspace TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    dir TEXT NOT NULL,
     state TEXT NOT NULL,
     lost_evidence TEXT,
     runtime_pid INTEGER NOT NULL,
@@ -16,6 +18,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     terminated_at TEXT,
     exit_code INTEGER,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS namespaces (
+    slug TEXT PRIMARY KEY NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS mail (

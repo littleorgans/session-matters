@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Row, params, params_from_iter};
-use sm_core::{LabelOp, LostEvidence, RuntimeKind, Selector, Session, SessionState};
+use sm_core::{
+    DEFAULT_NAMESPACE, LabelOp, LostEvidence, RuntimeKind, Selector, Session, SessionState,
+};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -28,14 +30,16 @@ impl SqliteStore {
     pub fn insert_session(&self, session: &Session) -> Result<(), SessionRowError> {
         self.connection.execute(
             "INSERT INTO sessions
-                (id, runtime, role, workspace, state, lost_evidence, runtime_pid,
+                (id, runtime, role, workspace, namespace, dir, state, lost_evidence, runtime_pid,
                  runtime_session, transcript_path, tmux_pane, agent_config, created_at,
                  started_at, terminated_at, exit_code, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             params![
                 session.id.to_string(),
                 session.runtime.to_string(),
                 &session.role,
+                &session.workspace,
+                DEFAULT_NAMESPACE,
                 &session.workspace,
                 session.state.sql_name(),
                 session_lost_evidence(&session.state),
@@ -316,7 +320,7 @@ fn integer_out_of_range(field: &'static str, value: i64) -> SessionRowError {
 mod tests {
     use chrono::Utc;
 
-    use sm_core::{Label, LabelOp, Selector};
+    use sm_core::{DEFAULT_NAMESPACE, Label, LabelOp, Namespace, Selector};
 
     use super::*;
 
@@ -580,6 +584,16 @@ mod tests {
         assert_eq!(sessions[0].runtime_session, None);
         assert_eq!(sessions[0].transcript_path, None);
         assert_eq!(sessions[0].agent_config, None);
+        assert_eq!(
+            store.list_namespaces().expect("namespaces list")[0].namespace,
+            Namespace::default()
+        );
+        let session_namespace = store
+            .get_session_namespace(&sessions[0].id)
+            .expect("session namespace loads")
+            .expect("session namespace exists");
+        assert_eq!(session_namespace.namespace.as_str(), DEFAULT_NAMESPACE);
+        assert_eq!(session_namespace.dir.to_string_lossy(), "test");
         let _ = std::fs::remove_file(path);
     }
 

@@ -2,6 +2,7 @@ mod events;
 mod labels;
 mod mail;
 mod migrations;
+mod namespaces;
 mod sessions;
 mod time;
 
@@ -12,6 +13,7 @@ use rusqlite::{Connection, Result};
 use crate::schema::SESSIONS_SCHEMA;
 
 pub use mail::MailRowError;
+pub use namespaces::{NamespaceRecord, NamespaceRowError, SessionNamespace};
 pub use sessions::SessionRowError;
 
 pub struct SqliteStore {
