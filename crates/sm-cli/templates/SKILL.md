@@ -35,30 +35,31 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 
 ## Examples
 
-### `agent_run`
+### `session_run`
 
 ```json
 {
+  "dir": "/Users/you/code/session-matters",
   "labels": [
     "area=auth",
     "pri=high"
   ],
+  "namespace": "project-alpha",
   "role": "engineer",
   "runtime": "claude",
-  "target": "headless",
-  "workspace": "/Users/you/code/session-matters"
+  "target": "headless"
 }
 ```
 
-### `agent_list`
+### `session_list`
 
 ```json
 {
-  "selector": "role:engineer"
+  "selector": "namespace:project-alpha"
 }
 ```
 
-### `agent_get`
+### `session_get`
 
 ```json
 {
@@ -66,7 +67,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 }
 ```
 
-### `agent_capture`
+### `session_capture`
 
 ```json
 {
@@ -75,7 +76,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 }
 ```
 
-### `agent_delete`
+### `session_delete`
 
 ```json
 {
