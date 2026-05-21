@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, params};
-use sm_core::Namespace;
+use sm_core::{Namespace, Selector};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -25,6 +25,8 @@ pub enum NamespaceRowError {
     Chrono(#[from] chrono::ParseError),
     #[error(transparent)]
     Core(#[from] sm_core::NamespaceError),
+    #[error(transparent)]
+    Session(#[from] super::SessionRowError),
 }
 
 impl SqliteStore {
@@ -47,6 +49,53 @@ impl SqliteStore {
             params![namespace.as_str(), created_at.to_rfc3339()],
         )?;
         Ok(())
+    }
+
+    pub fn delete_namespace(&self, namespace: &Namespace) -> Result<bool, NamespaceRowError> {
+        let changed = self.connection.execute(
+            "DELETE FROM namespaces WHERE slug = ?1",
+            params![namespace.as_str()],
+        )?;
+        Ok(changed > 0)
+    }
+
+    pub fn delete_sessions_by_namespace(
+        &self,
+        namespace: &Namespace,
+    ) -> Result<usize, NamespaceRowError> {
+        let session_ids = self
+            .list_sessions_by_selector(&Selector::Namespace {
+                namespace: namespace.clone(),
+            })?
+            .into_iter()
+            .map(|session| session.id.to_string())
+            .collect::<Vec<_>>();
+        for id in &session_ids {
+            self.connection
+                .execute("DELETE FROM labels WHERE session_id = ?1", params![id])?;
+            self.connection.execute(
+                "DELETE FROM mail WHERE sender_id = ?1 OR recipient_id = ?1",
+                params![id],
+            )?;
+        }
+        self.connection.execute(
+            "DELETE FROM sessions WHERE namespace = ?1",
+            params![namespace.as_str()],
+        )?;
+        Ok(session_ids.len())
+    }
+
+    pub fn active_session_count_in_namespace(
+        &self,
+        namespace: &Namespace,
+    ) -> Result<usize, NamespaceRowError> {
+        Ok(self
+            .list_sessions_by_selector(&Selector::Namespace {
+                namespace: namespace.clone(),
+            })?
+            .into_iter()
+            .filter(|session| session.state.is_active())
+            .count())
     }
 
     pub fn list_namespaces(&self) -> Result<Vec<NamespaceRecord>, NamespaceRowError> {

@@ -25,6 +25,8 @@ pub enum Command {
     Run(RunArgs),
     #[command(about = "Create namespace records")]
     Create(CreateArgs),
+    #[command(about = "Manage user configuration")]
+    Config(ConfigArgs),
     #[command(about = "Inspect sessions and namespaces")]
     Get(GetArgs),
     Delete(DeleteArgs),
@@ -119,8 +121,36 @@ pub struct NamespaceCreateArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct ConfigArgs {
+    #[command(subcommand)]
+    pub action: ConfigAction,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConfigAction {
+    #[command(about = "Set the current namespace context")]
+    SetContext(SetContextArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SetContextArgs {
+    pub namespace: Namespace,
+}
+
+#[derive(Debug, Args)]
 pub struct DeleteArgs {
+    #[command(subcommand)]
     pub resource: DeleteResource,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum DeleteResource {
+    Agent(DeleteAgentArgs),
+    Namespace(DeleteNamespaceArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct DeleteAgentArgs {
     #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
     pub selector: String,
     #[command(flatten)]
@@ -131,9 +161,9 @@ pub struct DeleteArgs {
     pub grace: u64,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum DeleteResource {
-    Agent,
+#[derive(Debug, Args)]
+pub struct DeleteNamespaceArgs {
+    pub namespace: Namespace,
 }
 
 #[derive(Debug, Args)]

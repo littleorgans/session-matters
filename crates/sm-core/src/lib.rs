@@ -22,10 +22,11 @@ pub use proto::{
     ListRequest, ListResponse, LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse,
     MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
     MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse,
-    NamespaceCreateRequest, NamespaceCreateResponse, NamespaceGetRequest, NamespaceGetResponse,
-    NamespaceListRequest, NamespaceListResponse, NudgeDelivery, NudgeRequest, NudgeResponse,
-    RpcRequest, RpcResponse, RuntimeDoctorReport, ShutdownResponse, SpawnRequest, SpawnResponse,
-    TargetError, WaitCondition, WaitRequest, WaitResponse,
+    NamespaceCreateRequest, NamespaceCreateResponse, NamespaceDeleteRequest,
+    NamespaceDeleteResponse, NamespaceGetRequest, NamespaceGetResponse, NamespaceListRequest,
+    NamespaceListResponse, NudgeDelivery, NudgeRequest, NudgeResponse, RpcRequest, RpcResponse,
+    RuntimeDoctorReport, ShutdownResponse, SpawnRequest, SpawnResponse, TargetError, WaitCondition,
+    WaitRequest, WaitResponse,
 };
 pub use types::{
     Channel, DEFAULT_NAMESPACE, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus,
