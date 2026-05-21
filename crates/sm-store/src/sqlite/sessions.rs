@@ -100,10 +100,6 @@ impl SqliteStore {
                 "SELECT * FROM sessions WHERE role = ?1 ORDER BY created_at",
                 [name.clone()],
             ),
-            Selector::Workspace { name } => self.query_sessions(
-                "SELECT * FROM sessions WHERE workspace = ?1 ORDER BY created_at",
-                [name.clone()],
-            ),
             Selector::Namespace { namespace } => self.query_sessions(
                 "SELECT * FROM sessions WHERE namespace = ?1 ORDER BY created_at",
                 [namespace.as_str().to_string()],
@@ -284,7 +280,6 @@ fn session_matches_selector(session: &Session, selector: &Selector) -> bool {
         Selector::All => true,
         Selector::Id { id } => session.id == *id,
         Selector::Role { name } => session.role == *name,
-        Selector::Workspace { name } => session.workspace == *name,
         Selector::Namespace { namespace } => session.namespace == *namespace,
         Selector::Dir { path } => session.dir == *path,
         Selector::And { selectors } => selectors

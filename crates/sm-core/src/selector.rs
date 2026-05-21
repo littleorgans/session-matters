@@ -20,9 +20,6 @@ pub enum Selector {
         key: String,
         op: LabelOp,
     },
-    Workspace {
-        name: String,
-    },
     Namespace {
         namespace: Namespace,
     },
@@ -45,7 +42,6 @@ impl fmt::Display for Selector {
             Self::All => f.write_str("all"),
             Self::Id { id } => write!(f, "id:{id}"),
             Self::Role { name } => write!(f, "role:{name}"),
-            Self::Workspace { name } => write!(f, "workspace:{name}"),
             Self::Namespace { namespace } => write!(f, "namespace:{namespace}"),
             Self::Dir { path } => write!(f, "dir:{}", path.display()),
             Self::And { selectors } => {
