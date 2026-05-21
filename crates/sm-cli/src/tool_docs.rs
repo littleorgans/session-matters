@@ -73,11 +73,8 @@ scope reads and `all_namespaces` to bypass scoping. When neither is supplied, th
 daemon falls back to the caller session's stored namespace. The daemon does not
 walk the MCP server process cwd.
 
-Design snapshots for the migration live in `NOTES/api-surface-and-entities.md`,
-`NOTES/namespace-packaging.md`, `NOTES/namespace-resolution.md`, and
-`NOTES/migration-workspace-to-namespace.md`. They explain the design history;
-this README is the canonical operator guide. A future hard cut master will remove
-the compatibility surfaces after the migration window.
+A future hard cut master will remove the compatibility surfaces after the
+migration window.
 
 ## MCP Server
 
