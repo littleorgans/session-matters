@@ -25,6 +25,8 @@ pub enum Command {
     Run(RunArgs),
     #[command(about = "Create namespace records")]
     Create(CreateArgs),
+    #[command(about = "Manage user configuration")]
+    Config(ConfigArgs),
     #[command(about = "Inspect sessions and namespaces")]
     Get(GetArgs),
     Delete(DeleteArgs),
@@ -116,6 +118,23 @@ pub enum CreateResource {
 #[derive(Debug, Args)]
 pub struct NamespaceCreateArgs {
     pub slug: String,
+}
+
+#[derive(Debug, Args)]
+pub struct ConfigArgs {
+    #[command(subcommand)]
+    pub action: ConfigAction,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConfigAction {
+    #[command(about = "Set the current namespace context")]
+    SetContext(SetContextArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SetContextArgs {
+    pub namespace: Namespace,
 }
 
 #[derive(Debug, Args)]

@@ -43,10 +43,7 @@ async fn list(json: bool) -> Result<()> {
 }
 
 async fn get_one(slug: String, json: bool) -> Result<()> {
-    let response = send(&RpcRequest::NamespaceGet {
-        request: NamespaceGetRequest { slug: slug.clone() },
-    })
-    .await?;
+    let response = get_namespace_response(slug.clone()).await?;
 
     match response {
         RpcResponse::NamespaceGot { response } if json => {
@@ -69,6 +66,24 @@ async fn get_one(slug: String, json: bool) -> Result<()> {
             other.kind()
         ),
     }
+}
+
+pub(crate) async fn get_namespace_record(slug: String) -> Result<Option<NamespaceRecord>> {
+    match get_namespace_response(slug).await? {
+        RpcResponse::NamespaceGot { response } => Ok(response.namespace),
+        RpcResponse::Error { message } => bail!(message),
+        other => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
+    }
+}
+
+async fn get_namespace_response(slug: String) -> Result<RpcResponse> {
+    send(&RpcRequest::NamespaceGet {
+        request: NamespaceGetRequest { slug },
+    })
+    .await
 }
 
 async fn create_namespace(args: NamespaceCreateArgs) -> Result<()> {

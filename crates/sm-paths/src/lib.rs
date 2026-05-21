@@ -23,6 +23,10 @@ impl SmPaths {
         })
     }
 
+    pub fn namespace_binding(&self) -> PathBuf {
+        self.dir.join("namespace")
+    }
+
     pub fn new(dir: PathBuf) -> Self {
         Self {
             pidfile: dir.join("sm.pid"),
@@ -133,6 +137,10 @@ mod tests {
                 assert_eq!(paths.pidfile, PathBuf::from("/tmp/sm-home/sm.pid"));
                 assert_eq!(paths.database, PathBuf::from("/tmp/sm-home/sm.db"));
                 assert_eq!(paths.log, PathBuf::from("/tmp/sm-home/smd.log"));
+                assert_eq!(
+                    paths.namespace_binding(),
+                    PathBuf::from("/tmp/sm-home/namespace")
+                );
             },
         );
     }
