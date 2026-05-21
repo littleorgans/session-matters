@@ -31,6 +31,8 @@ pub async fn run(args: RunArgs) -> Result<()> {
                 runtime: args.runtime,
                 role: args.role,
                 workspace,
+                dir: None,
+                namespace: None,
                 target: args.target,
                 agent_config: args.agent_config,
                 env,

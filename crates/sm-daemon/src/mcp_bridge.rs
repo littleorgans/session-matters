@@ -134,6 +134,8 @@ async fn agent_run(
                     runtime,
                     role,
                     workspace,
+                    dir: None,
+                    namespace: None,
                     target,
                     agent_config,
                     env: Vec::new(),

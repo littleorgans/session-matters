@@ -151,7 +151,7 @@ fn decode_cursor(value: Vec<u8>) -> rusqlite::Result<EventCursor> {
 mod tests {
     use chrono::Utc;
     use lilo_rm_core::{RuntimeEvent, TerminationEvidence};
-    use sm_core::{Label, RuntimeKind, Session, SessionState};
+    use sm_core::{Label, Namespace, RuntimeKind, Session, SessionState};
     use uuid::Uuid;
 
     use super::*;
@@ -289,6 +289,8 @@ mod tests {
             runtime: RuntimeKind::Claude,
             role: "general".to_string(),
             workspace: "test".to_string(),
+            namespace: Namespace::default(),
+            dir: "test".into(),
             state: SessionState::Running,
             runtime_pid: 42,
             runtime_session: None,

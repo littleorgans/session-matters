@@ -170,6 +170,8 @@ mod tests {
             runtime: RuntimeKind::Claude,
             role: "engineer".to_string(),
             workspace: workspace.to_string(),
+            namespace: Namespace::default(),
+            dir: PathBuf::from(workspace),
             state: SessionState::Running,
             runtime_pid: 42,
             runtime_session: None,

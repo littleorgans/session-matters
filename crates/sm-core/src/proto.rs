@@ -4,7 +4,7 @@ use std::str::FromStr;
 use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
-use crate::{LabelMutation, Mail, RuntimeKind, Selector, Session, SmError, SmResult};
+use crate::{LabelMutation, Mail, Namespace, RuntimeKind, Selector, Session, SmError, SmResult};
 
 fn default_spawn_target() -> String {
     "headless".to_string()
@@ -14,7 +14,12 @@ fn default_spawn_target() -> String {
 pub struct SpawnRequest {
     pub runtime: RuntimeKind,
     pub role: String,
+    #[serde(default)]
     pub workspace: String,
+    #[serde(default)]
+    pub dir: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<Namespace>,
     #[serde(default = "default_spawn_target")]
     pub target: String,
     #[serde(default)]
@@ -361,6 +366,8 @@ mod tests {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
+                dir: None,
+                namespace: None,
                 target: "headless".to_string(),
                 agent_config: None,
                 env: Vec::new(),
@@ -373,6 +380,49 @@ mod tests {
         let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
 
         assert_eq!(decoded, request);
+    }
+
+    #[test]
+    fn spawn_request_decodes_legacy_payload_without_new_fields() {
+        let json = r#"{
+            "type": "spawn",
+            "request": {
+                "runtime": "claude",
+                "role": "general",
+                "workspace": "/tmp/project"
+            }
+        }"#;
+
+        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes legacy request");
+        let RpcRequest::Spawn { request } = decoded else {
+            panic!("expected spawn request");
+        };
+        assert_eq!(request.workspace, "/tmp/project");
+        assert_eq!(request.dir, None);
+        assert_eq!(request.namespace, None);
+        assert_eq!(request.target, "headless");
+    }
+
+    #[test]
+    fn spawn_request_decodes_new_payload_without_legacy_workspace() {
+        let json = r#"{
+            "type": "spawn",
+            "request": {
+                "runtime": "claude",
+                "role": "general",
+                "dir": "/tmp/project",
+                "namespace": "alpha"
+            }
+        }"#;
+
+        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes new request");
+        let RpcRequest::Spawn { request } = decoded else {
+            panic!("expected spawn request");
+        };
+        assert_eq!(request.workspace, "");
+        assert_eq!(request.dir.as_deref(), Some("/tmp/project"));
+        assert_eq!(request.namespace.unwrap().as_str(), "alpha");
+        assert_eq!(request.target, "headless");
     }
 
     #[test]

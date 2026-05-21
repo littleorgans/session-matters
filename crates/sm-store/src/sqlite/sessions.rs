@@ -1,10 +1,9 @@
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Row, params, params_from_iter};
-use sm_core::{
-    DEFAULT_NAMESPACE, LabelOp, LostEvidence, RuntimeKind, Selector, Session, SessionState,
-};
+use sm_core::{LabelOp, LostEvidence, Namespace, RuntimeKind, Selector, Session, SessionState};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -22,6 +21,8 @@ pub enum SessionRowError {
     Uuid(#[from] uuid::Error),
     #[error(transparent)]
     Core(#[from] sm_core::SmError),
+    #[error(transparent)]
+    Namespace(#[from] sm_core::NamespaceError),
     #[error("{field} out of range: {value}")]
     IntegerOutOfRange { field: &'static str, value: i64 },
 }
@@ -39,8 +40,8 @@ impl SqliteStore {
                 session.runtime.to_string(),
                 &session.role,
                 &session.workspace,
-                DEFAULT_NAMESPACE,
-                &session.workspace,
+                session.namespace.as_str(),
+                session.dir.display().to_string(),
                 session.state.sql_name(),
                 session_lost_evidence(&session.state),
                 session.runtime_pid,
@@ -271,6 +272,8 @@ fn session_from_row(row: &Row<'_>) -> Result<Session, SessionRowError> {
         runtime: RuntimeKind::from_str(&row.get::<_, String>("runtime")?)?,
         role: row.get("role")?,
         workspace: row.get("workspace")?,
+        namespace: Namespace::new(row.get::<_, String>("namespace")?)?,
+        dir: PathBuf::from(row.get::<_, String>("dir")?),
         state: session_state_from_row(row)?,
         runtime_pid,
         runtime_session: row.get("runtime_session")?,
@@ -333,6 +336,8 @@ mod tests {
             runtime: RuntimeKind::Claude,
             role: "general".to_string(),
             workspace: "test".to_string(),
+            namespace: Namespace::default(),
+            dir: PathBuf::from("test"),
             state: SessionState::Running,
             runtime_pid: 42,
             runtime_session: None,
@@ -364,6 +369,8 @@ mod tests {
             runtime: RuntimeKind::Claude,
             role: "general".to_string(),
             workspace: "test".to_string(),
+            namespace: Namespace::default(),
+            dir: PathBuf::from("test"),
             state: SessionState::Running,
             runtime_pid: 42,
             runtime_session: None,
@@ -604,6 +611,8 @@ mod tests {
             runtime: RuntimeKind::Claude,
             role: role.to_string(),
             workspace: workspace.to_string(),
+            namespace: Namespace::default(),
+            dir: PathBuf::from(workspace),
             state: SessionState::Running,
             runtime_pid: 42,
             runtime_session: None,

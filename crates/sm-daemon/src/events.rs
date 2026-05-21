@@ -145,7 +145,7 @@ mod tests {
         Lifecycle, LifecycleState, LostEvidence, RuntimeEvent, RuntimeKind, RuntimeResponse,
         StatusPayload, TerminationEvidence, read_json_line, write_json_line,
     };
-    use sm_core::{Label, RuntimeKind as SmRuntimeKind, Session, SessionState};
+    use sm_core::{Label, Namespace, RuntimeKind as SmRuntimeKind, Session, SessionState};
     use sm_driver::{
         CaptureResult, ChildExit, DriverError, DriverProbe, NudgeResult, SpawnDriver, SpawnLaunch,
         SpawnedProcess,
@@ -301,6 +301,8 @@ mod tests {
             runtime: SmRuntimeKind::Claude,
             role: "engineer".to_string(),
             workspace: "test".to_string(),
+            namespace: Namespace::default(),
+            dir: PathBuf::from("test"),
             state,
             runtime_pid: 42,
             runtime_session: None,

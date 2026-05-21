@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::label::Label;
+use crate::namespace::Namespace;
 use crate::runtime::RuntimeKind;
 use crate::{SmError, SmResult};
 
@@ -68,6 +69,10 @@ pub struct Session {
     pub runtime: RuntimeKind,
     pub role: String,
     pub workspace: String,
+    #[serde(default)]
+    pub namespace: Namespace,
+    #[serde(default)]
+    pub dir: PathBuf,
     #[serde(default)]
     pub labels: Vec<Label>,
     pub state: SessionState,
