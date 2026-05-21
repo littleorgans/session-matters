@@ -98,8 +98,9 @@ impl DaemonState {
             RpcRequest::NamespaceGet { request } => {
                 response(self.get_namespace(request).await, false)
             }
-            RpcRequest::NamespaceList { request } => {
-                response(self.list_namespaces(request).await, false)
+            RpcRequest::NamespaceList { request } => response(self.list_namespaces(request), false),
+            RpcRequest::NamespaceDelete { request } => {
+                response(self.delete_namespace(context, request).await, false)
             }
             RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
             RpcRequest::MailSend { request } => {
@@ -181,11 +182,30 @@ impl DaemonState {
             updated_at: now,
         };
 
-        self.store
-            .lock()
-            .expect("store lock poisoned")
-            .insert_session(&session)
-            .context("failed to persist session")?;
+        let namespace_deleted_before_commit = {
+            let store = self.store.lock().expect("store lock poisoned");
+            if store
+                .namespace_exists(&session.namespace)
+                .context("failed to revalidate namespace before session commit")?
+            {
+                store
+                    .insert_session(&session)
+                    .context("failed to persist session")?;
+                false
+            } else {
+                true
+            }
+        };
+        if namespace_deleted_before_commit {
+            let _ = self
+                .driver
+                .terminate(&id.to_string(), "SIGTERM", Duration::from_secs(5))
+                .await;
+            anyhow::bail!(
+                "namespace deleted before session commit: {}",
+                session.namespace
+            );
+        }
 
         Ok(RpcResponse::Spawned {
             response: SpawnResponse { session },
@@ -363,7 +383,7 @@ impl DaemonState {
         })
     }
 
-    async fn delete_one(
+    pub(crate) async fn delete_one(
         &self,
         context: &RequestContext,
         request: &DeleteRequest,

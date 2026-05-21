@@ -1,18 +1,22 @@
-use anyhow::{Result, bail};
+use std::fs;
 
-use sm_core::{DeleteRequest, RpcRequest, RpcResponse, SmEndpoint};
+use anyhow::{Context, Result, bail};
+use sm_core::{
+    DeleteRequest, Namespace, NamespaceDeleteRequest, RpcRequest, RpcResponse, SmEndpoint, SmPaths,
+};
 
-use crate::cli::cli_def::{DeleteArgs, DeleteResource};
+use crate::cli::cli_def::{DeleteAgentArgs, DeleteArgs, DeleteNamespaceArgs, DeleteResource};
 use crate::cli::output::print_session_line;
 use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: DeleteArgs) -> Result<()> {
     match args.resource {
-        DeleteResource::Agent => delete_agent(args).await,
+        DeleteResource::Agent(args) => delete_agent(args).await,
+        DeleteResource::Namespace(args) => delete_namespace(args).await,
     }
 }
 
-async fn delete_agent(args: DeleteArgs) -> Result<()> {
+async fn delete_agent(args: DeleteAgentArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
         &endpoint,
@@ -43,4 +47,74 @@ async fn delete_agent(args: DeleteArgs) -> Result<()> {
             other.kind()
         ),
     }
+}
+
+async fn delete_namespace(args: DeleteNamespaceArgs) -> Result<()> {
+    let namespace = Namespace::for_lifecycle(args.namespace.into_string())?;
+    let endpoint = SmEndpoint::from_env()?;
+    let response = sm_daemon::send_request(
+        &endpoint,
+        &RpcRequest::NamespaceDelete {
+            request: NamespaceDeleteRequest {
+                namespace: namespace.clone(),
+            },
+        },
+    )
+    .await;
+
+    match response {
+        Ok(RpcResponse::NamespaceDeleted { response }) => {
+            clear_binding_if_matches(&namespace).with_context(|| {
+                format!(
+                    "failed to clear namespace binding after deleting catalog entry: {namespace}. \
+                     Remove the binding file manually or retry `sm delete namespace {namespace}`."
+                )
+            })?;
+            for session in response.sessions {
+                print_session_line(&session);
+            }
+            println!("deleted namespace: {}", response.namespace);
+            Ok(())
+        }
+        Ok(RpcResponse::Error { message }) if message.contains("unknown namespace:") => {
+            if clear_binding_if_matches(&namespace)? {
+                println!("catalog entry already absent; stale binding cleared: {namespace}");
+                Ok(())
+            } else {
+                bail!(message)
+            }
+        }
+        Ok(RpcResponse::Error { message }) => bail!(message),
+        Ok(other) => bail!(
+            "unexpected daemon response: {} (please report)",
+            other.kind()
+        ),
+        Err(error) => Err(error),
+    }
+}
+
+fn clear_binding_if_matches(namespace: &Namespace) -> Result<bool> {
+    let paths = SmPaths::from_env()?;
+    let binding = paths.namespace_binding();
+    let contents = match fs::read_to_string(&binding) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => {
+            return Err(error).with_context(|| format!("failed to read {}", binding.display()));
+        }
+    };
+    if contents.trim() != namespace.as_str() {
+        return Ok(false);
+    }
+    fail_binding_clear_for_tests()?;
+    fs::remove_file(&binding).with_context(|| format!("failed to remove {}", binding.display()))?;
+    Ok(true)
+}
+
+fn fail_binding_clear_for_tests() -> Result<()> {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("SM_FAULT_NAMESPACE_BINDING_CLEAR").is_some() {
+        bail!("fault injected while clearing namespace binding");
+    }
+    Ok(())
 }

@@ -80,6 +80,17 @@ pub struct NamespaceListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceDeleteRequest {
+    pub namespace: Namespace,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceDeleteResponse {
+    pub namespace: Namespace,
+    pub sessions: Vec<Session>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeleteRequest {
     pub selector: Selector,
     pub signal: String,
@@ -330,6 +341,7 @@ pub enum RpcRequest {
     NamespaceCreate { request: NamespaceCreateRequest },
     NamespaceGet { request: NamespaceGetRequest },
     NamespaceList { request: NamespaceListRequest },
+    NamespaceDelete { request: NamespaceDeleteRequest },
     Delete { request: DeleteRequest },
     MailSend { request: MailSendRequest },
     MailRead { request: MailReadRequest },
@@ -354,6 +366,7 @@ pub enum RpcResponse {
     NamespaceCreated { response: NamespaceCreateResponse },
     NamespaceGot { response: NamespaceGetResponse },
     NamespacesListed { response: NamespaceListResponse },
+    NamespaceDeleted { response: NamespaceDeleteResponse },
     Deleted { response: DeleteResponse },
     MailSent { response: MailSendResponse },
     MailRead { response: MailReadResponse },
@@ -379,6 +392,7 @@ impl RpcResponse {
             RpcResponse::NamespaceCreated { .. } => "NamespaceCreated",
             RpcResponse::NamespaceGot { .. } => "NamespaceGot",
             RpcResponse::NamespacesListed { .. } => "NamespacesListed",
+            RpcResponse::NamespaceDeleted { .. } => "NamespaceDeleted",
             RpcResponse::Deleted { .. } => "Deleted",
             RpcResponse::MailSent { .. } => "MailSent",
             RpcResponse::MailRead { .. } => "MailRead",

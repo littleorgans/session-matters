@@ -33,11 +33,13 @@ impl Namespace {
 
     pub fn for_create(value: impl Into<String>) -> Result<Self, NamespaceError> {
         let namespace = Self::new(value)?;
-        if namespace.as_str() == DEFAULT_NAMESPACE {
-            return Err(NamespaceError::ReservedName {
-                name: DEFAULT_NAMESPACE,
-            });
-        }
+        namespace.ensure_not_default()?;
+        Ok(namespace)
+    }
+
+    pub fn for_lifecycle(value: impl Into<String>) -> Result<Self, NamespaceError> {
+        let namespace = Self::new(value)?;
+        namespace.ensure_not_default()?;
         Ok(namespace)
     }
 
@@ -47,6 +49,15 @@ impl Namespace {
 
     pub fn into_string(self) -> String {
         self.0
+    }
+
+    fn ensure_not_default(&self) -> Result<(), NamespaceError> {
+        if self.as_str() == DEFAULT_NAMESPACE {
+            return Err(NamespaceError::ReservedName {
+                name: DEFAULT_NAMESPACE,
+            });
+        }
+        Ok(())
     }
 }
 
