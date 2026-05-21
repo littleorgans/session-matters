@@ -341,12 +341,18 @@ async fn mail_stop_check(
 }
 
 async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
+    let to = scoped_required_selector(
+        state,
+        context,
+        arguments,
+        required_selector(arguments, "to")?,
+    )?;
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::Nudge {
                 request: NudgeRequest {
-                    to: required_selector(arguments, "to")?,
+                    to,
                     content: required_string(arguments, "content")?.to_string(),
                 },
             },

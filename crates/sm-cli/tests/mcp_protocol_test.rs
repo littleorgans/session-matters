@@ -295,6 +295,22 @@ async fn session_tools_share_agent_handlers_and_namespace_read_scope() {
 
     let implicit_alpha = call_tool(&mut caller_mcp, 10, "session_list", json!({}));
     assert_session_ids(&implicit_alpha, &[&caller, &alpha_peer]);
+
+    let nudged_alpha = call_tool(
+        &mut mcp,
+        11,
+        "nudge",
+        json!({ "to": "all", "namespace": "alpha", "content": "ping" }),
+    );
+    assert_nudged_ids(&nudged_alpha, &[&caller, &alpha_peer]);
+
+    let nudged_all = call_tool(
+        &mut mcp,
+        12,
+        "nudge",
+        json!({ "to": "all", "all_namespaces": true, "content": "ping" }),
+    );
+    assert_nudged_ids(&nudged_all, &[&caller, &alpha_peer, &beta_peer]);
 }
 
 #[tokio::test]
@@ -522,6 +538,28 @@ fn assert_session_ids(response: &Value, expected: &[&str]) {
             session["id"]
                 .as_str()
                 .expect("session id is string")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    let mut expected = expected
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect::<Vec<_>>();
+    actual.sort();
+    expected.sort();
+    assert_eq!(actual, expected);
+}
+
+fn assert_nudged_ids(response: &Value, expected: &[&str]) {
+    assert!(response["error"].is_null());
+    let mut actual = response["result"]["structuredContent"]["nudges"]
+        .as_array()
+        .expect("nudges is array")
+        .iter()
+        .map(|nudge| {
+            nudge["to"]
+                .as_str()
+                .expect("nudge target is string")
                 .to_string()
         })
         .collect::<Vec<_>>();
