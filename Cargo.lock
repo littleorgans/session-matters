@@ -1159,6 +1159,7 @@ dependencies = [
  "sm-core",
  "sm-daemon",
  "tempfile",
+ "thiserror",
  "tokio",
  "uuid",
 ]
