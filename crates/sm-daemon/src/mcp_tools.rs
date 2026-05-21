@@ -5,8 +5,8 @@ use serde_json::{Value, json};
 use sm_core::{
     CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LinkRequest,
     ListRequest, LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest,
-    MailStopCheckRequest, Namespace, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
-    SpawnRequest, WaitCondition, WaitRequest, tool_error, tool_success,
+    MailStopCheckRequest, Namespace, NamespaceScope, NudgeRequest, RpcRequest, RpcResponse,
+    RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -511,7 +511,9 @@ fn scoped_optional_selector(
     selector: Option<Selector>,
 ) -> Result<Option<Selector>> {
     Ok(match read_namespace_scope(state, context, arguments)? {
-        Some(namespace) => Some(apply_namespace_scope(selector, namespace)),
+        Some((namespace, scope)) => {
+            Some(Selector::scoped_to_namespace(selector, namespace, scope)?)
+        }
         None => selector,
     })
 }
@@ -532,12 +534,12 @@ fn read_namespace_scope(
     state: &DaemonState,
     context: &RequestContext,
     arguments: &Value,
-) -> Result<Option<Namespace>> {
+) -> Result<Option<(Namespace, NamespaceScope)>> {
     if optional_bool(arguments, "all_namespaces").unwrap_or(false) {
         return Ok(None);
     }
     if let Some(raw) = optional_string(arguments, "namespace") {
-        return Ok(Some(Namespace::from_str(raw)?));
+        return Ok(Some((Namespace::from_str(raw)?, NamespaceScope::Explicit)));
     }
     if let Some(id) = context.mcp_caller_session_id {
         let session = state
@@ -547,20 +549,10 @@ fn read_namespace_scope(
             .get_session(&id)
             .context("failed to load MCP caller session")?;
         if let Some(session) = session {
-            return Ok(Some(session.namespace));
+            return Ok(Some((session.namespace, NamespaceScope::Default)));
         }
     }
-    Ok(Some(Namespace::default()))
-}
-
-fn apply_namespace_scope(selector: Option<Selector>, namespace: Namespace) -> Selector {
-    let namespace = Selector::Namespace { namespace };
-    match selector {
-        Some(Selector::All) | None => namespace,
-        Some(selector) => Selector::And {
-            selectors: vec![namespace, selector],
-        },
-    }
+    Ok(Some((Namespace::default(), NamespaceScope::Default)))
 }
 
 fn required_string<'a>(arguments: &'a Value, field: &str) -> Result<&'a str> {

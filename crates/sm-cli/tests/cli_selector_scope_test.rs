@@ -56,6 +56,57 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     );
     assert_contains_only(&namespace_selector, &beta_id, &alpha_id);
 
+    let namespace_selector_default_scope = daemon
+        .command()
+        .current_dir(&alpha_dir)
+        .args(["nudge", "--to", "namespace:beta", "--content", "ping"])
+        .output()
+        .expect("sm nudge namespace selector executes");
+    assert_success(
+        "sm nudge --to namespace:beta",
+        &namespace_selector_default_scope,
+    );
+    assert_total_line_count(&namespace_selector_default_scope, 1);
+    assert_contains_only(&namespace_selector_default_scope, &beta_id, &alpha_id);
+
+    let matching_namespace_flag = daemon
+        .command()
+        .current_dir(&alpha_dir)
+        .args([
+            "nudge",
+            "--to",
+            "namespace:beta",
+            "--namespace",
+            "beta",
+            "--content",
+            "ping",
+        ])
+        .output()
+        .expect("sm nudge matching namespace flag executes");
+    assert_success(
+        "sm nudge --to namespace:beta --namespace beta",
+        &matching_namespace_flag,
+    );
+    assert_contains_only(&matching_namespace_flag, &beta_id, &alpha_id);
+
+    let conflicting_namespace_flag = daemon
+        .command()
+        .current_dir(&alpha_dir)
+        .args([
+            "nudge",
+            "--to",
+            "namespace:beta",
+            "--namespace",
+            "alpha",
+            "--content",
+            "ping",
+        ])
+        .output()
+        .expect("sm nudge conflicting namespace flag executes");
+    assert!(!conflicting_namespace_flag.status.success());
+    assert!(stderr(&conflicting_namespace_flag).contains("--namespace alpha"));
+    assert!(stderr(&conflicting_namespace_flag).contains("namespace:beta"));
+
     let beta_dir_selector = format!("dir:{}", canonical(&beta_dir));
     let dir_selector = daemon
         .command()
@@ -92,6 +143,32 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
         .expect("sm nudge executes");
     assert_success("sm nudge", &nudge_default);
     assert_total_line_count(&nudge_default, 1);
+
+    let nudge_flag_scope = daemon
+        .command()
+        .current_dir(&alpha_dir)
+        .args([
+            "nudge",
+            "--to",
+            "role:engineer",
+            "--namespace",
+            "beta",
+            "--content",
+            "ping",
+        ])
+        .output()
+        .expect("sm nudge --namespace executes");
+    assert_success("sm nudge --namespace beta", &nudge_flag_scope);
+    assert_contains_only(&nudge_flag_scope, &beta_id, &alpha_id);
+
+    let nudge_all = daemon
+        .command()
+        .current_dir(&alpha_dir)
+        .args(["nudge", "--to", "all", "--content", "ping", "-A"])
+        .output()
+        .expect("sm nudge -A executes");
+    assert_success("sm nudge -A", &nudge_all);
+    assert_total_line_count(&nudge_all, 2);
 
     let labeled = daemon
         .command()

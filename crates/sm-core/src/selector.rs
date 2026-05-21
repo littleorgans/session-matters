@@ -36,6 +36,63 @@ pub enum Selector {
     All,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NamespaceScope {
+    Default,
+    Explicit,
+}
+
+impl Selector {
+    pub fn scoped_to_namespace(
+        selector: Option<Self>,
+        namespace: Namespace,
+        scope: NamespaceScope,
+    ) -> SmResult<Self> {
+        let Some(selector) = selector else {
+            return Ok(Self::Namespace { namespace });
+        };
+
+        if let Some(conflict) = selector.conflicting_namespace(&namespace) {
+            if scope == NamespaceScope::Explicit {
+                return Err(SmError::Message(format!(
+                    "namespace selector conflict: --namespace {namespace} cannot scope selector containing namespace:{conflict}"
+                )));
+            }
+            return Ok(selector);
+        }
+
+        if selector.contains_namespace() {
+            return Ok(selector);
+        }
+
+        if selector == Self::All {
+            return Ok(Self::Namespace { namespace });
+        }
+
+        Ok(Self::And {
+            selectors: vec![Self::Namespace { namespace }, selector],
+        })
+    }
+
+    pub fn contains_namespace(&self) -> bool {
+        match self {
+            Self::Namespace { .. } => true,
+            Self::And { selectors } => selectors.iter().any(Self::contains_namespace),
+            _ => false,
+        }
+    }
+
+    fn conflicting_namespace(&self, namespace: &Namespace) -> Option<&Namespace> {
+        match self {
+            Self::Namespace { namespace: found } if found != namespace => Some(found),
+            Self::And { selectors } => selectors
+                .iter()
+                .find_map(|selector| selector.conflicting_namespace(namespace)),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for Selector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -297,5 +354,153 @@ mod tests {
 
         let dir = Selector::from_str("dir:").unwrap_err().to_string();
         assert_eq!(dir, "dir selector is empty");
+    }
+
+    #[test]
+    fn namespace_scope_composes_unscoped_selectors() {
+        let alpha = Namespace::new("alpha").unwrap();
+
+        assert_eq!(
+            Selector::scoped_to_namespace(None, alpha.clone(), NamespaceScope::Default).unwrap(),
+            Selector::Namespace {
+                namespace: alpha.clone()
+            }
+        );
+        assert_eq!(
+            Selector::scoped_to_namespace(
+                Some(Selector::All),
+                alpha.clone(),
+                NamespaceScope::Default,
+            )
+            .unwrap(),
+            Selector::Namespace {
+                namespace: alpha.clone()
+            }
+        );
+        assert_eq!(
+            Selector::scoped_to_namespace(
+                Some(Selector::Role {
+                    name: "engineer".to_string()
+                }),
+                alpha.clone(),
+                NamespaceScope::Default,
+            )
+            .unwrap(),
+            Selector::And {
+                selectors: vec![
+                    Selector::Namespace { namespace: alpha },
+                    Selector::Role {
+                        name: "engineer".to_string()
+                    }
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn namespace_scope_preserves_namespace_selectors_at_any_depth() {
+        let alpha = Namespace::new("alpha").unwrap();
+        let beta = Namespace::new("beta").unwrap();
+
+        let bare = Selector::Namespace {
+            namespace: beta.clone(),
+        };
+        assert_eq!(
+            Selector::scoped_to_namespace(
+                Some(bare.clone()),
+                alpha.clone(),
+                NamespaceScope::Default,
+            )
+            .unwrap(),
+            bare
+        );
+
+        let role_then_namespace = Selector::And {
+            selectors: vec![
+                Selector::Role {
+                    name: "engineer".to_string(),
+                },
+                Selector::Namespace {
+                    namespace: beta.clone(),
+                },
+            ],
+        };
+        assert_eq!(
+            Selector::scoped_to_namespace(
+                Some(role_then_namespace.clone()),
+                alpha.clone(),
+                NamespaceScope::Default,
+            )
+            .unwrap(),
+            role_then_namespace
+        );
+
+        let namespace_then_role = Selector::And {
+            selectors: vec![
+                Selector::Namespace {
+                    namespace: beta.clone(),
+                },
+                Selector::Role {
+                    name: "engineer".to_string(),
+                },
+            ],
+        };
+        assert_eq!(
+            Selector::scoped_to_namespace(
+                Some(namespace_then_role.clone()),
+                alpha.clone(),
+                NamespaceScope::Default,
+            )
+            .unwrap(),
+            namespace_then_role
+        );
+
+        let nested = Selector::And {
+            selectors: vec![Selector::And {
+                selectors: vec![Selector::Namespace { namespace: beta }],
+            }],
+        };
+        assert_eq!(
+            Selector::scoped_to_namespace(Some(nested.clone()), alpha, NamespaceScope::Default)
+                .unwrap(),
+            nested
+        );
+    }
+
+    #[test]
+    fn explicit_namespace_scope_accepts_matching_namespace_selector() {
+        let alpha = Namespace::new("alpha").unwrap();
+        let selector = Selector::And {
+            selectors: vec![
+                Selector::Namespace {
+                    namespace: alpha.clone(),
+                },
+                Selector::Role {
+                    name: "engineer".to_string(),
+                },
+            ],
+        };
+
+        assert_eq!(
+            Selector::scoped_to_namespace(Some(selector.clone()), alpha, NamespaceScope::Explicit,)
+                .unwrap(),
+            selector
+        );
+    }
+
+    #[test]
+    fn explicit_namespace_scope_rejects_mismatched_namespace_selector() {
+        let alpha = Namespace::new("alpha").unwrap();
+        let beta = Namespace::new("beta").unwrap();
+        let error = Selector::scoped_to_namespace(
+            Some(Selector::Namespace { namespace: beta }),
+            alpha,
+            NamespaceScope::Explicit,
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("--namespace alpha"));
+        assert!(error.contains("namespace:beta"));
     }
 }

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use clap::Args;
-use sm_core::{Namespace, Selector};
+use sm_core::{Namespace, NamespaceScope, Selector};
 
 use crate::cli::namespace_resolver::resolve_namespace_dir;
 
@@ -26,17 +26,14 @@ pub fn scoped_selector(raw: Option<&str>, scope: &NamespaceScopeArgs) -> Result<
     }
     let namespace =
         resolve_namespace_dir(std::env::current_dir()?, scope.namespace.clone())?.namespace;
-    Ok(Some(apply_namespace_scope(selector, namespace)))
-}
-
-fn apply_namespace_scope(selector: Option<Selector>, namespace: Namespace) -> Selector {
-    let namespace = Selector::Namespace { namespace };
-    match selector {
-        Some(selector) => Selector::And {
-            selectors: vec![namespace, selector],
-        },
-        None => namespace,
-    }
+    let scope = if scope.namespace.is_some() {
+        NamespaceScope::Explicit
+    } else {
+        NamespaceScope::Default
+    };
+    Ok(Some(Selector::scoped_to_namespace(
+        selector, namespace, scope,
+    )?))
 }
 
 #[cfg(test)]

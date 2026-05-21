@@ -5,5 +5,5 @@ pub use crate::namespace::{
     RESERVED_NAMESPACE_PREFIX,
 };
 pub use crate::runtime::RuntimeKind;
-pub use crate::selector::{LabelOp, SELECTOR_GRAMMAR_HINT, Selector};
+pub use crate::selector::{LabelOp, NamespaceScope, SELECTOR_GRAMMAR_HINT, Selector};
 pub use crate::session::{LostEvidence, Session, SessionState};

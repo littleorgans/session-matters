@@ -29,6 +29,6 @@ pub use proto::{
 };
 pub use types::{
     Channel, DEFAULT_NAMESPACE, Label, LabelMutation, LabelOp, LostEvidence, Mail, MailStatus,
-    NAMESPACE_MAX_LEN, Namespace, NamespaceError, NamespaceRecord, RESERVED_NAMESPACE_PREFIX,
-    RuntimeKind, Selector, Session, SessionState,
+    NAMESPACE_MAX_LEN, Namespace, NamespaceError, NamespaceRecord, NamespaceScope,
+    RESERVED_NAMESPACE_PREFIX, RuntimeKind, Selector, Session, SessionState,
 };
