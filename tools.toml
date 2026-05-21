@@ -83,7 +83,7 @@ name            = "namespace"
 type            = "string"
 required        = false
 mcp_description = "Namespace slug for the spawned session. The namespace must already exist before spawning."
-cli_help        = "Namespace slug for the spawned session. Overrides .sm/namespace marker discovery."
+cli_help        = "Namespace slug for the spawned session. Overrides SM_NAMESPACE and the user namespace context."
 cli_flag        = "--namespace"
 
 [[tools.agent_run.params]]

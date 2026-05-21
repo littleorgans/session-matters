@@ -85,9 +85,12 @@ fn resolve_spawn_location(args: &RunArgs) -> Result<SpawnLocation> {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
 
     use super::*;
     use crate::cli::cli_def::RunArgs;
+
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     fn run_args(dir: Option<PathBuf>, namespace: Option<Namespace>) -> RunArgs {
         RunArgs {
@@ -121,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn marker_walk_up_from_dir_sets_namespace_and_marker_dir() {
+    fn marker_from_dir_is_ignored_and_dir_is_canonicalized() {
         let root = tempfile::tempdir().expect("tempdir");
         let project = root.path().join("project");
         let child = project.join("child");
@@ -129,18 +132,19 @@ mod tests {
         std::fs::create_dir_all(&child).expect("child dir");
         std::fs::write(project.join(".sm").join("namespace"), "marker").expect("marker");
 
-        let resolved =
-            resolve_spawn_location(&run_args(Some(child), None)).expect("resolves marker");
+        let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
+            resolve_spawn_location(&run_args(Some(child.clone()), None)).expect("resolves dir")
+        });
 
-        assert_eq!(resolved.namespace.as_str(), "marker");
+        assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(project).expect("canonical project")
+            std::fs::canonicalize(child).expect("canonical child")
         );
     }
 
     #[test]
-    fn marker_walk_up_from_cwd_when_dir_is_omitted() {
+    fn marker_from_cwd_is_ignored_and_cwd_is_canonicalized() {
         let root = tempfile::tempdir().expect("tempdir");
         let project = root.path().join("project");
         let child = project.join("child");
@@ -148,15 +152,16 @@ mod tests {
         std::fs::create_dir_all(&child).expect("child dir");
         std::fs::write(project.join(".sm").join("namespace"), "cwd-marker").expect("marker");
         let saved = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(&child).expect("chdir");
-
-        let resolved = resolve_spawn_location(&run_args(None, None)).expect("resolves cwd marker");
-
-        std::env::set_current_dir(saved).expect("restore cwd");
-        assert_eq!(resolved.namespace.as_str(), "cwd-marker");
+        let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
+            std::env::set_current_dir(&child).expect("chdir");
+            let resolved = resolve_spawn_location(&run_args(None, None)).expect("resolves cwd");
+            std::env::set_current_dir(saved).expect("restore cwd");
+            resolved
+        });
+        assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(project).expect("canonical project")
+            std::fs::canonicalize(child).expect("canonical child")
         );
     }
 
@@ -164,13 +169,40 @@ mod tests {
     fn falls_back_to_default_namespace() {
         let project = tempfile::tempdir().expect("tempdir");
 
-        let resolved = resolve_spawn_location(&run_args(Some(project.path().to_path_buf()), None))
-            .expect("resolves default");
+        let resolved = with_isolated_namespace_env(project.path().join("sm-home"), || {
+            resolve_spawn_location(&run_args(Some(project.path().to_path_buf()), None))
+                .expect("resolves default")
+        });
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
             std::fs::canonicalize(project.path()).expect("canonical project")
         );
+    }
+
+    fn with_isolated_namespace_env<T>(sm_home: PathBuf, test: impl FnOnce() -> T) -> T {
+        let _guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock");
+        let original_sm_home = std::env::var_os("SM_HOME");
+        let original_sm_namespace = std::env::var_os("SM_NAMESPACE");
+
+        unsafe {
+            std::env::set_var("SM_HOME", sm_home);
+            std::env::remove_var("SM_NAMESPACE");
+        }
+        let result = test();
+        restore_env("SM_HOME", original_sm_home);
+        restore_env("SM_NAMESPACE", original_sm_namespace);
+        result
+    }
+
+    fn restore_env(name: &str, value: Option<std::ffi::OsString>) {
+        match value {
+            Some(value) => unsafe { std::env::set_var(name, value) },
+            None => unsafe { std::env::remove_var(name) },
+        }
     }
 }

@@ -1,9 +1,8 @@
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use sm_core::{Namespace, NamespaceError};
-
-const MARKER_PATH: &[&str] = &[".sm", "namespace"];
+use sm_core::{Namespace, NamespaceError, SmPaths, SmPathsError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamespaceResolution {
@@ -25,14 +24,19 @@ pub enum NamespaceResolutionWarning {
 
 #[derive(Debug, thiserror::Error)]
 pub enum NamespaceResolutionError {
-    #[error("failed to read namespace marker {path}: {source}")]
-    ReadMarker {
+    #[error("invalid SM_NAMESPACE value: {source}")]
+    InvalidEnv {
+        #[source]
+        source: NamespaceError,
+    },
+    #[error("failed to read namespace binding {path}: {source}")]
+    ReadBinding {
         path: PathBuf,
         #[source]
         source: std::io::Error,
     },
-    #[error("invalid namespace marker {path}: {source}")]
-    InvalidMarker {
+    #[error("invalid namespace binding {path}: {source}")]
+    InvalidBinding {
         path: PathBuf,
         #[source]
         source: NamespaceError,
@@ -49,79 +53,78 @@ pub fn resolve_namespace_dir(
     start_dir: impl AsRef<Path>,
     explicit_namespace: Option<Namespace>,
 ) -> Result<NamespaceResolution, NamespaceResolutionError> {
-    resolve_namespace_dir_with_home(start_dir.as_ref(), explicit_namespace, env_home_dir())
+    resolve_namespace_dir_with_paths(
+        start_dir.as_ref(),
+        explicit_namespace,
+        std::env::var_os("SM_NAMESPACE"),
+        SmPaths::from_env(),
+    )
 }
 
-fn resolve_namespace_dir_with_home(
+fn resolve_namespace_dir_with_paths(
     start_dir: &Path,
     explicit_namespace: Option<Namespace>,
-    home_dir: Option<PathBuf>,
+    env_namespace: Option<OsString>,
+    paths: Result<SmPaths, SmPathsError>,
 ) -> Result<NamespaceResolution, NamespaceResolutionError> {
-    let (home_boundary, warnings) = match home_dir {
-        Some(home) if home.is_absolute() && home.is_dir() => (Some(home), Vec::new()),
-        _ => (None, vec![NamespaceResolutionWarning::MissingOrInvalidHome]),
+    let (paths, warnings) = match paths {
+        Ok(paths) => (Some(paths), Vec::new()),
+        Err(SmPathsError::MissingHome) => {
+            (None, vec![NamespaceResolutionWarning::MissingOrInvalidHome])
+        }
     };
-
-    if let Some(namespace) = explicit_namespace {
-        return Ok(NamespaceResolution {
-            namespace,
-            canonical_dir: canonical_dir(start_dir)?,
-            warnings,
-        });
-    }
-
-    let mut current = Some(start_dir);
-    while let Some(dir) = current {
-        let marker = marker_path(dir);
-        let marker_exists =
-            marker
-                .try_exists()
-                .map_err(|source| NamespaceResolutionError::ReadMarker {
-                    path: marker.clone(),
-                    source,
-                })?;
-        if marker_exists {
-            let raw = std::fs::read_to_string(&marker).map_err(|source| {
-                NamespaceResolutionError::ReadMarker {
-                    path: marker.clone(),
-                    source,
-                }
-            })?;
-            let namespace = Namespace::from_str(raw.trim()).map_err(|source| {
-                NamespaceResolutionError::InvalidMarker {
-                    path: marker,
-                    source,
-                }
-            })?;
-            return Ok(NamespaceResolution {
-                namespace,
-                canonical_dir: canonical_dir(dir)?,
-                warnings,
-            });
-        }
-        if home_boundary.as_deref() == Some(dir) {
-            break;
-        }
-        current = dir.parent();
-    }
+    // Resolver output is a point-in-time snapshot. Mutating downstream commands
+    // must revalidate against daemon state before committing side effects.
+    let namespace = resolve_namespace(explicit_namespace, env_namespace, paths.as_ref())?;
 
     Ok(NamespaceResolution {
-        namespace: Namespace::default(),
+        namespace,
         canonical_dir: canonical_dir(start_dir)?,
         warnings,
     })
 }
 
-fn env_home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-}
+fn resolve_namespace(
+    explicit_namespace: Option<Namespace>,
+    env_namespace: Option<OsString>,
+    paths: Option<&SmPaths>,
+) -> Result<Namespace, NamespaceResolutionError> {
+    if let Some(namespace) = explicit_namespace {
+        return Ok(namespace);
+    }
 
-pub(crate) fn marker_path(dir: &Path) -> PathBuf {
-    MARKER_PATH
-        .iter()
-        .fold(dir.to_path_buf(), |path, segment| path.join(segment))
+    if let Some(raw) = env_namespace.filter(|value| !value.is_empty()) {
+        let raw = raw.to_string_lossy();
+        return Namespace::from_str(raw.trim())
+            .map_err(|source| NamespaceResolutionError::InvalidEnv { source });
+    }
+
+    if let Some(paths) = paths {
+        let binding = paths.namespace_binding();
+        let binding_exists =
+            binding
+                .try_exists()
+                .map_err(|source| NamespaceResolutionError::ReadBinding {
+                    path: binding.clone(),
+                    source,
+                })?;
+        if binding_exists {
+            let raw = std::fs::read_to_string(&binding).map_err(|source| {
+                NamespaceResolutionError::ReadBinding {
+                    path: binding.clone(),
+                    source,
+                }
+            })?;
+            return Namespace::from_str(raw.trim()).map_err(|source| {
+                NamespaceResolutionError::InvalidBinding {
+                    path: binding,
+                    source,
+                }
+            });
+        }
+    }
+
+    Ok(Namespace::default())
 }
 
 fn canonical_dir(dir: &Path) -> Result<PathBuf, NamespaceResolutionError> {
@@ -136,131 +139,164 @@ mod tests {
     use super::*;
 
     #[test]
-    fn resolves_marker_at_start_dir() {
-        let root = tempfile::tempdir().expect("tempdir");
-        let start = root.path().join("project");
-        write_marker(&start, "alpha");
-
-        let resolved = resolve_with_home(&start, Some(root.path()));
-
-        assert_eq!(resolved.namespace.as_str(), "alpha");
-        assert_eq!(resolved.canonical_dir, canonical(&start));
-    }
-
-    #[test]
-    fn resolves_marker_at_ancestor() {
-        let root = tempfile::tempdir().expect("tempdir");
-        let project = root.path().join("project");
-        let nested = project.join("src/bin");
-        std::fs::create_dir_all(&nested).expect("nested dirs");
-        write_marker(&project, "ancestor");
-
-        let resolved = resolve_with_home(&nested, Some(root.path()));
-
-        assert_eq!(resolved.namespace.as_str(), "ancestor");
-        assert_eq!(resolved.canonical_dir, canonical(&project));
-    }
-
-    #[test]
-    fn falls_back_to_default_when_no_marker_found() {
+    fn falls_back_to_default_when_no_config_found() {
         let root = tempfile::tempdir().expect("tempdir");
         let start = root.path().join("project");
         std::fs::create_dir_all(&start).expect("start dir");
 
-        let resolved = resolve_with_home(&start, Some(root.path()));
+        let resolved =
+            resolve_with_paths(&start, None, Some(SmPaths::new(root.path().join(".sm"))));
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(resolved.canonical_dir, canonical(&start));
     }
 
     #[test]
-    fn resolves_marker_at_home_boundary() {
-        let home = tempfile::tempdir().expect("tempdir");
-        let start = home.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
-        write_marker(home.path(), "home");
+    fn reads_user_namespace_binding() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let project = root.path().join("project");
+        std::fs::create_dir_all(&project).expect("project dir");
+        let paths = SmPaths::new(root.path().join("sm-home"));
+        write_binding(&paths, "alpha");
 
-        let resolved = resolve_with_home(&start, Some(home.path()));
+        let resolved = resolve_with_paths(&project, None, Some(paths));
 
-        assert_eq!(resolved.namespace.as_str(), "home");
-        assert_eq!(resolved.canonical_dir, canonical(home.path()));
+        assert_eq!(resolved.namespace.as_str(), "alpha");
+        assert_eq!(resolved.canonical_dir, canonical(&project));
     }
 
     #[test]
-    fn cwd_outside_home_walks_to_root() {
-        let outside = tempfile::tempdir().expect("outside");
-        let home = tempfile::tempdir().expect("home");
-        let parent = outside.path().join("parent");
-        let start = parent.join("child");
+    fn env_namespace_overrides_user_binding() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let start = root.path().join("project");
         std::fs::create_dir_all(&start).expect("start dir");
-        write_marker(&parent, "outside");
+        let paths = SmPaths::new(root.path().join("sm-home"));
+        write_binding(&paths, "bound");
 
-        let resolved = resolve_with_home(&start, Some(home.path()));
+        let resolved = resolve_with_paths(&start, Some("env-ns"), Some(paths));
 
-        assert_eq!(resolved.namespace.as_str(), "outside");
-        assert_eq!(resolved.canonical_dir, canonical(&parent));
+        assert_eq!(resolved.namespace.as_str(), "env-ns");
+        assert_eq!(resolved.canonical_dir, canonical(&start));
     }
 
     #[test]
-    fn symlink_walk_is_lexical_and_return_dir_is_canonical() {
+    fn explicit_namespace_overrides_env_and_user_binding() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let start = root.path().join("project");
+        std::fs::create_dir_all(&start).expect("start dir");
+        let paths = SmPaths::new(root.path().join("sm-home"));
+        write_binding(&paths, "bound");
+
+        let resolved = resolve_namespace_dir_with_paths(
+            &start,
+            Some(Namespace::new("explicit").expect("namespace")),
+            Some(OsString::from("env-ns")),
+            Ok(paths),
+        )
+        .expect("resolves");
+
+        assert_eq!(resolved.namespace.as_str(), "explicit");
+        assert_eq!(resolved.canonical_dir, canonical(&start));
+    }
+
+    #[test]
+    fn workspace_marker_at_start_dir_is_ignored() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let start = root.path().join("project");
+        std::fs::create_dir_all(&start).expect("start dir");
+        write_workspace_marker(&start, "marker");
+
+        let resolved =
+            resolve_with_paths(&start, None, Some(SmPaths::new(root.path().join(".sm"))));
+
+        assert_eq!(resolved.namespace, Namespace::default());
+        assert_eq!(resolved.canonical_dir, canonical(&start));
+    }
+
+    #[test]
+    fn workspace_marker_at_ancestor_is_ignored() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let project = root.path().join("project");
+        let nested = project.join("src/bin");
+        std::fs::create_dir_all(&nested).expect("nested dirs");
+        write_workspace_marker(&project, "ancestor");
+
+        let resolved =
+            resolve_with_paths(&nested, None, Some(SmPaths::new(root.path().join(".sm"))));
+
+        assert_eq!(resolved.namespace, Namespace::default());
+        assert_eq!(resolved.canonical_dir, canonical(&nested));
+    }
+
+    #[test]
+    fn symlink_return_dir_is_canonical() {
         let root = tempfile::tempdir().expect("tempdir");
         let real = root.path().join("real");
         let link = root.path().join("link");
         let start = link.join("child");
         std::fs::create_dir_all(real.join("child")).expect("real child");
         symlink_dir(&real, &link);
-        write_marker(&link, "linked");
 
-        let resolved = resolve_with_home(&start, Some(root.path()));
+        let resolved =
+            resolve_with_paths(&start, None, Some(SmPaths::new(root.path().join(".sm"))));
 
-        assert_eq!(resolved.namespace.as_str(), "linked");
-        assert_eq!(resolved.canonical_dir, canonical(&real));
+        assert_eq!(resolved.namespace, Namespace::default());
+        assert_eq!(
+            resolved.canonical_dir,
+            canonical(real.join("child").as_path())
+        );
     }
 
     #[test]
-    fn invalid_marker_content_fails_loudly() {
+    fn invalid_env_namespace_fails_loudly() {
         let root = tempfile::tempdir().expect("tempdir");
         let start = root.path().join("project");
-        write_marker(&start, "Alpha");
+        std::fs::create_dir_all(&start).expect("start dir");
 
-        let error = resolve_error(&start, Some(root.path()));
+        let error = resolve_error(
+            &start,
+            Some("Alpha"),
+            Some(SmPaths::new(root.path().join(".sm"))),
+        );
+
+        assert!(matches!(error, NamespaceResolutionError::InvalidEnv { .. }));
+        assert!(error.to_string().contains("invalid SM_NAMESPACE value"));
+    }
+
+    #[test]
+    fn invalid_binding_content_fails_loudly() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let start = root.path().join("project");
+        std::fs::create_dir_all(&start).expect("start dir");
+        let paths = SmPaths::new(root.path().join("sm-home"));
+        write_binding(&paths, "Alpha");
+
+        let error = resolve_error(&start, None, Some(paths));
 
         assert!(matches!(
             error,
-            NamespaceResolutionError::InvalidMarker { .. }
+            NamespaceResolutionError::InvalidBinding { .. }
         ));
-        assert!(error.to_string().contains("invalid namespace marker"));
+        assert!(error.to_string().contains("invalid namespace binding"));
     }
 
     #[cfg(unix)]
     #[test]
-    fn unreadable_marker_fails_loudly() {
+    fn unreadable_binding_fails_loudly() {
         let root = tempfile::tempdir().expect("tempdir");
         let start = root.path().join("project");
-        let marker = write_marker(&start, "alpha");
-        remove_read_permissions(&marker);
+        std::fs::create_dir_all(&start).expect("start dir");
+        let paths = SmPaths::new(root.path().join("sm-home"));
+        let binding = write_binding(&paths, "alpha");
+        remove_read_permissions(&binding);
 
-        let error = resolve_error(&start, Some(root.path()));
+        let error = resolve_error(&start, None, Some(paths));
 
-        restore_read_permissions(&marker);
-        assert!(matches!(error, NamespaceResolutionError::ReadMarker { .. }));
-    }
-
-    #[test]
-    fn explicit_namespace_uses_start_dir_canonical_path() {
-        let root = tempfile::tempdir().expect("tempdir");
-        let start = root.path().join("project");
-        write_marker(&start, "marker");
-
-        let resolved = resolve_namespace_dir_with_home(
-            &start,
-            Some(Namespace::new("explicit").expect("namespace")),
-            Some(root.path().to_path_buf()),
-        )
-        .expect("resolves");
-
-        assert_eq!(resolved.namespace.as_str(), "explicit");
-        assert_eq!(resolved.canonical_dir, canonical(&start));
+        restore_read_permissions(&binding);
+        assert!(matches!(
+            error,
+            NamespaceResolutionError::ReadBinding { .. }
+        ));
     }
 
     #[test]
@@ -270,7 +306,8 @@ mod tests {
         std::fs::create_dir_all(&start).expect("start dir");
 
         let resolved =
-            resolve_namespace_dir_with_home(&start, None, None).expect("resolves without home");
+            resolve_namespace_dir_with_paths(&start, None, None, Err(SmPathsError::MissingHome))
+                .expect("resolves without home");
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
@@ -280,38 +317,43 @@ mod tests {
         assert_eq!(resolved.canonical_dir, canonical(&start));
     }
 
-    #[test]
-    fn nonexistent_home_warns_and_walks_to_root() {
-        let root = tempfile::tempdir().expect("tempdir");
-        let parent = root.path().join("parent");
-        let start = parent.join("child");
-        std::fs::create_dir_all(&start).expect("start dir");
-        write_marker(&parent, "root-walk");
-
-        let resolved =
-            resolve_namespace_dir_with_home(&start, None, Some(root.path().join("missing-home")))
-                .expect("resolves with invalid home");
-
-        assert_eq!(resolved.namespace.as_str(), "root-walk");
-        assert_eq!(resolved.canonical_dir, canonical(&parent));
-        assert_eq!(
-            resolved.warnings,
-            vec![NamespaceResolutionWarning::MissingOrInvalidHome]
-        );
+    fn resolve_with_paths(
+        start: &Path,
+        env_namespace: Option<&str>,
+        paths: Option<SmPaths>,
+    ) -> NamespaceResolution {
+        resolve_namespace_dir_with_paths(
+            start,
+            None,
+            env_namespace.map(OsString::from),
+            paths.ok_or(SmPathsError::MissingHome),
+        )
+        .expect("namespace resolves")
     }
 
-    fn resolve_with_home(start: &Path, home: Option<&Path>) -> NamespaceResolution {
-        resolve_namespace_dir_with_home(start, None, home.map(Path::to_path_buf))
-            .expect("namespace resolves")
+    fn resolve_error(
+        start: &Path,
+        env_namespace: Option<&str>,
+        paths: Option<SmPaths>,
+    ) -> NamespaceResolutionError {
+        resolve_namespace_dir_with_paths(
+            start,
+            None,
+            env_namespace.map(OsString::from),
+            paths.ok_or(SmPathsError::MissingHome),
+        )
+        .expect_err("namespace fails")
     }
 
-    fn resolve_error(start: &Path, home: Option<&Path>) -> NamespaceResolutionError {
-        resolve_namespace_dir_with_home(start, None, home.map(Path::to_path_buf))
-            .expect_err("namespace fails")
+    fn write_binding(paths: &SmPaths, value: &str) -> PathBuf {
+        let binding = paths.namespace_binding();
+        std::fs::create_dir_all(binding.parent().expect("binding parent")).expect("binding dir");
+        std::fs::write(&binding, value).expect("binding write");
+        binding
     }
 
-    fn write_marker(dir: &Path, value: &str) -> PathBuf {
-        let marker = marker_path(dir);
+    fn write_workspace_marker(dir: &Path, value: &str) -> PathBuf {
+        let marker = dir.join(".sm").join("namespace");
         std::fs::create_dir_all(marker.parent().expect("marker parent")).expect("marker dir");
         std::fs::write(&marker, value).expect("marker write");
         marker
@@ -336,7 +378,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let mut permissions = std::fs::metadata(path)
-            .expect("marker metadata")
+            .expect("binding metadata")
             .permissions();
         permissions.set_mode(0o000);
         std::fs::set_permissions(path, permissions).expect("remove read permissions");
@@ -347,7 +389,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let mut permissions = std::fs::metadata(path)
-            .expect("marker metadata")
+            .expect("binding metadata")
             .permissions();
         permissions.set_mode(0o600);
         std::fs::set_permissions(path, permissions).expect("restore read permissions");
