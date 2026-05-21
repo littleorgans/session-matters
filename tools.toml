@@ -121,7 +121,7 @@ cli_flag        = "--target"
 
 [tools.agent_list]
 cli_name        = "get agents"
-mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b)."
+mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
 cli_about       = "List session records known to the session-matters daemon."
 output_schema   = '''
 {

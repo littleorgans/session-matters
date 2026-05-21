@@ -15,4 +15,5 @@ pub mod namespace_resolver;
 pub mod nudge;
 pub mod output;
 pub mod run;
+pub mod selector_scope;
 pub mod wait;

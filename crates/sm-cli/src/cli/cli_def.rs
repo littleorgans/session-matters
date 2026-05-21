@@ -4,6 +4,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
+use crate::cli::selector_scope::NamespaceScopeArgs;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -96,6 +97,8 @@ pub struct GetArgs {
     pub id: Option<String>,
     #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
     pub selector: Option<String>,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long)]
     pub json: bool,
 }
@@ -148,6 +151,8 @@ pub struct DeleteArgs {
     pub resource: DeleteResource,
     #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
     pub selector: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, default_value = "SIGTERM", help = generated_help::AGENT_DELETE_SIGNAL_HELP)]
     pub signal: String,
     #[arg(long, default_value_t = 5, help = generated_help::AGENT_DELETE_GRACE_SECS_HELP)]
@@ -226,6 +231,8 @@ pub enum MailAction {
 pub struct MailSendArgs {
     #[arg(long, help = generated_help::MAIL_SEND_TO_HELP)]
     pub to: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, help = generated_help::MAIL_SEND_FROM_HELP)]
     pub from: Option<String>,
     #[arg(long, help = generated_help::MAIL_SEND_CONTENT_HELP)]
@@ -255,6 +262,8 @@ pub struct MailStopCheckArgs {
 #[derive(Debug, Args)]
 pub struct LabelArgs {
     pub selector: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     pub mutation: String,
 }
 
@@ -262,6 +271,8 @@ pub struct LabelArgs {
 pub struct NudgeArgs {
     #[arg(long, help = generated_help::NUDGE_TO_HELP)]
     pub to: String,
+    #[command(flatten)]
+    pub scope: NamespaceScopeArgs,
     #[arg(long, help = generated_help::NUDGE_CONTENT_HELP)]
     pub content: String,
 }

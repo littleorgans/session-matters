@@ -1,10 +1,12 @@
 use std::fmt;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::label::parse_label_token;
+use crate::namespace::Namespace;
 use crate::{SmError, SmResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -21,6 +23,15 @@ pub enum Selector {
     Workspace {
         name: String,
     },
+    Namespace {
+        namespace: Namespace,
+    },
+    Dir {
+        path: PathBuf,
+    },
+    And {
+        selectors: Vec<Selector>,
+    },
     Role {
         name: String,
     },
@@ -35,6 +46,16 @@ impl fmt::Display for Selector {
             Self::Id { id } => write!(f, "id:{id}"),
             Self::Role { name } => write!(f, "role:{name}"),
             Self::Workspace { name } => write!(f, "workspace:{name}"),
+            Self::Namespace { namespace } => write!(f, "namespace:{namespace}"),
+            Self::Dir { path } => write!(f, "dir:{}", path.display()),
+            Self::And { selectors } => {
+                let rendered = selectors
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" && ");
+                write!(f, "{rendered}")
+            }
             Self::Label {
                 key,
                 op: LabelOp::Eq { value },
@@ -69,8 +90,24 @@ impl FromStr for Selector {
             });
         }
         if let Some(raw) = value.strip_prefix("workspace:") {
-            return Ok(Self::Workspace {
-                name: parse_label_token(raw, "workspace selector")?,
+            return Err(SmError::Message(format!(
+                "unsupported selector: workspace:{} (expected one of: {SELECTOR_GRAMMAR_HINT})",
+                raw.trim()
+            )));
+        }
+        if let Some(raw) = value.strip_prefix("namespace:") {
+            let namespace = Namespace::new(raw.trim()).map_err(|error| {
+                SmError::Message(format!("invalid namespace selector: {error}"))
+            })?;
+            return Ok(Self::Namespace { namespace });
+        }
+        if let Some(raw) = value.strip_prefix("dir:") {
+            let path = raw.trim();
+            if path.is_empty() {
+                return Err(SmError::Message("dir selector is empty".to_string()));
+            }
+            return Ok(Self::Dir {
+                path: PathBuf::from(path),
             });
         }
         if let Some(raw) = value.strip_prefix("label:") {
@@ -82,7 +119,7 @@ impl FromStr for Selector {
     }
 }
 
-pub const SELECTOR_GRAMMAR_HINT: &str = "all, <uuid>, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, label:<key> in (v1, v2)";
+pub const SELECTOR_GRAMMAR_HINT: &str = "all, <uuid>, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, label:<key> in (v1, v2)";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -156,9 +193,15 @@ mod tests {
             }
         );
         assert_eq!(
-            Selector::from_str("workspace:test").unwrap(),
-            Selector::Workspace {
-                name: "test".to_string()
+            Selector::from_str("namespace:alpha").unwrap(),
+            Selector::Namespace {
+                namespace: Namespace::new("alpha").unwrap()
+            }
+        );
+        assert_eq!(
+            Selector::from_str("dir:/tmp/project").unwrap(),
+            Selector::Dir {
+                path: PathBuf::from("/tmp/project")
             }
         );
         assert_eq!(
@@ -190,8 +233,11 @@ mod tests {
             Selector::Role {
                 name: "engineer".to_string(),
             },
-            Selector::Workspace {
-                name: "test".to_string(),
+            Selector::Namespace {
+                namespace: Namespace::new("alpha").unwrap(),
+            },
+            Selector::Dir {
+                path: PathBuf::from("/tmp/project"),
             },
             Selector::Label {
                 key: "area".to_string(),
@@ -240,5 +286,20 @@ mod tests {
             .to_string(),
             "label:area in (auth, ui)"
         );
+    }
+
+    #[test]
+    fn selector_rejects_legacy_workspace_and_invalid_new_selectors() {
+        let workspace = Selector::from_str("workspace:test")
+            .unwrap_err()
+            .to_string();
+        assert!(workspace.contains("unsupported selector"));
+        assert!(workspace.contains("namespace:<slug>"));
+
+        let namespace = Selector::from_str("namespace:SM").unwrap_err().to_string();
+        assert!(namespace.contains("invalid namespace selector"));
+
+        let dir = Selector::from_str("dir:").unwrap_err().to_string();
+        assert_eq!(dir, "dir selector is empty");
     }
 }
