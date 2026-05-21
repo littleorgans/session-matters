@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use chrono::{DateTime, Utc};
 use lilo_rm_core::{LaunchEnv, ShellResume};
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +46,41 @@ pub struct ListRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ListResponse {
     pub sessions: Vec<Session>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceRecord {
+    pub namespace: Namespace,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceCreateRequest {
+    pub slug: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceCreateResponse {
+    pub namespace: NamespaceRecord,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceGetRequest {
+    pub slug: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceGetResponse {
+    pub namespace: Option<NamespaceRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct NamespaceListRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NamespaceListResponse {
+    pub namespaces: Vec<NamespaceRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -293,6 +329,9 @@ pub struct DaemonStatus {
 pub enum RpcRequest {
     Spawn { request: SpawnRequest },
     List { request: ListRequest },
+    NamespaceCreate { request: NamespaceCreateRequest },
+    NamespaceGet { request: NamespaceGetRequest },
+    NamespaceList { request: NamespaceListRequest },
     Delete { request: DeleteRequest },
     MailSend { request: MailSendRequest },
     MailRead { request: MailReadRequest },
@@ -314,6 +353,9 @@ pub enum RpcRequest {
 pub enum RpcResponse {
     Spawned { response: SpawnResponse },
     Listed { response: ListResponse },
+    NamespaceCreated { response: NamespaceCreateResponse },
+    NamespaceGot { response: NamespaceGetResponse },
+    NamespacesListed { response: NamespaceListResponse },
     Deleted { response: DeleteResponse },
     MailSent { response: MailSendResponse },
     MailRead { response: MailReadResponse },
@@ -336,6 +378,9 @@ impl RpcResponse {
         match self {
             RpcResponse::Spawned { .. } => "Spawned",
             RpcResponse::Listed { .. } => "Listed",
+            RpcResponse::NamespaceCreated { .. } => "NamespaceCreated",
+            RpcResponse::NamespaceGot { .. } => "NamespaceGot",
+            RpcResponse::NamespacesListed { .. } => "NamespacesListed",
             RpcResponse::Deleted { .. } => "Deleted",
             RpcResponse::MailSent { .. } => "MailSent",
             RpcResponse::MailRead { .. } => "MailRead",

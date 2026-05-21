@@ -10,6 +10,7 @@ pub mod link;
 pub mod logs;
 pub mod mail;
 pub mod mcp;
+pub mod namespace;
 pub mod namespace_resolver;
 pub mod nudge;
 pub mod output;

@@ -75,6 +75,15 @@ impl DaemonState {
         match request {
             RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
             RpcRequest::List { request } => response(self.list(request).await, false),
+            RpcRequest::NamespaceCreate { request } => {
+                response(self.create_namespace(request).await, false)
+            }
+            RpcRequest::NamespaceGet { request } => {
+                response(self.get_namespace(request).await, false)
+            }
+            RpcRequest::NamespaceList { request } => {
+                response(self.list_namespaces(request).await, false)
+            }
             RpcRequest::Delete { request } => response(self.delete(&context, request).await, false),
             RpcRequest::MailSend { request } => {
                 response(self.mail_send(&context, request).await, false)

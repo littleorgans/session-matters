@@ -11,6 +11,7 @@ pub async fn run(args: GetArgs) -> Result<()> {
         GetResource::Agent if args.id.is_some() => get_agent(args).await,
         GetResource::Agent => list_agents(args).await,
         GetResource::Agents => list_agents(args).await,
+        GetResource::Namespace => crate::cli::namespace::get(args.id, args.json).await,
     }
 }
 

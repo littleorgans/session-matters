@@ -118,7 +118,7 @@ fn env_home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-fn marker_path(dir: &Path) -> PathBuf {
+pub(crate) fn marker_path(dir: &Path) -> PathBuf {
     MARKER_PATH
         .iter()
         .fold(dir.to_path_buf(), |path, segment| path.join(segment))
