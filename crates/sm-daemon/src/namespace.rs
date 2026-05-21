@@ -81,7 +81,8 @@ impl DaemonState {
         context: RequestContext,
         request: NamespaceDeleteRequest,
     ) -> Result<RpcResponse> {
-        let namespace = Namespace::for_lifecycle(request.namespace.into_string())?;
+        let namespace = request.namespace;
+        namespace.ensure_not_default()?;
         self.identity
             .authorize(&context.principal, Action::Kill, &ResourceSpec::default())
             .await?;

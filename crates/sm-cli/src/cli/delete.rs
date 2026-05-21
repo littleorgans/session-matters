@@ -50,7 +50,8 @@ async fn delete_agent(args: DeleteAgentArgs) -> Result<()> {
 }
 
 async fn delete_namespace(args: DeleteNamespaceArgs) -> Result<()> {
-    let namespace = Namespace::for_lifecycle(args.namespace.into_string())?;
+    let namespace = args.namespace;
+    namespace.ensure_not_default()?;
     let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
         &endpoint,

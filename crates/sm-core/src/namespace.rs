@@ -37,12 +37,6 @@ impl Namespace {
         Ok(namespace)
     }
 
-    pub fn for_lifecycle(value: impl Into<String>) -> Result<Self, NamespaceError> {
-        let namespace = Self::new(value)?;
-        namespace.ensure_not_default()?;
-        Ok(namespace)
-    }
-
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -51,7 +45,7 @@ impl Namespace {
         self.0
     }
 
-    fn ensure_not_default(&self) -> Result<(), NamespaceError> {
+    pub fn ensure_not_default(&self) -> Result<(), NamespaceError> {
         if self.as_str() == DEFAULT_NAMESPACE {
             return Err(NamespaceError::ReservedName {
                 name: DEFAULT_NAMESPACE,
