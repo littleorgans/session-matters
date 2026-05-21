@@ -11,7 +11,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `agent_run` | `sm run` | Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `agent_run` | `sm run` | Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `agent_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b). |
 | `agent_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `agent_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |

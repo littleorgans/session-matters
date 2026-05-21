@@ -1,6 +1,5 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
-assertion_line: 15
 expression: "sm_cli::mcp::instructions::SERVER_INSTRUCTIONS"
 ---
 session-matters controls local Helioy agent sessions through smd.
@@ -8,7 +7,7 @@ session-matters controls local Helioy agent sessions through smd.
 Use agent_run to spawn a session, agent_list to inspect sessions, agent_get before acting on one id, and agent_delete to terminate a session.
 
 Tools:
-- agent_run: Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
+- agent_run: Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
 - agent_list: List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, workspace:<name>, label:<key>=<value>, and label:<key> in (a,b).
 - agent_get: Get one session record by id. The tool returns an error envelope when the id is unknown.
 - agent_capture: Capture tmux pane scrollback for one selected session.

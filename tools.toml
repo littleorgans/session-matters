@@ -21,7 +21,7 @@ Use `nudge` for the ephemeral notification surface.
 
 [tools.agent_run]
 cli_name        = "run"
-mcp_description = "Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a workspace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+mcp_description = "Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
 cli_about       = "Start an agent runtime through the session-matters daemon."
 output_schema   = '''
 {
@@ -71,11 +71,27 @@ cli_help        = "Role label recorded on the session."
 cli_flag        = "--role"
 
 [[tools.agent_run.params]]
+name            = "dir"
+type            = "string"
+required        = false
+mcp_description = "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory."
+cli_help        = "Filesystem directory used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
+cli_flag        = "--dir"
+
+[[tools.agent_run.params]]
+name            = "namespace"
+type            = "string"
+required        = false
+mcp_description = "Namespace slug for the spawned session. The namespace must already exist before spawning."
+cli_help        = "Namespace slug for the spawned session. Overrides .sm/namespace marker discovery."
+cli_flag        = "--namespace"
+
+[[tools.agent_run.params]]
 name            = "workspace"
 type            = "string"
-required        = true
-mcp_description = "Filesystem path used as the runtime's working directory. Caller-relative paths are resolved against the caller's cwd and must point to an existing directory. The absolute path is stored on the session."
-cli_help        = "Filesystem path used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
+required        = false
+mcp_description = "Deprecated compatibility alias for dir. Use dir for new callers."
+cli_help        = "Deprecated compatibility alias for --dir. Emits a warning when used."
 cli_flag        = "--workspace"
 
 [[tools.agent_run.params]]

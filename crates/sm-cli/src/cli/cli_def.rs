@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use sm_core::RuntimeKind;
+use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
 
@@ -64,8 +64,17 @@ pub struct RunArgs {
     pub runtime: RuntimeKind,
     #[arg(long, help = generated_help::AGENT_RUN_ROLE_HELP)]
     pub role: String,
-    #[arg(long, help = generated_help::AGENT_RUN_WORKSPACE_HELP)]
-    pub workspace: String,
+    #[arg(long, help = generated_help::AGENT_RUN_DIR_HELP)]
+    pub dir: Option<PathBuf>,
+    #[arg(long, help = generated_help::AGENT_RUN_NAMESPACE_HELP)]
+    pub namespace: Option<Namespace>,
+    #[arg(
+        long,
+        value_name = "DIR",
+        conflicts_with = "dir",
+        help = generated_help::AGENT_RUN_WORKSPACE_HELP
+    )]
+    pub workspace: Option<PathBuf>,
     #[arg(long = "label", help = "Session label as key=value")]
     pub labels: Vec<String>,
     #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]

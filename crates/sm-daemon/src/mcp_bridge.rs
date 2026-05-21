@@ -6,8 +6,8 @@ use sm_core::{
     CaptureRequest, DeleteRequest, DoctorRequest, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
     Label, LabelMutation, LabelRequest, LinkRequest, ListRequest, LogsRequest,
     MCP_PROTOCOL_VERSION, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
-    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition,
-    WaitRequest, tool_contracts::contract_registry, tool_error, tool_success,
+    Namespace, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest,
+    WaitCondition, WaitRequest, tool_contracts::contract_registry, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -120,7 +120,13 @@ async fn agent_run(
 ) -> Result<Value> {
     let runtime = RuntimeKind::from_str(required_string(arguments, "runtime")?)?;
     let role = required_string(arguments, "role")?.to_string();
-    let workspace = required_string(arguments, "workspace")?.to_string();
+    let dir = optional_string(arguments, "dir")
+        .or_else(|| optional_string(arguments, "workspace"))
+        .ok_or_else(|| anyhow!("missing required string argument: dir"))?
+        .to_string();
+    let namespace = optional_string(arguments, "namespace")
+        .map(Namespace::from_str)
+        .transpose()?;
     let labels = optional_labels(arguments)?;
     let agent_config = optional_string(arguments, "agent_config").map(ToString::to_string);
     let target = optional_string(arguments, "target")
@@ -133,9 +139,9 @@ async fn agent_run(
                 request: SpawnRequest {
                     runtime,
                     role,
-                    workspace,
-                    dir: None,
-                    namespace: None,
+                    workspace: dir.clone(),
+                    dir: Some(dir),
+                    namespace,
                     target,
                     agent_config,
                     env: Vec::new(),
