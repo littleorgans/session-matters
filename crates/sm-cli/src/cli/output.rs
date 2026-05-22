@@ -1,23 +1,7 @@
 use sm_core::{Label, Mail, Session};
 
 pub fn print_session_line(session: &Session, show_labels: bool) {
-    if show_labels {
-        println!(
-            "{} {} {} {} {} {} {} {} {}",
-            session.id,
-            session.runtime,
-            session.role,
-            session.namespace,
-            session.dir.display(),
-            session.state,
-            session.runtime_pid,
-            session.tmux_pane.as_deref().unwrap_or("-"),
-            format_labels(&session.labels)
-        );
-        return;
-    }
-
-    println!(
+    print!(
         "{} {} {} {} {} {} {} {}",
         session.id,
         session.runtime,
@@ -28,6 +12,10 @@ pub fn print_session_line(session: &Session, show_labels: bool) {
         session.runtime_pid,
         session.tmux_pane.as_deref().unwrap_or("-"),
     );
+    if show_labels {
+        print!(" {}", format_labels(&session.labels));
+    }
+    println!();
 }
 
 pub fn print_session_table(sessions: &[Session], show_labels: bool) {
