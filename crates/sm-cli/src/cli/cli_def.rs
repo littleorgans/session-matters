@@ -109,26 +109,23 @@ pub struct GetArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum GetResource {
-    #[command(about = generated_help::SESSION_GET_ABOUT, long_about = generated_help::SESSION_GET_ABOUT)]
-    Session(SessionGetArgs),
     #[command(about = generated_help::SESSION_LIST_ABOUT, long_about = generated_help::SESSION_LIST_ABOUT)]
-    Sessions(SessionListArgs),
-    #[command(about = "Get one namespace record by slug")]
+    #[command(alias = "sessions")]
+    Session(SessionGetArgs),
+    #[command(about = generated_help::NAMESPACE_LIST_ABOUT, long_about = generated_help::NAMESPACE_LIST_ABOUT)]
+    #[command(alias = "namespaces")]
     Namespace(NamespaceGetArgs),
-    #[command(about = "List namespace records")]
-    Namespaces(NamespaceListArgs),
 }
 
 #[derive(Debug, Args)]
 pub struct SessionGetArgs {
+    #[arg(help = generated_help::SESSION_LIST_ID_HELP)]
     pub id: Option<String>,
     #[command(flatten)]
     pub read: SessionReadArgs,
 }
 
-#[derive(Debug, Args)]
 pub struct SessionListArgs {
-    #[command(flatten)]
     pub read: SessionReadArgs,
 }
 
@@ -144,13 +141,8 @@ pub struct SessionReadArgs {
 
 #[derive(Debug, Args)]
 pub struct NamespaceGetArgs {
+    #[arg(help = generated_help::NAMESPACE_LIST_SLUG_HELP)]
     pub slug: Option<String>,
-    #[arg(long)]
-    pub json: bool,
-}
-
-#[derive(Debug, Args)]
-pub struct NamespaceListArgs {
     #[arg(long)]
     pub json: bool,
 }

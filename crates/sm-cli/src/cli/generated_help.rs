@@ -20,7 +20,9 @@ pub const SESSION_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:
 pub const SESSION_RUN_FORCE_HELP: &str = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal.";
 
 #[rustfmt::skip]
-pub const SESSION_LIST_ABOUT: &str = "List session records known to the session-matters daemon.";
+pub const SESSION_LIST_ABOUT: &str = "List session records, or get one session record by id.";
+#[rustfmt::skip]
+pub const SESSION_LIST_ID_HELP: &str = "Optional session id to load instead of listing.";
 #[rustfmt::skip]
 pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector.\n\nGrammar: all, <uuid>, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, label:<key> in (v1, v2).\nExamples: all, 019e44f9-..., role:engineer, namespace:default, dir:/tmp/project, label:app=nginx, \\\"label:app in (web, api)\\\"";
 
@@ -28,6 +30,16 @@ pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector.\n\nGram
 pub const SESSION_GET_ABOUT: &str = "Get one session record by id.";
 #[rustfmt::skip]
 pub const SESSION_GET_ID_HELP: &str = "Session id to load.";
+
+#[rustfmt::skip]
+pub const NAMESPACE_LIST_ABOUT: &str = "List namespace records, or get one namespace record by slug.";
+#[rustfmt::skip]
+pub const NAMESPACE_LIST_SLUG_HELP: &str = "Optional namespace slug to load instead of listing.";
+
+#[rustfmt::skip]
+pub const NAMESPACE_GET_ABOUT: &str = "Get one namespace record by slug.";
+#[rustfmt::skip]
+pub const NAMESPACE_GET_SLUG_HELP: &str = "Namespace slug to load.";
 
 #[rustfmt::skip]
 pub const SESSION_CAPTURE_ABOUT: &str = "Capture tmux pane scrollback for one selected session.";

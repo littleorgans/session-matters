@@ -76,6 +76,23 @@ fn create_and_delete_resource_help_uses_current_lifecycle_copy() {
     assert!(delete.contains("Delete a namespace, terminate its sessions"));
 }
 
+#[test]
+fn get_help_collapses_resources_to_singular_with_plural_aliases() {
+    let get = help(&["get", "--help"]);
+    assert!(get.contains("List session records, or get one session record by id."));
+    assert!(get.contains("List namespace records, or get one namespace record by slug."));
+    assert!(!get.contains("List session records known to the session-matters daemon."));
+    assert!(!get.contains("List namespace records\n"));
+
+    let session = help(&["get", "sessions", "--help"]);
+    assert!(session.contains("Optional session id to load instead of listing."));
+    assert!(session.contains("--selector"));
+
+    let namespace = help(&["get", "namespaces", "--help"]);
+    assert!(namespace.contains("Optional namespace slug to load instead of listing."));
+    assert!(!namespace.contains("--selector"));
+}
+
 fn help(args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(args)

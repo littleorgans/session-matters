@@ -102,10 +102,12 @@ sm mcp
 |------|-----|---------|
 | `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `session_list` | `sm get sessions` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `agent_list` | `sm get sessions` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `session_list` | `sm get session` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `agent_list` | `sm get session` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
 | `session_get` | `sm get session` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `agent_get` | `sm get session` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `namespace_list` | `sm get namespace` | List namespace records known to the session-matters daemon. |
+| `namespace_get` | `sm get namespace` | Get one namespace record by slug. The tool returns an error envelope when the slug is unknown. |
 | `session_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
 | `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
 | `session_delete` | `sm delete session` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |

@@ -15,6 +15,10 @@ pub fn generated_tool_list() -> serde_json::Value {
             .expect("generated schema for session_get is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_get.json"))
             .expect("generated schema for agent_get is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/namespace_list.json"))
+            .expect("generated schema for namespace_list is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/namespace_get.json"))
+            .expect("generated schema for namespace_get is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_capture.json"))
             .expect("generated schema for session_capture is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/agent_capture.json"))

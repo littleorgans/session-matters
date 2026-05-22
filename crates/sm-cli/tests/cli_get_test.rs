@@ -185,7 +185,6 @@ fn removed_get_forms_are_rejected_by_clap() {
         ["get", "agent", "--help"].as_slice(),
         ["get", "agents", "--help"].as_slice(),
         ["get", "namespace", "--selector", "all"].as_slice(),
-        ["get", "namespaces", "default"].as_slice(),
     ] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(args)

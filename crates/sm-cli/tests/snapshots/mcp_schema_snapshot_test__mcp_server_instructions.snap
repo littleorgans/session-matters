@@ -13,6 +13,8 @@ Tools:
 - agent_list: Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).
 - session_get: Get one session record by id. The tool returns an error envelope when the id is unknown.
 - agent_get: Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown.
+- namespace_list: List namespace records known to the session-matters daemon.
+- namespace_get: Get one namespace record by slug. The tool returns an error envelope when the slug is unknown.
 - session_capture: Capture tmux pane scrollback for one selected session.
 - agent_capture: Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session.
 - session_delete: Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period.

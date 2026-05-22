@@ -1,7 +1,7 @@
 [tools.session_list]
-cli_name        = "get sessions"
+cli_name        = "get session"
 mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
-cli_about       = "List session records known to the session-matters daemon."
+cli_about       = "List session records, or get one session record by id."
 mcp_namespace_scope = true
 output_schema   = '''
 {
@@ -35,6 +35,14 @@ output_schema   = '''
   }
 }
 '''
+
+[[tools.session_list.params]]
+name            = "id"
+type            = "string"
+required        = false
+mcp_description = "Optional session id to load instead of listing."
+cli_help        = "Optional session id to load instead of listing."
+cli_flag        = "id"
 
 [[tools.session_list.params]]
 name            = "selector"

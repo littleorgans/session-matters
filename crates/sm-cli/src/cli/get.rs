@@ -10,9 +10,7 @@ pub async fn run(args: GetArgs) -> Result<()> {
     match args.resource {
         GetResource::Session(args) if args.id.is_some() => get_session(args).await,
         GetResource::Session(args) => list_sessions(args.into()).await,
-        GetResource::Sessions(args) => list_sessions(args).await,
         GetResource::Namespace(args) => crate::cli::namespace::get(args.slug, args.json).await,
-        GetResource::Namespaces(args) => crate::cli::namespace::get(None, args.json).await,
     }
 }
 

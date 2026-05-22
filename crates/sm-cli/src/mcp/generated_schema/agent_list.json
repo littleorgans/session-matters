@@ -7,6 +7,10 @@
         "description": "Bypass namespace scoping and read across all namespaces.",
         "type": "boolean"
       },
+      "id": {
+        "description": "Optional session id to load instead of listing.",
+        "type": "string"
+      },
       "namespace": {
         "description": "Namespace slug to scope this read. Overrides the caller session namespace fallback.",
         "type": "string"

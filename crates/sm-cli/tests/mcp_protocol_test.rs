@@ -45,6 +45,8 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "agent_list",
             "session_get",
             "agent_get",
+            "namespace_list",
+            "namespace_get",
             "session_capture",
             "agent_capture",
             "session_delete",
@@ -190,6 +192,39 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         ]
     );
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
+}
+
+#[tokio::test]
+async fn namespace_tools_list_and_get_records() {
+    let daemon = DaemonFixture::start();
+    create_namespace(&daemon, "alpha");
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let listed = call_tool(&mut mcp, 2, "namespace_list", json!({}));
+    assert!(listed["error"].is_null());
+    assert_eq!(
+        listed["result"]["structuredContent"]["namespaces"][0]["namespace"],
+        "alpha"
+    );
+    assert_eq!(
+        listed["result"]["structuredContent"]["namespaces"][1]["namespace"],
+        "default"
+    );
+
+    let listed_one = call_tool(&mut mcp, 3, "namespace_list", json!({ "slug": "alpha" }));
+    assert!(listed_one["error"].is_null());
+    assert_eq!(
+        listed_one["result"]["structuredContent"]["namespaces"][0]["namespace"],
+        "alpha"
+    );
+
+    let got = call_tool(&mut mcp, 4, "namespace_get", json!({ "slug": "alpha" }));
+    assert!(got["error"].is_null());
+    assert_eq!(
+        got["result"]["structuredContent"]["namespace"]["namespace"],
+        "alpha"
+    );
 }
 
 #[tokio::test]
