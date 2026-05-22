@@ -61,6 +61,7 @@ fn run_help_describes_every_flag() {
 #[test]
 fn create_and_delete_resource_help_uses_current_lifecycle_copy() {
     let create = help(&["create", "--help"]);
+    assert!(create.contains("Create namespace and session records"));
     assert!(create.contains("Create a namespace before running sessions into it"));
     assert!(create.contains("Declaratively create a headless session record"));
 
