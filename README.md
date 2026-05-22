@@ -131,6 +131,26 @@ sm mcp
 | `wait` | `sm wait` | Wait until a selector satisfies running, terminated, or count=N. |
 | `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and runtime-matters status. |
 
+## Selector Grammar
+
+Grammar:
+  all
+  <uuid>
+  id:<uuid>
+  role:<name>
+  namespace:<slug>
+  dir:<path>
+  label:<key>=<value>
+  label:<key> in (v1, v2)
+Examples:
+  all
+  019e44f9-...
+  role:engineer
+  namespace:default
+  dir:/tmp/project
+  label:app=nginx
+  "label:app in (web, api)"
+
 ## Examples
 
 ### `session_run`

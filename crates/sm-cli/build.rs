@@ -11,7 +11,7 @@ mod tool_examples;
 #[path = "../sm-core/src/tool_sources.rs"]
 mod tool_sources;
 
-use tool_contracts::{ToolContract, ToolContractRegistry};
+use tool_contracts::ToolContractRegistry;
 use tool_docs::{
     render_generated_instructions_rs, render_readme_md, render_server_instructions, render_skill_md,
 };
@@ -34,7 +34,7 @@ fn main() {
     let content = tool_sources::read_tool_sources(&tool_paths).expect("tool sources are readable");
     let registry = ToolContractRegistry::from_toml_str(&content).expect("tools/*.toml parses");
 
-    write_schema_outputs(&manifest_dir, registry.tools());
+    write_schema_outputs(&manifest_dir, &registry);
     write_docs_outputs(&manifest_dir, &registry);
     emit_cli_version();
 }
@@ -181,8 +181,8 @@ fn short_sha(sha: String) -> Option<String> {
     Some(trimmed[..7].to_string())
 }
 
-fn write_schema_outputs(manifest_dir: &str, tools: &[ToolContract]) {
-    let (schema_rs, schema_files) = generate_mcp_schema(tools);
+fn write_schema_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
+    let (schema_rs, schema_files) = generate_mcp_schema(registry);
     write_if_changed(
         &Path::new(manifest_dir).join("src/mcp/generated_schema.rs"),
         &schema_rs,
@@ -199,7 +199,8 @@ fn write_schema_outputs(manifest_dir: &str, tools: &[ToolContract]) {
 }
 
 fn write_docs_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
-    let instructions = render_server_instructions(registry.skill(), registry.tools());
+    let instructions =
+        render_server_instructions(registry.skill(), registry.shared(), registry.tools());
     let instructions_rs = render_generated_instructions_rs(&instructions);
     write_if_changed(
         &Path::new(manifest_dir).join("src/mcp/generated_instructions.rs"),
@@ -215,20 +216,20 @@ fn write_docs_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
     fs::create_dir_all(&templates_dir).expect("templates dir can be created");
     write_if_changed(
         &templates_dir.join("SKILL.md"),
-        &render_skill_md(registry.skill(), registry.tools()),
+        &render_skill_md(registry.skill(), registry.shared(), registry.tools()),
     );
     write_if_changed(
         &Path::new(manifest_dir).join("../../README.md"),
-        &render_readme_md(registry.skill(), registry.tools()),
+        &render_readme_md(registry.skill(), registry.shared(), registry.tools()),
     );
 }
 
-fn generate_mcp_schema(tools: &[ToolContract]) -> (String, Vec<(String, String)>) {
+fn generate_mcp_schema(registry: &ToolContractRegistry) -> (String, Vec<(String, String)>) {
     let mut include_lines = Vec::new();
     let mut schema_files = Vec::new();
-    for tool in tools {
+    for tool in registry.tools() {
         let file_name = tool.artifacts.mcp_schema_file.clone();
-        let tool_entry = tool.tool_entry_value();
+        let tool_entry = tool.tool_entry_value(registry.shared());
         let json = serde_json::to_string_pretty(&tool_entry).expect("tool schema serializes");
         include_lines.push(format!(
             "        serde_json::from_str(include_str!(\"generated_schema/{file_name}\"))\n            .expect(\"generated schema for {} is valid JSON\"),",
@@ -288,22 +289,8 @@ fn generate_cli_help(registry: &ToolContractRegistry) -> String {
 }
 
 fn render_selector_help(registry: &ToolContractRegistry) -> String {
-    let grammar = registry
-        .shared()
-        .selector_grammar
-        .as_ref()
-        .expect("shared.selector_grammar exists for selector CLI params");
-    let mut lines = Vec::new();
-    lines.push("Grammar:".to_string());
-    lines.extend(grammar.forms.iter().map(|form| format!("  {form}")));
-    lines.push("Examples:".to_string());
-    lines.extend(
-        grammar
-            .examples
-            .iter()
-            .map(|example| format!("  {example}")),
-    );
-    lines.join("\n")
+    tool_contracts::render_selector_grammar_block(registry.shared())
+        .expect("shared.selector_grammar exists for selector CLI params")
 }
 
 fn write_if_changed(path: &Path, content: &str) {

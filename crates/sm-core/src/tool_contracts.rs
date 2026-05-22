@@ -96,7 +96,7 @@ impl ToolContractRegistry {
         let tools = self
             .tools
             .iter()
-            .map(ToolContract::tool_entry_value)
+            .map(|tool| tool.tool_entry_value(&self.shared))
             .collect::<Vec<_>>();
         json!({ "tools": tools })
     }
@@ -208,11 +208,11 @@ impl ToolContract {
         })
     }
 
-    pub fn tool_entry_value(&self) -> Value {
+    pub fn tool_entry_value(&self, shared: &SharedContent) -> Value {
         let mut properties = Map::new();
         let mut required = Vec::new();
         for param in &self.params {
-            properties.insert(param.name.clone(), param.schema_value());
+            properties.insert(param.name.clone(), param.schema_value(shared));
             if param.required {
                 required.push(Value::String(param.name.clone()));
             }
@@ -310,12 +310,16 @@ impl ToolParamContract {
         })
     }
 
-    pub fn schema_value(&self) -> Value {
+    pub fn schema_value(&self, shared: &SharedContent) -> Value {
         let mut schema = self.shape.schema_object();
-        schema.insert(
-            "description".to_string(),
-            Value::String(self.mcp_description.clone()),
-        );
+        let description = if self.selector {
+            let selector_help = render_selector_grammar_block(shared)
+                .expect("shared.selector_grammar exists for selector MCP params");
+            format!("{}\n\n{selector_help}", self.mcp_description)
+        } else {
+            self.mcp_description.clone()
+        };
+        schema.insert("description".to_string(), Value::String(description));
         if let Some(values) = &self.enum_values {
             schema.insert(
                 "enum".to_string(),
@@ -324,6 +328,21 @@ impl ToolParamContract {
         }
         Value::Object(schema)
     }
+}
+
+pub fn render_selector_grammar_block(shared: &SharedContent) -> Option<String> {
+    let grammar = shared.selector_grammar.as_ref()?;
+    let mut lines = Vec::new();
+    lines.push("Grammar:".to_string());
+    lines.extend(grammar.forms.iter().map(|form| format!("  {form}")));
+    lines.push("Examples:".to_string());
+    lines.extend(
+        grammar
+            .examples
+            .iter()
+            .map(|example| format!("  {example}")),
+    );
+    Some(lines.join("\n"))
 }
 
 #[derive(Debug, Clone)]
