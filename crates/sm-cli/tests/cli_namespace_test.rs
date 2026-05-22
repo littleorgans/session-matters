@@ -145,10 +145,10 @@ fn delete_namespace_cascades_sessions_and_clears_binding() {
 
     let sessions = daemon
         .command()
-        .args(["get", "agent", "-A"])
+        .args(["get", "session", "-A"])
         .output()
-        .expect("sm get agent -A executes");
-    assert_success("sm get agent -A", &sessions);
+        .expect("sm get session -A executes");
+    assert_success("sm get session -A", &sessions);
     assert!(!stdout(&sessions).contains(&id));
 }
 

@@ -18,7 +18,7 @@ sm create namespace project-alpha
 sm run claude --role general --dir "$PWD" --detach
 sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --detach
 sm capture --selector id:<session-id>
-sm get agents
+sm get sessions
 sm logs id:<session-id>
 sm doctor
 sm daemon stop
@@ -61,7 +61,7 @@ were removed in this migration. Use `dir:<path>` for path based selection or
 
 CLI selector reads default to the resolved namespace when a marker or
 `--namespace` resolves. This applies to the selector consuming surfaces in this
-release: `sm get agent`, `sm get agents`, `sm mail send --to <selector>`,
+release: `sm get session`, `sm get sessions`, `sm mail send --to <selector>`,
 `sm nudge --to <selector>`, `sm label`, and `sm delete agent`. Use `-A` or
 `--all-namespaces` to bypass default scoping.
 

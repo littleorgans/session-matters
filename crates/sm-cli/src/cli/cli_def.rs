@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
@@ -86,8 +86,37 @@ pub struct RunArgs {
 
 #[derive(Debug, Args)]
 pub struct GetArgs {
+    #[command(subcommand)]
     pub resource: GetResource,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum GetResource {
+    #[command(about = generated_help::SESSION_GET_ABOUT, long_about = generated_help::SESSION_GET_ABOUT)]
+    Session(SessionGetArgs),
+    #[command(about = "List session records known to the session-matters daemon")]
+    Sessions(SessionListArgs),
+    #[command(about = "Get one namespace record by slug")]
+    Namespace(NamespaceGetArgs),
+    #[command(about = "List namespace records")]
+    Namespaces(NamespaceListArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SessionGetArgs {
     pub id: Option<String>,
+    #[command(flatten)]
+    pub read: SessionReadArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct SessionListArgs {
+    #[command(flatten)]
+    pub read: SessionReadArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct SessionReadArgs {
     #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
     pub selector: Option<String>,
     #[command(flatten)]
@@ -96,11 +125,17 @@ pub struct GetArgs {
     pub json: bool,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum GetResource {
-    Agent,
-    Agents,
-    Namespace,
+#[derive(Debug, Args)]
+pub struct NamespaceGetArgs {
+    pub slug: Option<String>,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct NamespaceListArgs {
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]

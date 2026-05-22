@@ -5,7 +5,58 @@ use std::path::Path;
 use serde_json::Value;
 
 #[test]
-fn singular_agent_resource_lists_without_id_and_gets_with_id() {
+fn get_session_help_exposes_only_session_read_arguments() {
+    for resource in ["session", "sessions"] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+            .args(["get", resource, "--help"])
+            .output()
+            .expect("sm get session help executes");
+
+        assert_success("sm get session help", &output);
+        let stdout = stdout(&output);
+        assert!(stdout.contains("--selector"));
+        assert!(stdout.contains("--namespace"));
+        assert!(stdout.contains("--all-namespaces"));
+        assert!(stdout.contains("--json"));
+    }
+}
+
+#[test]
+fn get_namespace_help_exposes_only_namespace_read_arguments() {
+    for resource in ["namespace", "namespaces"] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+            .args(["get", resource, "--help"])
+            .output()
+            .expect("sm get namespace help executes");
+
+        assert_success("sm get namespace help", &output);
+        let stdout = stdout(&output);
+        assert!(stdout.contains("--json"));
+        assert!(!stdout.contains("--selector"));
+        assert!(!stdout.contains("--namespace <NAMESPACE>"));
+        assert!(!stdout.contains("--all-namespaces"));
+    }
+}
+
+#[test]
+fn removed_get_forms_are_rejected_by_clap() {
+    for args in [
+        ["get", "agent", "--help"].as_slice(),
+        ["get", "agents", "--help"].as_slice(),
+        ["get", "namespace", "--selector", "all"].as_slice(),
+        ["get", "namespaces", "default"].as_slice(),
+    ] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+            .args(args)
+            .output()
+            .expect("sm get rejected form executes");
+
+        assert!(!output.status.success());
+    }
+}
+
+#[test]
+fn session_resources_list_and_get_by_id() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
 
@@ -27,43 +78,43 @@ fn singular_agent_resource_lists_without_id_and_gets_with_id() {
 
     let singular_list = daemon
         .command()
-        .args(["get", "agent"])
+        .args(["get", "session"])
         .output()
-        .expect("sm get agent executes");
-    assert_success("sm get agent", &singular_list);
+        .expect("sm get session executes");
+    assert_success("sm get session", &singular_list);
     assert_table_contains(&singular_list.stdout, &id);
 
     let plural_list = daemon
         .command()
-        .args(["get", "agents"])
+        .args(["get", "sessions"])
         .output()
-        .expect("sm get agents executes");
-    assert_success("sm get agents", &plural_list);
+        .expect("sm get sessions executes");
+    assert_success("sm get sessions", &plural_list);
     assert_table_contains(&plural_list.stdout, &id);
 
     let selected_list = daemon
         .command()
-        .args(["get", "agent", "--selector", "all"])
+        .args(["get", "session", "--selector", "all"])
         .output()
-        .expect("sm get agent --selector all executes");
-    assert_success("sm get agent --selector all", &selected_list);
+        .expect("sm get session --selector all executes");
+    assert_success("sm get session --selector all", &selected_list);
     assert_table_contains(&selected_list.stdout, &id);
 
     let json_list = daemon
         .command()
-        .args(["get", "agent", "--json"])
+        .args(["get", "session", "--json"])
         .output()
-        .expect("sm get agent --json executes");
-    assert_success("sm get agent --json", &json_list);
+        .expect("sm get session --json executes");
+    assert_success("sm get session --json", &json_list);
     let sessions: Value = serde_json::from_slice(&json_list.stdout).expect("list JSON parses");
     assert!(sessions.as_array().is_some_and(|items| !items.is_empty()));
 
     let single = daemon
         .command()
-        .args(["get", "agent", &id])
+        .args(["get", "session", &id])
         .output()
-        .expect("sm get agent <id> executes");
-    assert_success("sm get agent <id>", &single);
+        .expect("sm get session <id> executes");
+    assert_success("sm get session <id>", &single);
     let stdout = String::from_utf8_lossy(&single.stdout);
     assert!(stdout.contains(&id));
     assert!(!stdout.starts_with("ID RUNTIME"));
@@ -89,10 +140,10 @@ fn run_persists_canonical_dir_from_cli_resolution() {
 
     let single = daemon
         .command()
-        .args(["get", "agent", &id, "--json"])
+        .args(["get", "session", &id, "--json"])
         .output()
-        .expect("sm get agent <id> --json executes");
-    assert_success("sm get agent <id> --json", &single);
+        .expect("sm get session <id> --json executes");
+    assert_success("sm get session <id> --json", &single);
     let session: Value = serde_json::from_slice(&single.stdout).expect("session JSON parses");
     let canonical_project = canonical_display(&project);
     assert_eq!(session["dir"], canonical_project);
@@ -164,6 +215,10 @@ fn assert_table_contains(stdout: &[u8], id: &str) {
     let stdout = String::from_utf8_lossy(stdout);
     assert!(stdout.starts_with("ID RUNTIME"));
     assert!(stdout.contains(id));
+}
+
+fn stdout(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
 fn first_field(stdout: &[u8]) -> String {
