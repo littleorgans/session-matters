@@ -118,6 +118,7 @@ async fn agent_config_env_reaches_spawn_driver() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -176,6 +177,7 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
                     ],
                     shell_resume: Some(shell_resume.clone()),
                     labels: Vec::new(),
+                    force: true,
                 },
             },
         )
@@ -185,6 +187,7 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
         panic!("expected spawn response");
     };
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert!(launch.force);
     assert!(launch.env.contains(&launch_env("HOME", "/Users/tester")));
     assert!(
         launch
@@ -200,6 +203,7 @@ async fn spawn_launch_cwd_is_request_workspace() {
     let session = spawn_test_session(&daemon, &local_context(), "pm").await;
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
     assert_eq!(launch.cwd, daemon._dir.path());
+    assert!(!launch.force);
     assert_eq!(session.namespace, Namespace::default());
     assert_eq!(session.dir, daemon._dir.path());
 }
@@ -227,6 +231,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -264,6 +269,7 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -300,6 +306,7 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -336,6 +343,7 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )

@@ -26,6 +26,7 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -162,6 +163,7 @@ async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::hand
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )

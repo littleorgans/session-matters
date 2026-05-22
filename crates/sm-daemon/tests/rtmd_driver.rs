@@ -135,6 +135,7 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )

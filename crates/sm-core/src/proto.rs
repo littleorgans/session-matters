@@ -33,6 +33,8 @@ pub struct SpawnRequest {
     pub shell_resume: Option<ShellResume>,
     #[serde(default)]
     pub labels: Vec<crate::Label>,
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -430,6 +432,7 @@ mod tests {
                 env: Vec::new(),
                 shell_resume: None,
                 labels: Vec::new(),
+                force: true,
             },
         };
 
@@ -458,6 +461,7 @@ mod tests {
         assert_eq!(request.dir, None);
         assert_eq!(request.namespace, None);
         assert_eq!(request.target, "headless");
+        assert!(!request.force);
     }
 
     #[test]
@@ -480,6 +484,7 @@ mod tests {
         assert_eq!(request.dir.as_deref(), Some("/tmp/project"));
         assert_eq!(request.namespace.unwrap().as_str(), "alpha");
         assert_eq!(request.target, "headless");
+        assert!(!request.force);
     }
 
     #[test]

@@ -117,6 +117,14 @@ mcp_description = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Def
 cli_help        = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless."
 cli_flag        = "--target"
 
+[[tools.agent_run.params]]
+name            = "force"
+type            = "boolean"
+required        = false
+mcp_description = "Preempt an occupied tmux pane when the target pane is already owned by another runtime. Other spawn conflicts remain fatal."
+cli_help        = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal."
+cli_flag        = "--force"
+
 [[tools.agent_run.mcp_aliases]]
 name            = "session_run"
 mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."

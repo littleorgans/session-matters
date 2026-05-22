@@ -283,5 +283,6 @@ fn spawn_request(dir: String, namespace: Namespace) -> SpawnRequest {
         env: Vec::new(),
         shell_resume: None,
         labels: Vec::new(),
+        force: false,
     }
 }

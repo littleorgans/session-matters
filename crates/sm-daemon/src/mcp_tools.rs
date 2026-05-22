@@ -57,6 +57,7 @@ async fn agent_run(
     let target = optional_string(arguments, "target")
         .unwrap_or("headless")
         .to_string();
+    let force = optional_bool(arguments, "force").unwrap_or(false);
     let response = state
         .handle_direct(
             context.clone(),
@@ -72,6 +73,7 @@ async fn agent_run(
                     env: Vec::new(),
                     shell_resume: None,
                     labels,
+                    force,
                 },
             },
         )

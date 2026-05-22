@@ -16,6 +16,8 @@ pub const AGENT_RUN_LABELS_HELP: &str = "Session label as key=value.";
 pub const AGENT_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
 #[rustfmt::skip]
 pub const AGENT_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
+#[rustfmt::skip]
+pub const AGENT_RUN_FORCE_HELP: &str = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal.";
 
 #[rustfmt::skip]
 pub const SESSION_RUN_ABOUT: &str = "Start an agent runtime through the session-matters daemon.";
@@ -33,6 +35,8 @@ pub const SESSION_RUN_LABELS_HELP: &str = "Session label as key=value.";
 pub const SESSION_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
 #[rustfmt::skip]
 pub const SESSION_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
+#[rustfmt::skip]
+pub const SESSION_RUN_FORCE_HELP: &str = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal.";
 
 #[rustfmt::skip]
 pub const AGENT_LIST_ABOUT: &str = "List session records known to the session-matters daemon.";

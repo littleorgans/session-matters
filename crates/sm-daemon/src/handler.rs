@@ -633,6 +633,7 @@ fn spawn_launch(
         target: request.target.clone(),
         env,
         shell_resume,
+        force: request.force,
     }
 }
 

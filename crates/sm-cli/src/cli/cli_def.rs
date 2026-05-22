@@ -70,6 +70,8 @@ pub struct RunArgs {
     pub session: SessionCreateArgs,
     #[arg(long, default_value = "headless", help = generated_help::AGENT_RUN_TARGET_HELP)]
     pub target: String,
+    #[arg(long, help = generated_help::AGENT_RUN_FORCE_HELP)]
+    pub force: bool,
     #[arg(long)]
     pub detach: bool,
 }

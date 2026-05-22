@@ -63,7 +63,7 @@ impl SpawnDriver for RtmdDriver {
                 env: launch.env.clone(),
                 cwd: launch.cwd.clone(),
                 target: runtime_target(&launch.target)?,
-                force: false,
+                force: launch.force,
                 shell_resume: launch.shell_resume.clone(),
             })
             .await

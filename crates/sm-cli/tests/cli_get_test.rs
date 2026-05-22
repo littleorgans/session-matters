@@ -72,6 +72,19 @@ fn create_session_help_exposes_only_declarative_arguments() {
 }
 
 #[test]
+fn run_help_exposes_force_as_imperative_argument() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args(["run", "--help"])
+        .output()
+        .expect("sm run --help executes");
+
+    assert_success("sm run --help", &output);
+    let stdout = stdout(&output);
+    assert!(stdout.contains("--force"));
+    assert!(stdout.contains("Preempt an occupied tmux pane"));
+}
+
+#[test]
 fn create_session_persists_headless_record_without_foreground_attach() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());

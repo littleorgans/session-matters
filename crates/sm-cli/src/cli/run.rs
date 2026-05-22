@@ -18,6 +18,7 @@ pub async fn run(args: RunArgs) -> Result<()> {
         labels: args.session.labels,
         agent_config: args.session.agent_config,
         target: args.target,
+        force: args.force,
     })
     .await
 }
@@ -31,6 +32,7 @@ pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
         labels: args.labels,
         agent_config: args.agent_config,
         target: "headless".to_string(),
+        force: false,
     })
     .await
 }
@@ -69,6 +71,7 @@ async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
                     .iter()
                     .map(|label| Label::from_str(label))
                     .collect::<Result<Vec<_>, _>>()?,
+                force: args.force,
             },
         },
     )
@@ -96,6 +99,7 @@ struct SessionSpawnArgs {
     labels: Vec<String>,
     agent_config: Option<String>,
     target: String,
+    force: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
