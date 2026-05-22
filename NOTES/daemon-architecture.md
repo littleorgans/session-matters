@@ -12,7 +12,7 @@ Headless sessions spawned by the daemon receive stdout and stderr paths from `rt
 
 Operational commands delegate to the same runtime boundary:
 
-- `sm delete agent` calls rtmd kill and treats `AlreadyExited` as a successful close.
+- `sm delete session` calls rtmd kill and treats `AlreadyExited` as a successful close.
 - `sm capture` calls rtmd capture for tmux backed sessions.
 - `sm nudge` calls rtmd nudge and reports typed delivered, unsupported, and failed outcomes.
 - `sm doctor` includes direct runtime-matters doctor output beside session-matters health.
