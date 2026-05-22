@@ -5,18 +5,18 @@ use sm_core::{
     DeleteRequest, Namespace, NamespaceDeleteRequest, RpcRequest, RpcResponse, SmEndpoint, SmPaths,
 };
 
-use crate::cli::cli_def::{DeleteAgentArgs, DeleteArgs, DeleteNamespaceArgs, DeleteResource};
+use crate::cli::cli_def::{DeleteArgs, DeleteNamespaceArgs, DeleteResource, DeleteSessionArgs};
 use crate::cli::output::print_session_line;
 use crate::cli::selector_scope::scoped_selector;
 
 pub async fn run(args: DeleteArgs) -> Result<()> {
     match args.resource {
-        DeleteResource::Agent(args) => delete_agent(args).await,
+        DeleteResource::Session(args) => delete_session(args).await,
         DeleteResource::Namespace(args) => delete_namespace(args).await,
     }
 }
 
-async fn delete_agent(args: DeleteAgentArgs) -> Result<()> {
+async fn delete_session(args: DeleteSessionArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
     let response = sm_daemon::send_request(
         &endpoint,
@@ -34,7 +34,7 @@ async fn delete_agent(args: DeleteAgentArgs) -> Result<()> {
     match response {
         RpcResponse::Deleted { response } => {
             for session in response.sessions {
-                print_session_line(&session);
+                print_session_line(&session, false);
             }
             for error in response.errors {
                 eprintln!("{} {}", error.target, error.message);
@@ -72,7 +72,7 @@ async fn delete_namespace(args: DeleteNamespaceArgs) -> Result<()> {
                 )
             })?;
             for session in response.sessions {
-                print_session_line(&session);
+                print_session_line(&session, false);
             }
             println!("deleted namespace: {}", response.namespace);
             Ok(())

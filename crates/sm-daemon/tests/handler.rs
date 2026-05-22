@@ -6,8 +6,9 @@ use common::{
     spawn_test_session,
 };
 use sm_core::{
-    DeleteRequest, DoctorRequest, LinkRequest, LogsRequest, LostEvidence, Namespace, RpcRequest,
-    RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest, WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LogsRequest, LostEvidence,
+    Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest,
+    WaitCondition, WaitRequest,
 };
 
 #[tokio::test]
@@ -40,6 +41,57 @@ async fn drives_session_through_delete_lifecycle() {
 }
 
 #[tokio::test]
+async fn delete_unknown_id_uses_session_noun() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let id = uuid::Uuid::nil();
+
+    let deleted = daemon
+        .state
+        .handle(
+            local_context(),
+            RpcRequest::Delete {
+                request: DeleteRequest {
+                    selector: Selector::Id { id },
+                    signal: "SIGTERM".to_string(),
+                    grace_secs: 5,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Error { message } = deleted.response else {
+        panic!("expected delete error response");
+    };
+
+    assert_eq!(message, format!("unknown session: {id}"));
+}
+
+#[tokio::test]
+async fn label_empty_selector_uses_session_noun() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+
+    let labeled = daemon
+        .state
+        .handle(
+            local_context(),
+            RpcRequest::Label {
+                request: LabelRequest {
+                    selector: Selector::All,
+                    mutation: LabelMutation::Set(Label {
+                        key: "scope".to_string(),
+                        value: "alpha".to_string(),
+                    }),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Error { message } = labeled.response else {
+        panic!("expected label error response");
+    };
+
+    assert_eq!(message, "selector matched no sessions: all");
+}
+
+#[tokio::test]
 async fn agent_config_env_reaches_spawn_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
@@ -66,6 +118,7 @@ async fn agent_config_env_reaches_spawn_driver() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -124,6 +177,7 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
                     ],
                     shell_resume: Some(shell_resume.clone()),
                     labels: Vec::new(),
+                    force: true,
                 },
             },
         )
@@ -133,6 +187,7 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
         panic!("expected spawn response");
     };
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    assert!(launch.force);
     assert!(launch.env.contains(&launch_env("HOME", "/Users/tester")));
     assert!(
         launch
@@ -148,6 +203,7 @@ async fn spawn_launch_cwd_is_request_workspace() {
     let session = spawn_test_session(&daemon, &local_context(), "pm").await;
     let launch = daemon.driver.launches().pop().expect("driver saw launch");
     assert_eq!(launch.cwd, daemon._dir.path());
+    assert!(!launch.force);
     assert_eq!(session.namespace, Namespace::default());
     assert_eq!(session.dir, daemon._dir.path());
 }
@@ -175,6 +231,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -212,6 +269,7 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -248,6 +306,7 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -284,6 +343,7 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )
@@ -348,53 +408,20 @@ fn create_namespace(daemon: &TestDaemon, value: &str) -> Namespace {
 }
 
 #[tokio::test]
-async fn link_logs_wait_and_doctor_polish_paths_work() {
+async fn logs_wait_and_doctor_polish_paths_work() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let session = spawn_test_session(&daemon, &context, "engineer").await;
     let transcript = daemon._dir.path().join("transcript.jsonl");
     std::fs::write(&transcript, "first\nsecond\n").expect("transcript writes");
-
-    let linked = daemon
+    daemon
         .state
-        .handle(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id: Some(session.id),
-                    selector: None,
-                    runtime_session: "runtime-1".to_string(),
-                    transcript_path: transcript.clone(),
-                },
-            },
-        )
-        .await;
-    let RpcResponse::Linked { response } = linked.response else {
-        panic!("expected link response");
-    };
-    assert_eq!(
-        response.session.runtime_session.as_deref(),
-        Some("runtime-1")
-    );
-
-    let relinked = daemon
-        .state
-        .handle(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id: None,
-                    selector: None,
-                    runtime_session: "runtime-1".to_string(),
-                    transcript_path: transcript.clone(),
-                },
-            },
-        )
-        .await;
-    let RpcResponse::Linked { response } = relinked.response else {
-        panic!("expected idempotent link response");
-    };
-    assert_eq!(response.session.id, session.id);
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .record_transcript_path(&session.id, &transcript, Utc::now())
+        .expect("transcript path records")
+        .expect("session exists");
 
     let logs = daemon
         .state

@@ -24,6 +24,7 @@ pub struct SpawnLaunch {
     pub target: String,
     pub env: Vec<LaunchEnv>,
     pub shell_resume: Option<ShellResume>,
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

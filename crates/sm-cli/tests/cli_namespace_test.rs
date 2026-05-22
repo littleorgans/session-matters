@@ -32,6 +32,34 @@ fn create_and_get_namespace_support_human_and_json_output() {
     assert!(stdout(&listed).contains("alpha"));
     assert!(stdout(&listed).contains("default"));
 
+    let plural_listed = daemon
+        .command()
+        .args(["get", "namespaces"])
+        .output()
+        .expect("sm get namespaces executes");
+    assert_success("sm get namespaces", &plural_listed);
+    assert!(stdout(&plural_listed).contains("alpha"));
+    assert!(stdout(&plural_listed).contains("default"));
+
+    let single = daemon
+        .command()
+        .args(["get", "namespace", "alpha"])
+        .output()
+        .expect("sm get namespace alpha executes");
+    assert_success("sm get namespace alpha", &single);
+    assert!(stdout(&single).contains("NAMESPACE CREATED_AT"));
+    assert!(stdout(&single).contains("alpha"));
+    assert!(!stdout(&single).contains("default"));
+
+    let alias_single = daemon
+        .command()
+        .args(["get", "namespaces", "alpha"])
+        .output()
+        .expect("sm get namespaces alpha executes");
+    assert_success("sm get namespaces alpha", &alias_single);
+    assert!(stdout(&alias_single).contains("alpha"));
+    assert!(!stdout(&alias_single).contains("default"));
+
     let json = daemon
         .command()
         .args(["get", "namespace", "--json"])
@@ -80,7 +108,7 @@ fn init_namespace_command_is_rejected_by_clap() {
 }
 
 #[test]
-fn delete_namespace_help_does_not_expose_agent_flags() {
+fn delete_namespace_help_does_not_expose_session_flags() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["delete", "namespace", "--help"])
         .output()
@@ -145,10 +173,10 @@ fn delete_namespace_cascades_sessions_and_clears_binding() {
 
     let sessions = daemon
         .command()
-        .args(["get", "agent", "-A"])
+        .args(["get", "session", "-A"])
         .output()
-        .expect("sm get agent -A executes");
-    assert_success("sm get agent -A", &sessions);
+        .expect("sm get session -A executes");
+    assert_success("sm get session -A", &sessions);
     assert!(!stdout(&sessions).contains(&id));
 }
 

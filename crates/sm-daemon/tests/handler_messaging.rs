@@ -328,6 +328,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     env: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
+                    force: false,
                 },
             },
         )

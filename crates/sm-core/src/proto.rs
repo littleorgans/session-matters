@@ -33,6 +33,8 @@ pub struct SpawnRequest {
     pub shell_resume: Option<ShellResume>,
     #[serde(default)]
     pub labels: Vec<crate::Label>,
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -193,19 +195,6 @@ pub struct LabelResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LinkRequest {
-    pub session_id: Option<uuid::Uuid>,
-    pub selector: Option<Selector>,
-    pub runtime_session: String,
-    pub transcript_path: PathBuf,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LinkResponse {
-    pub session: Session,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LogsRequest {
     pub selector: Selector,
     pub max_bytes: Option<u64>,
@@ -220,7 +209,7 @@ pub struct LogsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CaptureRequest {
-    pub selector: Selector,
+    pub session_id: uuid::Uuid,
     #[serde(default)]
     pub scrollback_lines: Option<u32>,
 }
@@ -349,7 +338,6 @@ pub enum RpcRequest {
     MailStopCheck { request: MailStopCheckRequest },
     Nudge { request: NudgeRequest },
     Label { request: LabelRequest },
-    Link { request: LinkRequest },
     Logs { request: LogsRequest },
     Capture { request: CaptureRequest },
     Doctor { request: DoctorRequest },
@@ -374,7 +362,6 @@ pub enum RpcResponse {
     MailStopChecked { response: MailStopCheckResponse },
     Nudged { response: NudgeResponse },
     Labeled { response: LabelResponse },
-    Linked { response: LinkResponse },
     Logs { response: LogsResponse },
     Capture { response: CaptureResponse },
     Doctor { response: DoctorResponse },
@@ -400,7 +387,6 @@ impl RpcResponse {
             RpcResponse::MailStopChecked { .. } => "MailStopChecked",
             RpcResponse::Nudged { .. } => "Nudged",
             RpcResponse::Labeled { .. } => "Labeled",
-            RpcResponse::Linked { .. } => "Linked",
             RpcResponse::Logs { .. } => "Logs",
             RpcResponse::Capture { .. } => "Capture",
             RpcResponse::Doctor { .. } => "Doctor",
@@ -430,6 +416,7 @@ mod tests {
                 env: Vec::new(),
                 shell_resume: None,
                 labels: Vec::new(),
+                force: true,
             },
         };
 
@@ -458,6 +445,7 @@ mod tests {
         assert_eq!(request.dir, None);
         assert_eq!(request.namespace, None);
         assert_eq!(request.target, "headless");
+        assert!(!request.force);
     }
 
     #[test]
@@ -480,6 +468,7 @@ mod tests {
         assert_eq!(request.dir.as_deref(), Some("/tmp/project"));
         assert_eq!(request.namespace.unwrap().as_str(), "alpha");
         assert_eq!(request.target, "headless");
+        assert!(!request.force);
     }
 
     #[test]

@@ -1,10 +1,15 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
 use crate::cli::selector_scope::NamespaceScopeArgs;
+
+const JSON_OUTPUT_HELP: &str = "Render output as JSON.";
+const NAMESPACE_CREATE_HELP: &str = "Namespace slug to create.";
+const NAMESPACE_CONTEXT_HELP: &str = "Namespace slug to use as the user context.";
+const NAMESPACE_DELETE_HELP: &str = "Namespace slug to delete.";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -20,30 +25,31 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    #[command(about = "Manage the session-matters daemon")]
     Daemon(DaemonArgs),
-    #[command(about = generated_help::AGENT_RUN_ABOUT, long_about = generated_help::AGENT_RUN_ABOUT)]
+    #[command(about = generated_help::SESSION_RUN_ABOUT, long_about = generated_help::SESSION_RUN_ABOUT, arg_required_else_help = true)]
     Run(RunArgs),
-    #[command(about = "Create namespace records")]
+    #[command(about = "Create namespace and session records")]
     Create(CreateArgs),
-    #[command(about = "Manage user configuration")]
+    #[command(about = "Manage session-matters user configuration")]
     Config(ConfigArgs),
     #[command(about = "Inspect sessions and namespaces")]
     Get(GetArgs),
+    #[command(about = "Delete sessions and namespaces")]
     Delete(DeleteArgs),
     #[command(about = generated_help::DOCTOR_ABOUT, long_about = generated_help::DOCTOR_ABOUT)]
     Doctor(DoctorArgs),
+    #[command(about = "Send and read durable session mail")]
     Mail(MailArgs),
-    #[command(about = "Add or remove labels on selected sessions")]
+    #[command(about = generated_help::SESSION_LABEL_ABOUT, long_about = generated_help::SESSION_LABEL_ABOUT, arg_required_else_help = true)]
     Label(LabelArgs),
-    #[command(about = generated_help::LINK_ABOUT, long_about = generated_help::LINK_ABOUT)]
-    Link(LinkArgs),
-    #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT)]
+    #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT, arg_required_else_help = true)]
     Logs(LogsArgs),
-    #[command(about = generated_help::AGENT_CAPTURE_ABOUT, long_about = generated_help::AGENT_CAPTURE_ABOUT)]
+    #[command(about = generated_help::SESSION_CAPTURE_ABOUT, long_about = generated_help::SESSION_CAPTURE_ABOUT, arg_required_else_help = true)]
     Capture(CaptureArgs),
-    #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT)]
+    #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT, arg_required_else_help = true)]
     Wait(WaitArgs),
-    #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
+    #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT, arg_required_else_help = true)]
     Nudge(NudgeArgs),
     #[command(about = "Bridge MCP stdio to the session-matters daemon")]
     Mcp(McpArgs),
@@ -59,48 +65,93 @@ pub struct DaemonArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum DaemonAction {
+    #[command(about = "Start the session-matters daemon")]
     Start,
+    #[command(about = "Stop the session-matters daemon")]
     Stop,
+    #[command(about = "Show session-matters daemon status")]
     Status,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct RunArgs {
-    #[arg(help = generated_help::AGENT_RUN_RUNTIME_HELP)]
-    pub runtime: RuntimeKind,
-    #[arg(long, help = generated_help::AGENT_RUN_ROLE_HELP)]
-    pub role: String,
-    #[arg(long, help = generated_help::AGENT_RUN_DIR_HELP)]
-    pub dir: Option<PathBuf>,
-    #[arg(long, help = generated_help::AGENT_RUN_NAMESPACE_HELP)]
-    pub namespace: Option<Namespace>,
-    #[arg(long = "label", help = "Session label as key=value")]
-    pub labels: Vec<String>,
-    #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]
-    pub agent_config: Option<String>,
-    #[arg(long, default_value = "headless", help = generated_help::AGENT_RUN_TARGET_HELP)]
+    #[command(flatten)]
+    pub session: SessionCreateArgs,
+    #[arg(long, default_value = "headless", help = generated_help::SESSION_RUN_TARGET_HELP)]
     pub target: String,
-    #[arg(long)]
+    #[arg(long, help = generated_help::SESSION_RUN_FORCE_HELP)]
+    pub force: bool,
+    #[arg(
+        long,
+        help = "Return after creating the session instead of waiting on the runtime"
+    )]
     pub detach: bool,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct SessionCreateArgs {
+    #[arg(help = generated_help::SESSION_RUN_RUNTIME_HELP)]
+    pub runtime: RuntimeKind,
+    #[arg(long, help = generated_help::SESSION_RUN_ROLE_HELP)]
+    pub role: String,
+    #[arg(long, help = generated_help::SESSION_RUN_DIR_HELP)]
+    pub dir: Option<PathBuf>,
+    #[arg(long, help = generated_help::SESSION_RUN_NAMESPACE_HELP)]
+    pub namespace: Option<Namespace>,
+    #[arg(long = "label", help = generated_help::SESSION_RUN_LABELS_HELP)]
+    pub labels: Vec<String>,
+    #[arg(long = "agent-config", help = generated_help::SESSION_RUN_AGENT_CONFIG_HELP)]
+    pub agent_config: Option<String>,
+}
+
+#[derive(Debug, Args)]
 pub struct GetArgs {
+    #[command(subcommand)]
     pub resource: GetResource,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum GetResource {
+    #[command(about = generated_help::SESSION_LIST_ABOUT, long_about = generated_help::SESSION_LIST_ABOUT)]
+    #[command(alias = "sessions")]
+    Session(SessionGetArgs),
+    #[command(about = generated_help::NAMESPACE_LIST_ABOUT, long_about = generated_help::NAMESPACE_LIST_ABOUT)]
+    #[command(alias = "namespaces")]
+    Namespace(NamespaceGetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SessionGetArgs {
+    #[arg(help = generated_help::SESSION_LIST_ID_HELP)]
     pub id: Option<String>,
-    #[arg(long, help = generated_help::AGENT_LIST_SELECTOR_HELP)]
+    #[command(flatten)]
+    pub read: SessionReadArgs,
+}
+
+pub struct SessionListArgs {
+    pub read: SessionReadArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct SessionReadArgs {
+    #[arg(long, help = generated_help::SESSION_LIST_SELECTOR_HELP)]
     pub selector: Option<String>,
     #[command(flatten)]
     pub scope: NamespaceScopeArgs,
-    #[arg(long)]
+    #[arg(long, help = JSON_OUTPUT_HELP)]
     pub json: bool,
+    #[arg(long, help = generated_help::SESSION_LIST_SHOW_LABELS_HELP)]
+    pub show_labels: bool,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum GetResource {
-    Agent,
-    Agents,
-    Namespace,
+#[derive(Debug, Args)]
+pub struct NamespaceGetArgs {
+    #[arg(help = generated_help::NAMESPACE_LIST_SLUG_HELP)]
+    pub slug: Option<String>,
+    #[arg(long, help = JSON_OUTPUT_HELP)]
+    pub json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -111,12 +162,22 @@ pub struct CreateArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CreateResource {
-    #[command(about = "Create a namespace before spawning sessions into it")]
+    #[command(
+        about = "Create a namespace before running sessions into it",
+        long_about = "Create a namespace before running sessions into it"
+    )]
     Namespace(NamespaceCreateArgs),
+    #[command(
+        about = "Declaratively create a headless session record",
+        long_about = "Declaratively create a headless session record"
+    )]
+    Session(SessionCreateArgs),
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct NamespaceCreateArgs {
+    #[arg(help = NAMESPACE_CREATE_HELP)]
     pub slug: String,
 }
 
@@ -128,12 +189,17 @@ pub struct ConfigArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigAction {
-    #[command(about = "Set the current namespace context")]
+    #[command(
+        about = "Set the user namespace context used by CLI commands",
+        long_about = "Set the user namespace context used by CLI commands"
+    )]
     SetContext(SetContextArgs),
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct SetContextArgs {
+    #[arg(help = NAMESPACE_CONTEXT_HELP)]
     pub namespace: Namespace,
 }
 
@@ -145,24 +211,33 @@ pub struct DeleteArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum DeleteResource {
-    Agent(DeleteAgentArgs),
+    #[command(about = generated_help::SESSION_DELETE_ABOUT, long_about = generated_help::SESSION_DELETE_ABOUT)]
+    #[command(alias = "sessions")]
+    Session(DeleteSessionArgs),
+    #[command(
+        about = "Delete a namespace, terminate its sessions, and clear matching user context",
+        long_about = "Delete a namespace, terminate its sessions, and clear matching user context"
+    )]
     Namespace(DeleteNamespaceArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct DeleteAgentArgs {
-    #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
+#[command(arg_required_else_help = true)]
+pub struct DeleteSessionArgs {
+    #[arg(help = generated_help::SESSION_DELETE_SELECTOR_HELP)]
     pub selector: String,
     #[command(flatten)]
     pub scope: NamespaceScopeArgs,
-    #[arg(long, default_value = "SIGTERM", help = generated_help::AGENT_DELETE_SIGNAL_HELP)]
+    #[arg(long, default_value = "SIGTERM", help = generated_help::SESSION_DELETE_SIGNAL_HELP)]
     pub signal: String,
-    #[arg(long, default_value_t = 5, help = generated_help::AGENT_DELETE_GRACE_SECS_HELP)]
+    #[arg(long, default_value_t = 5, help = generated_help::SESSION_DELETE_GRACE_SECS_HELP)]
     pub grace: u64,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct DeleteNamespaceArgs {
+    #[arg(help = NAMESPACE_DELETE_HELP)]
     pub namespace: Namespace,
 }
 
@@ -170,18 +245,7 @@ pub struct DeleteNamespaceArgs {
 pub struct DoctorArgs {}
 
 #[derive(Debug, Args)]
-pub struct LinkArgs {
-    #[arg(long, help = generated_help::LINK_SESSION_ID_HELP)]
-    pub session_id: Option<String>,
-    #[arg(long, help = generated_help::LINK_SELECTOR_HELP)]
-    pub selector: Option<String>,
-    #[arg(long = "runtime-session", help = generated_help::LINK_RUNTIME_SESSION_HELP)]
-    pub runtime_session: String,
-    #[arg(long, help = generated_help::LINK_TRANSCRIPT_HELP)]
-    pub transcript: PathBuf,
-}
-
-#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct LogsArgs {
     #[arg(help = generated_help::LOGS_SELECTOR_HELP)]
     pub selector: String,
@@ -192,16 +256,18 @@ pub struct LogsArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct CaptureArgs {
-    #[arg(long, help = generated_help::AGENT_CAPTURE_SELECTOR_HELP)]
-    pub selector: String,
-    #[arg(long = "scrollback-lines", help = generated_help::AGENT_CAPTURE_SCROLLBACK_LINES_HELP)]
+    #[arg(help = generated_help::SESSION_CAPTURE_ID_HELP)]
+    pub session_id: uuid::Uuid,
+    #[arg(long = "scrollback-lines", help = generated_help::SESSION_CAPTURE_SCROLLBACK_LINES_HELP)]
     pub scrollback_lines: Option<u32>,
-    #[arg(long)]
+    #[arg(long, help = generated_help::SESSION_CAPTURE_JSON_HELP)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct WaitArgs {
     #[arg(help = generated_help::WAIT_SELECTOR_HELP)]
     pub selector: String,
@@ -230,6 +296,7 @@ pub enum MailAction {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailSendArgs {
     #[arg(long, help = generated_help::MAIL_SEND_TO_HELP)]
     pub to: String,
@@ -242,6 +309,7 @@ pub struct MailSendArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailReadArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_READ_SELECTOR_HELP)]
     pub selector: String,
@@ -250,26 +318,32 @@ pub struct MailReadArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailCheckArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_CHECK_SELECTOR_HELP)]
     pub selector: String,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailStopCheckArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_STOP_CHECK_SELECTOR_HELP)]
     pub selector: String,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct LabelArgs {
+    #[arg(help = generated_help::SESSION_LABEL_SELECTOR_HELP)]
     pub selector: String,
     #[command(flatten)]
     pub scope: NamespaceScopeArgs,
+    #[arg(help = generated_help::SESSION_LABEL_MUTATION_HELP)]
     pub mutation: String,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct NudgeArgs {
     #[arg(long, help = generated_help::NUDGE_TO_HELP)]
     pub to: String,

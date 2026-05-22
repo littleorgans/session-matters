@@ -1,10 +1,12 @@
-pub const TOOL_NAMES: [&str; 21] = [
+pub const TOOL_NAMES: [&str; 22] = [
     "agent_run",
     "session_run",
     "agent_list",
     "session_list",
     "agent_get",
     "session_get",
+    "namespace_list",
+    "namespace_get",
     "agent_capture",
     "session_capture",
     "agent_delete",
@@ -16,7 +18,6 @@ pub const TOOL_NAMES: [&str; 21] = [
     "mail_check",
     "mail_stop_check",
     "nudge",
-    "link",
     "logs",
     "wait",
     "doctor",

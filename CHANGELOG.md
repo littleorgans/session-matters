@@ -5,14 +5,26 @@
 ### Features
 
 - Add namespaces as the session grouping primitive. The `default` namespace is created automatically, existing rows are backfilled into `default`, and new sessions can target a namespace only after the namespace record exists.
-- Add `.sm/namespace` marker discovery with `$HOME` bounded walk up, and `sm create namespace` for operator setup.
+- Add `sm config set-context` as the user namespace binding and `sm create namespace` for operator setup.
 - Add `sm run --dir` and `sm run --namespace` for spawn directory and namespace selection.
 - Add `namespace:<slug>` and `dir:<path>` selectors. `workspace:<path>` selectors are removed in this migration.
 - Add `session_*` MCP tools alongside deprecated `agent_*` aliases. MCP read tools accept `namespace` and `all_namespaces`; when neither is supplied, they fall back to the caller session namespace.
+- Unify CRUD commands around resource nouns: `sm get sessions`, `sm get session`, `sm delete session`, `sm create session`, `sm create namespace`, `sm get namespaces`, `sm get namespace`, and `sm delete namespace`.
+- Add `sm create session` as the declarative headless session creation surface while keeping `sm run` as the imperative create and bind target surface.
+- Add `sm run --force` to preempt occupied tmux panes. Other spawn conflicts remain fatal.
+- Add namespace delete cascade behavior: `sm delete namespace` terminates sessions in the namespace and clears matching user namespace context.
+- Polish the CLI road-test wave: `sm get` now uses aliased singular resource
+  subcommands, labels are session metadata with `sm get session --show-labels`
+  for human output, `sm capture <SESSION_ID>` targets one session id
+  positionally, selector arguments follow the retained command shape rule, and
+  `sm link` is removed while unmanaged session adoption is deferred to
+  schedule-matters.
 
 ### Migration Notes
 
-- CLI selector reads default to the resolved namespace from `--namespace`, `.sm/namespace`, or `default`. Use `-A` or `--all-namespaces` for cross namespace reads.
+- CLI selector reads default to the resolved namespace from explicit `--namespace`, `SM_NAMESPACE`, user namespace context, or `default`. Use `-A` or `--all-namespaces` for cross namespace reads.
+- Rename CRUD uses from `agent` to `session`, for example `sm get sessions` and `sm delete session id:<session-id>`.
+- Namespaces cannot be renamed, and sessions cannot move between namespaces. Stop and respawn the session in the desired namespace.
 - The future hard cut master will remove compatibility surfaces such as `SpawnRequest.workspace`, `sessions.workspace`, and `agent_*` MCP aliases after the migration window.
 
 ## [0.2.4](https://github.com/littleorgans/session-matters/compare/v0.2.3...v0.2.4) (2026-05-21)
@@ -50,7 +62,7 @@ The auto-generated entries that originally appeared here were re-attributions of
 - Added the `sm run --target` flag for explicit headless and tmux targets.
 - Added `sm capture` for tmux pane scrollback through runtime-matters.
 - Added runtime-matters backed lifecycle, kill, nudge, event cursor, and doctor handling.
-- Auto-link daemon-spawned headless stdout logs while keeping `sm link` for unmanaged sessions.
+- Automatically adopt daemon-spawned headless stdout logs while keeping unmanaged session adoption for that release.
 - Require `rtmd` with `lilo-rm` protocol 0.6 or newer at daemon startup.
 
 ### Release

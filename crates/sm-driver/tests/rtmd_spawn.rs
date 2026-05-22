@@ -11,7 +11,16 @@ use tokio::net::UnixListener;
 use uuid::Uuid;
 
 #[tokio::test]
-async fn rtmd_spawn_forwards_env_and_shell_resume() {
+async fn rtmd_spawn_forwards_env_shell_resume_and_force_enabled() {
+    rtmd_spawn_forwards_env_shell_resume_and_force(true).await;
+}
+
+#[tokio::test]
+async fn rtmd_spawn_forwards_force_disabled() {
+    rtmd_spawn_forwards_env_shell_resume_and_force(false).await;
+}
+
+async fn rtmd_spawn_forwards_env_shell_resume_and_force(force: bool) {
     let session_id = Uuid::now_v7();
     let tempdir = tempfile::tempdir().expect("tempdir");
     let socket_path = tempdir.path().join("rtmd.sock");
@@ -36,6 +45,7 @@ async fn rtmd_spawn_forwards_env_and_shell_resume() {
             };
             assert_eq!(request.env, vec![LaunchEnv::new("HOME", "/Users/tester")]);
             assert_eq!(request.shell_resume, Some(shell_resume));
+            assert_eq!(request.force, force);
             write_json_line(&mut write_half, &RuntimeResponse::Spawned(spawned(request)))
                 .await
                 .expect("write response");
@@ -51,6 +61,7 @@ async fn rtmd_spawn_forwards_env_and_shell_resume() {
                 target: "headless".to_string(),
                 env: vec![LaunchEnv::new("HOME", "/Users/tester")],
                 shell_resume: Some(shell_resume),
+                force,
             },
         )
         .await

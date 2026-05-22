@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[path = "src/tool_contracts.rs"]
 mod tool_contracts;
@@ -8,25 +8,33 @@ mod tool_contracts;
 mod tool_docs;
 #[path = "src/tool_examples.rs"]
 mod tool_examples;
+#[path = "../sm-core/src/tool_sources.rs"]
+mod tool_sources;
 
-use tool_contracts::{ToolContract, ToolContractRegistry};
+use tool_contracts::ToolContractRegistry;
 use tool_docs::{
     render_generated_instructions_rs, render_readme_md, render_server_instructions, render_skill_md,
 };
 
 fn main() {
-    println!("cargo:rerun-if-changed=../../tools.toml");
+    println!("cargo:rerun-if-changed=../../tools");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/tool_contracts.rs");
     println!("cargo:rerun-if-changed=src/tool_docs.rs");
     println!("cargo:rerun-if-changed=src/tool_examples.rs");
+    println!("cargo:rerun-if-changed=../sm-core/src/tool_sources.rs");
 
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set");
-    let tools_path = Path::new(&manifest_dir).join("../../tools.toml");
-    let content = fs::read_to_string(&tools_path).expect("tools.toml is readable");
-    let registry = ToolContractRegistry::from_toml_str(&content).expect("tools.toml parses");
+    let tools_dir = Path::new(&manifest_dir).join("../../tools");
+    let tool_paths =
+        tool_sources::ordered_tool_source_paths(&tools_dir).expect("tool sources are discoverable");
+    for path in &tool_paths {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    let content = tool_sources::read_tool_sources(&tool_paths).expect("tool sources are readable");
+    let registry = ToolContractRegistry::from_toml_str(&content).expect("tools/*.toml parses");
 
-    write_schema_outputs(&manifest_dir, registry.tools());
+    write_schema_outputs(&manifest_dir, &registry);
     write_docs_outputs(&manifest_dir, &registry);
     emit_cli_version();
 }
@@ -46,14 +54,34 @@ fn emit_cli_version() {
 }
 
 fn emit_git_rerun_directives() {
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
-    println!("cargo:rerun-if-changed=../../.git/packed-refs");
+    let git_path = workspace_git_path();
+    println!("cargo:rerun-if-changed={}", git_path.display());
 
-    let Ok(head) = fs::read_to_string("../../.git/HEAD") else {
+    let Some(git_dir) = resolve_git_dir() else {
+        return;
+    };
+
+    let head_path = git_dir.join("HEAD");
+    println!("cargo:rerun-if-changed={}", head_path.display());
+
+    let Ok(head) = fs::read_to_string(&head_path) else {
         return;
     };
     if let Some(ref_path) = head.trim().strip_prefix("ref: ") {
-        println!("cargo:rerun-if-changed=../../.git/{ref_path}");
+        println!(
+            "cargo:rerun-if-changed={}",
+            git_dir.join(ref_path).display()
+        );
+        if let Some(common_dir) = resolve_common_git_dir(&git_dir) {
+            println!(
+                "cargo:rerun-if-changed={}",
+                common_dir.join(ref_path).display()
+            );
+            println!(
+                "cargo:rerun-if-changed={}",
+                common_dir.join("packed-refs").display()
+            );
+        }
     }
 }
 
@@ -73,25 +101,76 @@ fn build_git_sha() -> Option<String> {
 }
 
 fn git_head_sha() -> Option<String> {
-    let head = fs::read_to_string("../../.git/HEAD").ok()?;
+    let git_dir = resolve_git_dir()?;
+    let head = fs::read_to_string(git_dir.join("HEAD")).ok()?;
     let trimmed = head.trim();
     if let Some(ref_path) = trimmed.strip_prefix("ref: ") {
-        let ref_file = Path::new("../../.git").join(ref_path);
-        if let Ok(sha) = fs::read_to_string(&ref_file) {
-            return short_sha(sha.trim().to_string());
+        for dir in git_lookup_dirs(&git_dir) {
+            let ref_file = dir.join(ref_path);
+            if let Ok(sha) = fs::read_to_string(&ref_file) {
+                return short_sha(sha.trim().to_string());
+            }
         }
-        let packed = fs::read_to_string("../../.git/packed-refs").ok()?;
-        for line in packed.lines() {
-            if let Some((sha, name)) = line.split_once(' ')
-                && name == ref_path
-            {
-                return short_sha(sha.to_string());
+        for dir in git_lookup_dirs(&git_dir) {
+            if let Ok(packed) = fs::read_to_string(dir.join("packed-refs")) {
+                for line in packed.lines() {
+                    if let Some((sha, name)) = line.split_once(' ')
+                        && name == ref_path
+                    {
+                        return short_sha(sha.to_string());
+                    }
+                }
             }
         }
         None
     } else {
         short_sha(trimmed.to_string())
     }
+}
+
+fn workspace_git_path() -> PathBuf {
+    PathBuf::from("../../.git")
+}
+
+fn resolve_git_dir() -> Option<PathBuf> {
+    let git_path = workspace_git_path();
+    if git_path.is_dir() {
+        return Some(git_path);
+    }
+
+    let git_file = fs::read_to_string(&git_path).ok()?;
+    let git_dir = git_file.trim().strip_prefix("gitdir: ")?;
+    let git_dir = PathBuf::from(git_dir);
+    if git_dir.is_absolute() {
+        Some(git_dir)
+    } else {
+        Some(
+            git_path
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(git_dir),
+        )
+    }
+}
+
+fn resolve_common_git_dir(git_dir: &Path) -> Option<PathBuf> {
+    let common_dir = fs::read_to_string(git_dir.join("commondir")).ok()?;
+    let common_dir = PathBuf::from(common_dir.trim());
+    if common_dir.is_absolute() {
+        Some(common_dir)
+    } else {
+        Some(git_dir.join(common_dir))
+    }
+}
+
+fn git_lookup_dirs(git_dir: &Path) -> Vec<PathBuf> {
+    let mut dirs = vec![git_dir.to_path_buf()];
+    if let Some(common_dir) = resolve_common_git_dir(git_dir)
+        && common_dir != git_dir
+    {
+        dirs.push(common_dir);
+    }
+    dirs
 }
 
 fn short_sha(sha: String) -> Option<String> {
@@ -102,8 +181,8 @@ fn short_sha(sha: String) -> Option<String> {
     Some(trimmed[..7].to_string())
 }
 
-fn write_schema_outputs(manifest_dir: &str, tools: &[ToolContract]) {
-    let (schema_rs, schema_files) = generate_mcp_schema(tools);
+fn write_schema_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
+    let (schema_rs, schema_files) = generate_mcp_schema(registry);
     write_if_changed(
         &Path::new(manifest_dir).join("src/mcp/generated_schema.rs"),
         &schema_rs,
@@ -120,7 +199,8 @@ fn write_schema_outputs(manifest_dir: &str, tools: &[ToolContract]) {
 }
 
 fn write_docs_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
-    let instructions = render_server_instructions(registry.skill(), registry.tools());
+    let instructions =
+        render_server_instructions(registry.skill(), registry.shared(), registry.tools());
     let instructions_rs = render_generated_instructions_rs(&instructions);
     write_if_changed(
         &Path::new(manifest_dir).join("src/mcp/generated_instructions.rs"),
@@ -129,27 +209,27 @@ fn write_docs_outputs(manifest_dir: &str, registry: &ToolContractRegistry) {
 
     write_if_changed(
         &Path::new(manifest_dir).join("src/cli/generated_help.rs"),
-        &generate_cli_help(registry.tools()),
+        &generate_cli_help(registry),
     );
 
     let templates_dir = Path::new(manifest_dir).join("templates");
     fs::create_dir_all(&templates_dir).expect("templates dir can be created");
     write_if_changed(
         &templates_dir.join("SKILL.md"),
-        &render_skill_md(registry.skill(), registry.tools()),
+        &render_skill_md(registry.skill(), registry.shared(), registry.tools()),
     );
     write_if_changed(
         &Path::new(manifest_dir).join("../../README.md"),
-        &render_readme_md(registry.skill(), registry.tools()),
+        &render_readme_md(registry.skill(), registry.shared(), registry.tools()),
     );
 }
 
-fn generate_mcp_schema(tools: &[ToolContract]) -> (String, Vec<(String, String)>) {
+fn generate_mcp_schema(registry: &ToolContractRegistry) -> (String, Vec<(String, String)>) {
     let mut include_lines = Vec::new();
     let mut schema_files = Vec::new();
-    for tool in tools {
+    for tool in registry.tools() {
         let file_name = tool.artifacts.mcp_schema_file.clone();
-        let tool_entry = tool.tool_entry_value();
+        let tool_entry = tool.tool_entry_value(registry.shared());
         let json = serde_json::to_string_pretty(&tool_entry).expect("tool schema serializes");
         include_lines.push(format!(
             "        serde_json::from_str(include_str!(\"generated_schema/{file_name}\"))\n            .expect(\"generated schema for {} is valid JSON\"),",
@@ -159,7 +239,7 @@ fn generate_mcp_schema(tools: &[ToolContract]) -> (String, Vec<(String, String)>
     }
 
     let mut schema_rs = String::new();
-    schema_rs.push_str("// AUTO-GENERATED by build.rs from tools.toml - do not edit\n");
+    schema_rs.push_str("// AUTO-GENERATED by build.rs from tools/*.toml - do not edit\n");
     schema_rs.push_str("#![allow(clippy::all)]\n\n");
     schema_rs.push_str("pub fn generated_tool_list() -> serde_json::Value {\n");
     schema_rs.push_str("    let tools: Vec<serde_json::Value> = vec![\n");
@@ -173,12 +253,15 @@ fn generate_mcp_schema(tools: &[ToolContract]) -> (String, Vec<(String, String)>
     (schema_rs, schema_files)
 }
 
-fn generate_cli_help(tools: &[ToolContract]) -> String {
+fn generate_cli_help(registry: &ToolContractRegistry) -> String {
     let mut lines = vec![
-        "// AUTO-GENERATED by build.rs from tools.toml - do not edit".to_string(),
+        "// AUTO-GENERATED by build.rs from tools/*.toml - do not edit".to_string(),
         "#![allow(clippy::all)]".to_string(),
     ];
-    for tool in tools {
+    for tool in registry.tools() {
+        if !tool.artifacts.render_cli_help {
+            continue;
+        }
         let prefix = &tool.artifacts.cli_help_prefix;
         lines.push("#[rustfmt::skip]".to_string());
         lines.push(format!(
@@ -187,10 +270,8 @@ fn generate_cli_help(tools: &[ToolContract]) -> String {
         ));
         for param in &tool.params {
             if let Some(help) = &param.cli_help {
-                let help = if help.to_lowercase().contains("selector") {
-                    format!(
-                        "{help}\n\nGrammar: all, <uuid>, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, label:<key> in (v1, v2).\nExamples: all, 019e44f9-..., role:engineer, namespace:default, dir:/tmp/project, label:app=nginx, \\\"label:app in (web, api)\\\""
-                    )
+                let help = if param.selector {
+                    format!("{help}\n\n{}", render_selector_help(registry))
                 } else {
                     help.clone()
                 };
@@ -205,6 +286,11 @@ fn generate_cli_help(tools: &[ToolContract]) -> String {
         lines.push(String::new());
     }
     lines.join("\n")
+}
+
+fn render_selector_help(registry: &ToolContractRegistry) -> String {
+    tool_contracts::render_selector_grammar_block(registry.shared())
+        .expect("shared.selector_grammar exists for selector CLI params")
 }
 
 fn write_if_changed(path: &Path, content: &str) {

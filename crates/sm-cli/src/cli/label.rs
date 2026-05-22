@@ -24,7 +24,7 @@ pub async fn run(args: LabelArgs) -> Result<()> {
     match response {
         RpcResponse::Labeled { response } => {
             for session in response.sessions {
-                print_session_line(&session);
+                print_session_line(&session, false);
             }
             for error in response.errors {
                 eprintln!("{} {}", error.target, error.message);

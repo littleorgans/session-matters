@@ -113,7 +113,6 @@ impl DaemonState {
             RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
             RpcRequest::Nudge { request } => response(self.nudge(&context, request).await, false),
             RpcRequest::Label { request } => response(self.label(&context, request).await, false),
-            RpcRequest::Link { request } => response(self.link(&context, request).await, false),
             RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
             RpcRequest::Capture { request } => {
                 response(self.capture(&context, request).await, false)
@@ -232,8 +231,12 @@ impl DaemonState {
         request: CaptureRequest,
     ) -> Result<RpcResponse> {
         let session = self
-            .resolve_selector(&request.selector, "capture")?
-            .remove(0);
+            .store
+            .lock()
+            .expect("store lock poisoned")
+            .get_session(&request.session_id)
+            .context("failed to load capture session")?
+            .ok_or_else(|| anyhow::anyhow!("unknown capture session: {}", request.session_id))?;
         self.identity
             .authorize(
                 &context.principal,
@@ -257,7 +260,7 @@ impl DaemonState {
         context: &RequestContext,
         request: DeleteRequest,
     ) -> Result<RpcResponse> {
-        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let targets = self.resolve_selector(&request.selector, "session")?;
         let mut sessions = Vec::new();
         let mut errors = Vec::new();
         for target in targets {
@@ -369,7 +372,7 @@ impl DaemonState {
     }
 
     async fn label(&self, context: &RequestContext, request: LabelRequest) -> Result<RpcResponse> {
-        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let targets = self.resolve_selector(&request.selector, "session")?;
         let mut sessions = Vec::new();
         let mut errors = Vec::new();
         for target in targets {
@@ -569,7 +572,9 @@ impl DaemonState {
             return Ok(sessions);
         }
         match selector {
+            Selector::Id { id } if label == "session" => anyhow::bail!("unknown session: {id}"),
             Selector::Id { id } => anyhow::bail!("unknown {label} session: {id}"),
+            _ if label == "session" => anyhow::bail!("selector matched no sessions: {selector}"),
             _ => anyhow::bail!("{label} selector matched no sessions: {selector}"),
         }
     }
@@ -631,6 +636,7 @@ fn spawn_launch(
         target: request.target.clone(),
         env,
         shell_resume,
+        force: request.force,
     }
 }
 

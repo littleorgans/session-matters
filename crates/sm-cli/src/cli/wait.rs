@@ -23,7 +23,7 @@ pub async fn run(args: WaitArgs) -> Result<()> {
 
     match response {
         RpcResponse::Wait { response } if response.matched => {
-            print_session_table(&response.sessions);
+            print_session_table(&response.sessions, false);
             Ok(())
         }
         RpcResponse::Wait { .. } => bail!("wait timed out"),

@@ -3,10 +3,11 @@ use std::str::FromStr;
 use anyhow::{Context, Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LinkRequest,
-    ListRequest, LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest,
-    MailStopCheckRequest, Namespace, NamespaceScope, NudgeRequest, RpcRequest, RpcResponse,
-    RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest, tool_error, tool_success,
+    CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, ListRequest,
+    LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
+    Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope, NudgeRequest, RpcRequest,
+    RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest, tool_error,
+    tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -22,6 +23,8 @@ pub async fn call_tool(
         "agent_run" | "session_run" => agent_run(state, context, arguments).await,
         "agent_list" | "session_list" => agent_list(state, context, arguments).await,
         "agent_get" | "session_get" => agent_get(state, context, arguments).await,
+        "namespace_list" => namespace_list(state, context, arguments).await,
+        "namespace_get" => namespace_get(state, context, arguments).await,
         "agent_capture" | "session_capture" => agent_capture(state, context, arguments).await,
         "agent_delete" | "session_delete" => agent_delete(state, context, arguments).await,
         "agent_label" | "session_label" => agent_label(state, context, arguments).await,
@@ -30,11 +33,83 @@ pub async fn call_tool(
         "mail_check" => mail_check(state, context, arguments).await,
         "mail_stop_check" => mail_stop_check(state, context, arguments).await,
         "nudge" => nudge(state, context, arguments).await,
-        "link" => link(state, context, arguments).await,
         "logs" => logs(state, context, arguments).await,
         "wait" => wait(state, context, arguments).await,
         "doctor" => doctor(state, context, arguments).await,
         other => Ok(tool_error(format!("Unknown tool: {other}"))),
+    }
+}
+
+async fn namespace_list(
+    state: &DaemonState,
+    context: &RequestContext,
+    arguments: &Value,
+) -> Result<Value> {
+    if let Some(slug) = optional_string(arguments, "slug") {
+        let namespace = namespace_record_by_slug(state, context, slug).await?;
+        return Ok(tool_success(
+            "1 namespace(s)".to_string(),
+            &json!({ "namespaces": [namespace] }),
+        ));
+    }
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::NamespaceList {
+                request: NamespaceListRequest::default(),
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::NamespacesListed { response } => {
+            let count = response.namespaces.len();
+            Ok(tool_success(
+                format!("{count} namespace(s)"),
+                &json!({ "namespaces": response.namespaces }),
+            ))
+        }
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(unexpected_response(other)),
+    }
+}
+
+async fn namespace_get(
+    state: &DaemonState,
+    context: &RequestContext,
+    arguments: &Value,
+) -> Result<Value> {
+    let slug = required_string(arguments, "slug")?;
+    let namespace = namespace_record_by_slug(state, context, slug).await?;
+    Ok(tool_success(
+        format!("found {}", namespace.namespace),
+        &json!({ "namespace": namespace }),
+    ))
+}
+
+async fn namespace_record_by_slug(
+    state: &DaemonState,
+    context: &RequestContext,
+    slug: &str,
+) -> Result<sm_core::NamespaceRecord> {
+    let response = state
+        .handle_direct(
+            context.clone(),
+            RpcRequest::NamespaceGet {
+                request: NamespaceGetRequest {
+                    slug: slug.to_string(),
+                },
+            },
+        )
+        .await;
+    match response.response {
+        RpcResponse::NamespaceGot { response } => {
+            let namespace = response
+                .namespace
+                .ok_or_else(|| anyhow!("unknown namespace: {slug}"))?;
+            Ok(namespace)
+        }
+        RpcResponse::Error { message } => Err(anyhow!(message)),
+        other => Err(unexpected_response(other)),
     }
 }
 
@@ -57,6 +132,7 @@ async fn agent_run(
     let target = optional_string(arguments, "target")
         .unwrap_or("headless")
         .to_string();
+    let force = optional_bool(arguments, "force").unwrap_or(false);
     let response = state
         .handle_direct(
             context.clone(),
@@ -72,6 +148,7 @@ async fn agent_run(
                     env: Vec::new(),
                     shell_resume: None,
                     labels,
+                    force,
                 },
             },
         )
@@ -157,15 +234,19 @@ async fn agent_capture(
     context: &RequestContext,
     arguments: &Value,
 ) -> Result<Value> {
-    let selector = required_selector(arguments, "selector")
-        .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
+    let selector = selector_from_id(required_string(arguments, "id")?)?;
     let selector = scoped_required_selector(state, context, arguments, selector)?;
+    let session_id = state
+        .resolve_selector(&selector, "capture")?
+        .pop()
+        .expect("id selector matched one session")
+        .id;
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::Capture {
                 request: CaptureRequest {
-                    selector,
+                    session_id,
                     scrollback_lines: optional_u64(arguments, "scrollback_lines")
                         .map(u32::try_from)
                         .transpose()
@@ -371,34 +452,6 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
     }
 }
 
-async fn link(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
-    let session_id = optional_string(arguments, "session_id")
-        .map(uuid::Uuid::parse_str)
-        .transpose()?;
-    let selector = optional_selector(arguments, "selector")?;
-    let response = state
-        .handle_direct(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id,
-                    selector,
-                    runtime_session: required_string(arguments, "runtime_session")?.to_string(),
-                    transcript_path: required_string(arguments, "transcript")?.into(),
-                },
-            },
-        )
-        .await;
-    match response.response {
-        RpcResponse::Linked { response } => Ok(tool_success(
-            format!("linked {}", response.session.id),
-            &json!({ "session": response.session }),
-        )),
-        RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
-    }
-}
-
 async fn logs(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
     let selector = required_selector(arguments, "selector")
         .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
@@ -564,11 +617,9 @@ fn read_namespace_scope(
 fn required_string<'a>(arguments: &'a Value, field: &str) -> Result<&'a str> {
     optional_string(arguments, field).ok_or_else(|| anyhow!("missing required argument `{field}`"))
 }
-
 fn optional_string<'a>(arguments: &'a Value, field: &str) -> Option<&'a str> {
     arguments.get(field).and_then(Value::as_str)
 }
-
 fn optional_u64(arguments: &Value, field: &str) -> Option<u64> {
     arguments.get(field).and_then(Value::as_u64)
 }

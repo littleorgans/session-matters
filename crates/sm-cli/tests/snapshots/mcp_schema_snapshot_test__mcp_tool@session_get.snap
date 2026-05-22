@@ -50,6 +50,24 @@ expression: tool
             "format": "uuid",
             "type": "string"
           },
+          "labels": {
+            "items": {
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "role": {
             "type": "string"
           },

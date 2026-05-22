@@ -57,41 +57,6 @@ fn marks_session_terminated() {
 }
 
 #[test]
-fn links_runtime_metadata_and_marks_lost() {
-    let store = SqliteStore::open_in_memory().expect("store opens");
-    let session = test_session("engineer", "test", Vec::new());
-    store.insert_session(&session).expect("session inserts");
-    let transcript = std::path::Path::new("/tmp/session.jsonl");
-
-    let linked = store
-        .link_session(&session.id, "runtime-1", transcript, Utc::now())
-        .expect("session links")
-        .expect("session exists");
-
-    assert_eq!(linked.runtime_session.as_deref(), Some("runtime-1"));
-    assert_eq!(linked.transcript_path.as_deref(), Some(transcript));
-    assert_eq!(
-        store
-            .get_session_by_runtime_session("runtime-1")
-            .expect("runtime session loads")
-            .expect("runtime session exists")
-            .id,
-        session.id
-    );
-
-    let lost = store
-        .mark_session_lost(&session.id, LostEvidence::PidNotAlive, Utc::now())
-        .expect("session marks lost")
-        .expect("session exists");
-    assert_eq!(
-        lost.state,
-        SessionState::Lost {
-            evidence: LostEvidence::PidNotAlive
-        }
-    );
-}
-
-#[test]
 fn records_transcript_path_without_runtime_session() {
     let store = SqliteStore::open_in_memory().expect("store opens");
     let session = test_session("engineer", "test", Vec::new());

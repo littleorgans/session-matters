@@ -7,7 +7,6 @@ pub mod doctor;
 pub mod generated_help;
 pub mod get;
 pub mod label;
-pub mod link;
 pub mod logs;
 pub mod mail;
 pub mod mcp;

@@ -11,6 +11,10 @@
         "description": "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory.",
         "type": "string"
       },
+      "force": {
+        "description": "Preempt an occupied tmux pane when the target pane is already owned by another runtime. Other spawn conflicts remain fatal.",
+        "type": "boolean"
+      },
       "labels": {
         "description": "Optional session labels as key=value strings.",
         "items": {
@@ -19,7 +23,7 @@
         "type": "array"
       },
       "namespace": {
-        "description": "Namespace slug for the spawned session. The namespace must already exist before spawning.",
+        "description": "Namespace slug for the session. The namespace must already exist before running.",
         "type": "string"
       },
       "role": {
@@ -73,6 +77,24 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "labels": {
+            "items": {
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "role": {
             "type": "string"

@@ -39,24 +39,25 @@ fn initialize_and_tools_list_follow_mcp_shape() {
     assert_eq!(
         names,
         vec![
-            "agent_run",
             "session_run",
-            "agent_list",
+            "agent_run",
             "session_list",
-            "agent_get",
+            "agent_list",
             "session_get",
-            "agent_capture",
+            "agent_get",
+            "namespace_list",
+            "namespace_get",
             "session_capture",
-            "agent_delete",
+            "agent_capture",
             "session_delete",
-            "agent_label",
+            "agent_delete",
             "session_label",
+            "agent_label",
             "mail_send",
             "mail_read",
             "mail_check",
             "mail_stop_check",
             "nudge",
-            "link",
             "logs",
             "wait",
             "doctor"
@@ -64,6 +65,15 @@ fn initialize_and_tools_list_follow_mcp_shape() {
     );
     assert_deprecation_hint(&listed["result"]["tools"], "agent_list", "session_list");
     assert_deprecation_hint(&listed["result"]["tools"], "agent_get", "session_get");
+    let capture = find_tool(&listed["result"]["tools"], "session_capture");
+    assert!(
+        capture["inputSchema"]["required"]
+            .as_array()
+            .expect("required is array")
+            .contains(&json!("id"))
+    );
+    assert_eq!(capture["inputSchema"]["properties"]["id"]["format"], "uuid");
+    assert!(capture["inputSchema"]["properties"]["selector"].is_null());
 }
 
 #[tokio::test]
@@ -106,34 +116,34 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         daemon.dir.path().display().to_string()
     );
 
-    let transcript = daemon.dir.path().join("transcript.jsonl");
-    std::fs::write(&transcript, "hello transcript\n").expect("transcript writes");
-    let linked = call_tool(
+    let capture = call_tool(
         &mut mcp,
-        5,
-        "link",
-        json!({
-            "session_id": id.clone(),
-            "runtime_session": "runtime-mcp-1",
-            "transcript": transcript.display().to_string()
-        }),
+        10,
+        "session_capture",
+        json!({ "id": id, "scrollback_lines": 20 }),
     );
-    assert!(linked["error"].is_null());
+    assert!(capture["error"].is_null());
     assert_eq!(
-        linked["result"]["structuredContent"]["session"]["runtime_session"],
-        "runtime-mcp-1"
+        capture["result"]["structuredContent"]["capture"]["status"],
+        "failed"
     );
 
-    let logs = call_tool(
+    let broad_capture = call_tool(
         &mut mcp,
-        6,
-        "logs",
-        json!({ "selector": format!("id:{id}") }),
+        11,
+        "session_capture",
+        json!({ "selector": "all" }),
     );
-    assert!(logs["error"].is_null());
+    assert!(broad_capture["error"].is_null());
     assert_eq!(
-        logs["result"]["structuredContent"]["content"],
-        "hello transcript\n"
+        broad_capture["result"]["_meta"]["sm_tool_error"]["is_error"],
+        true
+    );
+    assert!(
+        broad_capture["result"]["_meta"]["sm_tool_error"]["message"]
+            .as_str()
+            .expect("error message is string")
+            .contains("missing required argument `id`")
     );
 
     let waited = call_tool(
@@ -181,15 +191,42 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
-        vec![
-            Action::Spawn,
-            Action::Link,
-            Action::Logs,
-            Action::Doctor,
-            Action::Kill
-        ]
+        vec![Action::Spawn, Action::Read, Action::Doctor, Action::Kill]
     );
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
+}
+
+#[tokio::test]
+async fn namespace_tools_list_and_get_records() {
+    let daemon = DaemonFixture::start();
+    create_namespace(&daemon, "alpha");
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let listed = call_tool(&mut mcp, 2, "namespace_list", json!({}));
+    assert!(listed["error"].is_null());
+    assert_eq!(
+        listed["result"]["structuredContent"]["namespaces"][0]["namespace"],
+        "alpha"
+    );
+    assert_eq!(
+        listed["result"]["structuredContent"]["namespaces"][1]["namespace"],
+        "default"
+    );
+
+    let listed_one = call_tool(&mut mcp, 3, "namespace_list", json!({ "slug": "alpha" }));
+    assert!(listed_one["error"].is_null());
+    assert_eq!(
+        listed_one["result"]["structuredContent"]["namespaces"][0]["namespace"],
+        "alpha"
+    );
+
+    let got = call_tool(&mut mcp, 4, "namespace_get", json!({ "slug": "alpha" }));
+    assert!(got["error"].is_null());
+    assert_eq!(
+        got["result"]["structuredContent"]["namespace"]["namespace"],
+        "alpha"
+    );
 }
 
 #[tokio::test]
@@ -502,6 +539,15 @@ fn tool_names(tools: &Value) -> Vec<&str> {
         .iter()
         .map(|tool| tool["name"].as_str().expect("tool name"))
         .collect()
+}
+
+fn find_tool<'a>(tools: &'a Value, name: &str) -> &'a Value {
+    tools
+        .as_array()
+        .expect("tools is array")
+        .iter()
+        .find(|tool| tool["name"] == name)
+        .unwrap_or_else(|| panic!("missing tool {name}"))
 }
 
 fn create_namespace(daemon: &DaemonFixture, name: &str) {

@@ -267,6 +267,7 @@ pub async fn spawn_test_session_with_labels(
                     env: Vec::new(),
                     shell_resume: None,
                     labels,
+                    force: false,
                 },
             },
         )

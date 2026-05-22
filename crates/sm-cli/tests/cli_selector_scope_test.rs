@@ -20,39 +20,39 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     let default_scoped = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["get", "agents"])
+        .args(["get", "sessions"])
         .output()
-        .expect("sm get agents executes");
-    assert_success("sm get agents", &default_scoped);
+        .expect("sm get sessions executes");
+    assert_success("sm get sessions", &default_scoped);
     assert_contains_only(&default_scoped, &alpha_id, &beta_id);
 
     let explicit_namespace = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["get", "agents", "--namespace", "beta"])
+        .args(["get", "sessions", "--namespace", "beta"])
         .output()
-        .expect("sm get agents --namespace executes");
-    assert_success("sm get agents --namespace beta", &explicit_namespace);
+        .expect("sm get sessions --namespace executes");
+    assert_success("sm get sessions --namespace beta", &explicit_namespace);
     assert_contains_only(&explicit_namespace, &beta_id, &alpha_id);
 
     let all_namespaces = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["get", "agents", "-A"])
+        .args(["get", "sessions", "-A"])
         .output()
-        .expect("sm get agents -A executes");
-    assert_success("sm get agents -A", &all_namespaces);
+        .expect("sm get sessions -A executes");
+    assert_success("sm get sessions -A", &all_namespaces);
     assert_contains(&all_namespaces, &alpha_id);
     assert_contains(&all_namespaces, &beta_id);
 
     let namespace_selector = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["get", "agents", "--selector", "namespace:beta", "-A"])
+        .args(["get", "sessions", "--selector", "namespace:beta", "-A"])
         .output()
-        .expect("sm get agents namespace selector executes");
+        .expect("sm get sessions namespace selector executes");
     assert_success(
-        "sm get agents --selector namespace:beta -A",
+        "sm get sessions --selector namespace:beta -A",
         &namespace_selector,
     );
     assert_contains_only(&namespace_selector, &beta_id, &alpha_id);
@@ -113,10 +113,10 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     let dir_selector = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["get", "agents", "--selector", &beta_dir_selector, "-A"])
+        .args(["get", "sessions", "--selector", &beta_dir_selector, "-A"])
         .output()
-        .expect("sm get agents dir selector executes");
-    assert_success("sm get agents --selector dir -A", &dir_selector);
+        .expect("sm get sessions dir selector executes");
+    assert_success("sm get sessions --selector dir -A", &dir_selector);
     assert_contains_only(&dir_selector, &beta_id, &alpha_id);
 
     let mail_default = daemon
@@ -184,7 +184,7 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     let deleted = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["delete", "agent", "all", "--namespace", "beta"])
+        .args(["delete", "session", "all", "--namespace", "beta"])
         .output()
         .expect("sm delete executes");
     assert_success("sm delete --namespace beta", &deleted);
@@ -197,9 +197,9 @@ fn legacy_workspace_selector_is_rejected_by_cli() {
 
     let selected = daemon
         .command()
-        .args(["get", "agents", "--selector", "workspace:test", "-A"])
+        .args(["get", "sessions", "--selector", "workspace:test", "-A"])
         .output()
-        .expect("sm get agents executes");
+        .expect("sm get sessions executes");
 
     assert!(!selected.status.success());
     assert!(stderr(&selected).contains("unsupported selector"));
