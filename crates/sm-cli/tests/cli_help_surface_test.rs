@@ -61,6 +61,15 @@ fn run_help_describes_every_flag() {
 #[test]
 fn retained_leaf_commands_print_help_on_bare_invocation() {
     for args in [
+        ["create", "namespace"].as_slice(),
+        ["create", "session"].as_slice(),
+        ["config", "set-context"].as_slice(),
+        ["delete", "session"].as_slice(),
+        ["delete", "namespace"].as_slice(),
+        ["mail", "send"].as_slice(),
+        ["mail", "read"].as_slice(),
+        ["mail", "check"].as_slice(),
+        ["mail", "stop-check"].as_slice(),
         ["label"].as_slice(),
         ["logs"].as_slice(),
         ["capture"].as_slice(),
@@ -68,10 +77,38 @@ fn retained_leaf_commands_print_help_on_bare_invocation() {
         ["nudge"].as_slice(),
         ["run"].as_slice(),
     ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_sm"))
+            .args(args)
+            .output()
+            .unwrap_or_else(|error| panic!("sm {} executes: {error}", args.join(" ")));
+        let rendered_help = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            rendered_help.contains("Usage:"),
+            "sm {} did not print help\n{stdout}",
+            args.join(" "),
+            stdout = rendered_help
+        );
+    }
+}
+
+#[test]
+fn full_retained_help_tree_has_no_blank_descriptions() {
+    for args in retained_help_nodes() {
         let stdout = help(args);
         assert!(
+            !stdout.contains("--json\n          \n")
+                && !stdout.contains("<SLUG>  \n")
+                && !stdout.contains("<NAMESPACE>  \n"),
+            "sm {} has a blank help description\n{stdout}",
+            args.join(" ")
+        );
+        assert!(
             stdout.contains("Usage:"),
-            "sm {} did not print help\n{stdout}",
+            "sm {} does not render a usage line\n{stdout}",
             args.join(" ")
         );
     }
@@ -144,6 +181,19 @@ fn create_and_delete_resource_help_uses_current_lifecycle_copy() {
     let delete = help(&["delete", "--help"]);
     assert!(delete.contains("Terminate daemon owned sessions by selector"));
     assert!(delete.contains("Delete a namespace, terminate its sessions"));
+
+    let create_namespace = help(&["create", "namespace", "--help"]);
+    assert!(create_namespace.contains("Namespace slug to create."));
+
+    let create_session = help(&["create", "session", "--help"]);
+    assert!(create_session.contains("Runtime to launch."));
+    assert!(create_session.contains("Role label recorded on the session."));
+
+    let config_context = help(&["config", "set-context", "--help"]);
+    assert!(config_context.contains("Namespace slug to use as the user context."));
+
+    let delete_namespace = help(&["delete", "namespace", "--help"]);
+    assert!(delete_namespace.contains("Namespace slug to delete."));
 }
 
 #[test]
@@ -157,11 +207,13 @@ fn get_help_collapses_resources_to_singular_with_plural_aliases() {
     let session = help(&["get", "sessions", "--help"]);
     assert!(session.contains("Optional session id to load instead of listing."));
     assert!(session.contains("--selector"));
+    assert!(session.contains("Render output as JSON."));
     assert!(session.contains("--show-labels"));
     assert!(session.contains("JSON output already includes labels."));
 
     let namespace = help(&["get", "namespaces", "--help"]);
     assert!(namespace.contains("Optional namespace slug to load instead of listing."));
+    assert!(namespace.contains("Render output as JSON."));
     assert!(!namespace.contains("--selector"));
 }
 
@@ -216,6 +268,43 @@ fn help(args: &[&str]) -> String {
         .unwrap_or_else(|error| panic!("sm {} executes: {error}", args.join(" ")));
     assert_success(&format!("sm {}", args.join(" ")), &output);
     String::from_utf8_lossy(&output.stdout).to_string()
+}
+
+fn retained_help_nodes() -> Vec<&'static [&'static str]> {
+    vec![
+        &["--help"],
+        &["daemon", "--help"],
+        &["daemon", "start", "--help"],
+        &["daemon", "stop", "--help"],
+        &["daemon", "status", "--help"],
+        &["run", "--help"],
+        &["create", "--help"],
+        &["create", "namespace", "--help"],
+        &["create", "session", "--help"],
+        &["config", "--help"],
+        &["config", "set-context", "--help"],
+        &["get", "--help"],
+        &["get", "session", "--help"],
+        &["get", "sessions", "--help"],
+        &["get", "namespace", "--help"],
+        &["get", "namespaces", "--help"],
+        &["delete", "--help"],
+        &["delete", "session", "--help"],
+        &["delete", "sessions", "--help"],
+        &["delete", "namespace", "--help"],
+        &["doctor", "--help"],
+        &["mail", "--help"],
+        &["mail", "send", "--help"],
+        &["mail", "read", "--help"],
+        &["mail", "check", "--help"],
+        &["mail", "stop-check", "--help"],
+        &["label", "--help"],
+        &["logs", "--help"],
+        &["capture", "--help"],
+        &["wait", "--help"],
+        &["nudge", "--help"],
+        &["mcp", "--help"],
+    ]
 }
 
 fn assert_success(command: &str, output: &Output) {

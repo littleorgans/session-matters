@@ -13,6 +13,12 @@
 - Add `sm create session` as the declarative headless session creation surface while keeping `sm run` as the imperative create and bind target surface.
 - Add `sm run --force` to preempt occupied tmux panes. Other spawn conflicts remain fatal.
 - Add namespace delete cascade behavior: `sm delete namespace` terminates sessions in the namespace and clears matching user namespace context.
+- Polish the CLI road-test wave: `sm get` now uses aliased singular resource
+  subcommands, labels are session metadata with `sm get session --show-labels`
+  for human output, `sm capture <SESSION_ID>` targets one session id
+  positionally, selector arguments follow the retained command shape rule, and
+  `sm link` is removed while unmanaged session adoption is deferred to
+  schedule-matters.
 
 ### Migration Notes
 
@@ -56,7 +62,7 @@ The auto-generated entries that originally appeared here were re-attributions of
 - Added the `sm run --target` flag for explicit headless and tmux targets.
 - Added `sm capture` for tmux pane scrollback through runtime-matters.
 - Added runtime-matters backed lifecycle, kill, nudge, event cursor, and doctor handling.
-- Auto-link daemon-spawned headless stdout logs while keeping `sm link` for unmanaged sessions.
+- Automatically adopt daemon-spawned headless stdout logs while keeping unmanaged session adoption for that release.
 - Require `rtmd` with `lilo-rm` protocol 0.6 or newer at daemon startup.
 
 ### Release

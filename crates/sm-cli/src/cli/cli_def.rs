@@ -6,6 +6,11 @@ use sm_core::{Namespace, RuntimeKind};
 use crate::cli::generated_help;
 use crate::cli::selector_scope::NamespaceScopeArgs;
 
+const JSON_OUTPUT_HELP: &str = "Render output as JSON.";
+const NAMESPACE_CREATE_HELP: &str = "Namespace slug to create.";
+const NAMESPACE_CONTEXT_HELP: &str = "Namespace slug to use as the user context.";
+const NAMESPACE_DELETE_HELP: &str = "Namespace slug to delete.";
+
 #[derive(Debug, Parser)]
 #[command(
     name = "sm",
@@ -85,6 +90,7 @@ pub struct RunArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct SessionCreateArgs {
     #[arg(help = generated_help::SESSION_RUN_RUNTIME_HELP)]
     pub runtime: RuntimeKind,
@@ -134,7 +140,7 @@ pub struct SessionReadArgs {
     pub selector: Option<String>,
     #[command(flatten)]
     pub scope: NamespaceScopeArgs,
-    #[arg(long)]
+    #[arg(long, help = JSON_OUTPUT_HELP)]
     pub json: bool,
     #[arg(long, help = generated_help::SESSION_LIST_SHOW_LABELS_HELP)]
     pub show_labels: bool,
@@ -144,7 +150,7 @@ pub struct SessionReadArgs {
 pub struct NamespaceGetArgs {
     #[arg(help = generated_help::NAMESPACE_LIST_SLUG_HELP)]
     pub slug: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = JSON_OUTPUT_HELP)]
     pub json: bool,
 }
 
@@ -156,14 +162,22 @@ pub struct CreateArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum CreateResource {
-    #[command(about = "Create a namespace before running sessions into it")]
+    #[command(
+        about = "Create a namespace before running sessions into it",
+        long_about = "Create a namespace before running sessions into it"
+    )]
     Namespace(NamespaceCreateArgs),
-    #[command(about = "Declaratively create a headless session record")]
+    #[command(
+        about = "Declaratively create a headless session record",
+        long_about = "Declaratively create a headless session record"
+    )]
     Session(SessionCreateArgs),
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct NamespaceCreateArgs {
+    #[arg(help = NAMESPACE_CREATE_HELP)]
     pub slug: String,
 }
 
@@ -175,12 +189,17 @@ pub struct ConfigArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigAction {
-    #[command(about = "Set the user namespace context used by CLI commands")]
+    #[command(
+        about = "Set the user namespace context used by CLI commands",
+        long_about = "Set the user namespace context used by CLI commands"
+    )]
     SetContext(SetContextArgs),
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct SetContextArgs {
+    #[arg(help = NAMESPACE_CONTEXT_HELP)]
     pub namespace: Namespace,
 }
 
@@ -196,12 +215,14 @@ pub enum DeleteResource {
     #[command(alias = "sessions")]
     Session(DeleteSessionArgs),
     #[command(
-        about = "Delete a namespace, terminate its sessions, and clear matching user context"
+        about = "Delete a namespace, terminate its sessions, and clear matching user context",
+        long_about = "Delete a namespace, terminate its sessions, and clear matching user context"
     )]
     Namespace(DeleteNamespaceArgs),
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct DeleteSessionArgs {
     #[arg(help = generated_help::SESSION_DELETE_SELECTOR_HELP)]
     pub selector: String,
@@ -214,7 +235,9 @@ pub struct DeleteSessionArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct DeleteNamespaceArgs {
+    #[arg(help = NAMESPACE_DELETE_HELP)]
     pub namespace: Namespace,
 }
 
@@ -273,6 +296,7 @@ pub enum MailAction {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailSendArgs {
     #[arg(long, help = generated_help::MAIL_SEND_TO_HELP)]
     pub to: String,
@@ -285,6 +309,7 @@ pub struct MailSendArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailReadArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_READ_SELECTOR_HELP)]
     pub selector: String,
@@ -293,12 +318,14 @@ pub struct MailReadArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailCheckArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_CHECK_SELECTOR_HELP)]
     pub selector: String,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct MailStopCheckArgs {
     #[arg(long, alias = "from", help = generated_help::MAIL_STOP_CHECK_SELECTOR_HELP)]
     pub selector: String,

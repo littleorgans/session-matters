@@ -46,6 +46,6 @@ deleted namespace. Namespaces cannot be renamed, and sessions cannot move betwee
 namespaces. Stop and respawn the session in the desired namespace.
 
 Unmanaged-session adoption is deferred to the `schedule-matters` Linear project:
-https://linear.app/alphabio/project/schedule-matters. The removed `sm link`
-surface should return only with a coherent reconcile model such as import,
+https://linear.app/alphabio/project/schedule-matters. A retired adoption
+command should return only with a coherent reconcile model such as import,
 adopt, or scheduler-owned binding.

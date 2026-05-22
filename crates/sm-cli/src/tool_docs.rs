@@ -19,8 +19,8 @@ sm config set-context project-alpha
 sm create session claude --role general --dir "$PWD"
 sm run claude --role general --dir "$PWD" --detach
 sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --force --detach
+sm get session --selector id:<session-id> --show-labels
 sm capture <session-id>
-sm get sessions
 sm delete namespace project-alpha
 sm logs id:<session-id>
 sm doctor
@@ -40,8 +40,9 @@ namespace always exists, and pre migration session rows are backfilled into
 `default` on upgrade.
 
 The CLI uses kubectl shaped resource buckets for CRUD: `sm create session`,
-`sm get sessions`, `sm get session`, `sm delete session`, `sm create namespace`,
-`sm get namespaces`, `sm get namespace`, and `sm delete namespace`.
+`sm get session`, `sm delete session`, `sm create namespace`,
+`sm get namespace`, and `sm delete namespace`. The plural `sessions` and
+`namespaces` forms remain aliases for reads and session deletes.
 
 `sm create session` is the declarative create-resource surface. It creates a
 daemon backed headless session record. `sm run` is the imperative surface for
@@ -74,11 +75,18 @@ Selectors support `namespace:<slug>` and `dir:<path>`. `workspace:<path>` select
 were removed in this migration. Use `dir:<path>` for path based selection or
 `namespace:<slug>` for namespace based selection.
 
+Labels are session metadata, not CRUD resources. Use `sm label <SELECTOR>
+key=value` to set a label, `sm label <SELECTOR> key-` to remove one, and
+`sm get session --show-labels` to include labels in human output. JSON session
+output always includes labels.
+
 CLI selector reads default to the resolved namespace when user context or
 `--namespace` resolves. This applies to selector consuming surfaces:
-`sm get session`, `sm get sessions`, `sm mail send --to <selector>`,
-`sm nudge --to <selector>`, `sm label`, and `sm delete session`. Use `-A`
-or `--all-namespaces` to bypass default scoping.
+`sm get session --selector <SELECTOR>`, `sm mail send --to <SELECTOR>`,
+`sm nudge --to <SELECTOR>`, `sm label <SELECTOR> <MUTATION>`,
+`sm logs <SELECTOR>`, `sm wait <SELECTOR> --for <CONDITION>`, and
+`sm delete session <SELECTOR>`. Use `-A` or `--all-namespaces` to bypass
+default scoping where the command offers namespace scope flags.
 
 `sm delete namespace <slug>` terminates sessions in that namespace, deletes the
 namespace record, and clears the user context when it points at the deleted
