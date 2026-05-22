@@ -1,15 +1,42 @@
 use anyhow::{Context, Result, bail};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use lilo_rm_core::SpawnTarget;
 use sm_core::{Label, Namespace, RpcRequest, RpcResponse, SmEndpoint, SpawnRequest};
 
-use crate::cli::cli_def::RunArgs;
+use crate::cli::cli_def::{RunArgs, SessionCreateArgs};
 use crate::cli::namespace_resolver::resolve_namespace_dir;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
-    let spawn_location = resolve_spawn_location(&args)?;
+    spawn_session(SessionSpawnArgs {
+        runtime: args.session.runtime,
+        role: args.session.role,
+        dir: args.session.dir,
+        namespace: args.session.namespace,
+        labels: args.session.labels,
+        agent_config: args.session.agent_config,
+        target: args.target,
+    })
+    .await
+}
+
+pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
+    spawn_session(SessionSpawnArgs {
+        runtime: args.runtime,
+        role: args.role,
+        dir: args.dir,
+        namespace: args.namespace,
+        labels: args.labels,
+        agent_config: args.agent_config,
+        target: "headless".to_string(),
+    })
+    .await
+}
+
+async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
+    let spawn_location = resolve_spawn_location(args.dir.as_ref(), args.namespace.clone())?;
     let endpoint = SmEndpoint::from_env()?;
     let env = lilo_rm_core::capture_caller_env();
     let target = SpawnTarget::from_str(&args.target).ok();
@@ -60,21 +87,34 @@ pub async fn run(args: RunArgs) -> Result<()> {
     }
 }
 
+#[derive(Debug)]
+struct SessionSpawnArgs {
+    runtime: sm_core::RuntimeKind,
+    role: String,
+    dir: Option<PathBuf>,
+    namespace: Option<Namespace>,
+    labels: Vec<String>,
+    agent_config: Option<String>,
+    target: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SpawnLocation {
     namespace: Namespace,
     dir: String,
 }
 
-fn resolve_spawn_location(args: &RunArgs) -> Result<SpawnLocation> {
-    let start_dir = match &args.dir {
+fn resolve_spawn_location(
+    dir: Option<&PathBuf>,
+    namespace: Option<Namespace>,
+) -> Result<SpawnLocation> {
+    let start_dir = match dir {
         Some(dir) => dir.clone(),
         None => {
             std::env::current_dir().context("cannot read current directory to resolve --dir")?
         }
     };
-    let (namespace, canonical_dir) =
-        resolve_namespace_dir(&start_dir, args.namespace.clone())?.into_pair();
+    let (namespace, canonical_dir) = resolve_namespace_dir(&start_dir, namespace)?.into_pair();
 
     Ok(SpawnLocation {
         namespace,
@@ -84,26 +124,11 @@ fn resolve_spawn_location(args: &RunArgs) -> Result<SpawnLocation> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
 
     use super::*;
-    use crate::cli::cli_def::RunArgs;
 
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    fn run_args(dir: Option<PathBuf>, namespace: Option<Namespace>) -> RunArgs {
-        RunArgs {
-            runtime: sm_core::RuntimeKind::Claude,
-            role: "engineer".to_string(),
-            dir,
-            namespace,
-            labels: Vec::new(),
-            agent_config: None,
-            target: "headless".to_string(),
-            detach: true,
-        }
-    }
 
     #[test]
     fn explicit_namespace_uses_dir_as_canonical_spawn_dir() {
@@ -113,8 +138,7 @@ mod tests {
         let namespace = Namespace::new("alpha").expect("namespace");
 
         let resolved =
-            resolve_spawn_location(&run_args(Some(project.clone()), Some(namespace.clone())))
-                .expect("resolves");
+            resolve_spawn_location(Some(&project), Some(namespace.clone())).expect("resolves");
 
         assert_eq!(resolved.namespace, namespace);
         assert_eq!(
@@ -133,7 +157,7 @@ mod tests {
         std::fs::write(project.join(".sm").join("namespace"), "marker").expect("marker");
 
         let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
-            resolve_spawn_location(&run_args(Some(child.clone()), None)).expect("resolves dir")
+            resolve_spawn_location(Some(&child), None).expect("resolves dir")
         });
 
         assert_eq!(resolved.namespace, Namespace::default());
@@ -154,7 +178,7 @@ mod tests {
         let saved = std::env::current_dir().expect("cwd");
         let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
             std::env::set_current_dir(&child).expect("chdir");
-            let resolved = resolve_spawn_location(&run_args(None, None)).expect("resolves cwd");
+            let resolved = resolve_spawn_location(None, None).expect("resolves cwd");
             std::env::set_current_dir(saved).expect("restore cwd");
             resolved
         });
@@ -170,8 +194,8 @@ mod tests {
         let project = tempfile::tempdir().expect("tempdir");
 
         let resolved = with_isolated_namespace_env(project.path().join("sm-home"), || {
-            resolve_spawn_location(&run_args(Some(project.path().to_path_buf()), None))
-                .expect("resolves default")
+            let project = project.path().to_path_buf();
+            resolve_spawn_location(Some(&project), None).expect("resolves default")
         });
 
         assert_eq!(resolved.namespace, Namespace::default());

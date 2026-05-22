@@ -9,6 +9,7 @@ use crate::cli::cli_def::{CreateArgs, CreateResource, NamespaceCreateArgs};
 pub async fn create(args: CreateArgs) -> Result<()> {
     match args.resource {
         CreateResource::Namespace(args) => create_namespace(args).await,
+        CreateResource::Session(args) => crate::cli::run::create_session(args).await,
     }
 }
 

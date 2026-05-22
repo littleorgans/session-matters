@@ -39,6 +39,134 @@ fn get_namespace_help_exposes_only_namespace_read_arguments() {
 }
 
 #[test]
+fn create_help_lists_namespace_and_session_resources() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args(["create", "--help"])
+        .output()
+        .expect("sm create help executes");
+
+    assert_success("sm create --help", &output);
+    let stdout = stdout(&output);
+    assert!(stdout.contains("namespace"));
+    assert!(stdout.contains("session"));
+}
+
+#[test]
+fn create_session_help_exposes_only_declarative_arguments() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args(["create", "session", "--help"])
+        .output()
+        .expect("sm create session help executes");
+
+    assert_success("sm create session --help", &output);
+    let stdout = stdout(&output);
+    assert!(stdout.contains("<RUNTIME>"));
+    assert!(stdout.contains("--role"));
+    assert!(stdout.contains("--dir"));
+    assert!(stdout.contains("--namespace"));
+    assert!(stdout.contains("--label"));
+    assert!(stdout.contains("--agent-config"));
+    assert!(!stdout.contains("--target"));
+    assert!(!stdout.contains("--detach"));
+    assert!(!stdout.contains("--force"));
+}
+
+#[test]
+fn create_session_persists_headless_record_without_foreground_attach() {
+    let runtime_path = common::fake_runtime_path("claude");
+    let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
+    let project = daemon.dir.path().join("project");
+    std::fs::create_dir_all(&project).expect("project dir");
+
+    let created = daemon
+        .command()
+        .args([
+            "create",
+            "session",
+            "claude",
+            "--role",
+            "engineer",
+            "--dir",
+            &project.display().to_string(),
+            "--label",
+            "area=create",
+        ])
+        .output()
+        .expect("sm create session executes");
+    assert_success("sm create session", &created);
+    let id = first_field(&created.stdout);
+
+    let single = daemon
+        .command()
+        .args(["get", "session", &id, "--json"])
+        .output()
+        .expect("sm get session <id> --json executes");
+    assert_success("sm get session <id> --json", &single);
+    let session: Value = serde_json::from_slice(&single.stdout).expect("session JSON parses");
+    let canonical_project = canonical_display(&project);
+    assert_eq!(session["id"], id);
+    assert_eq!(session["runtime"], "claude");
+    assert_eq!(session["role"], "engineer");
+    assert_eq!(session["namespace"], "default");
+    assert_eq!(session["dir"], canonical_project);
+    assert_eq!(session["workspace"], canonical_project);
+    assert_eq!(session["state"], "RUNNING");
+    assert_eq!(session["tmux_pane"], Value::Null);
+    assert_eq!(session["labels"][0]["key"], "area");
+    assert_eq!(session["labels"][0]["value"], "create");
+}
+
+#[test]
+fn create_session_and_run_persist_compatible_records_for_shared_inputs() {
+    let runtime_path = common::fake_runtime_path("claude");
+    let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
+    let project = daemon.dir.path().join("project");
+    std::fs::create_dir_all(&project).expect("project dir");
+
+    let run = daemon
+        .command()
+        .args([
+            "run",
+            "claude",
+            "--role",
+            "engineer",
+            "--dir",
+            &project.display().to_string(),
+            "--label",
+            "area=shared",
+            "--detach",
+        ])
+        .output()
+        .expect("sm run executes");
+    assert_success("sm run", &run);
+
+    let created = daemon
+        .command()
+        .args([
+            "create",
+            "session",
+            "claude",
+            "--role",
+            "engineer",
+            "--dir",
+            &project.display().to_string(),
+            "--label",
+            "area=shared",
+        ])
+        .output()
+        .expect("sm create session executes");
+    assert_success("sm create session", &created);
+
+    let run_session = get_session_json(&daemon, &first_field(&run.stdout));
+    let create_session = get_session_json(&daemon, &first_field(&created.stdout));
+    for field in ["runtime", "role", "namespace", "dir", "workspace", "labels"] {
+        assert_eq!(create_session[field], run_session[field], "{field} differs");
+    }
+    assert_eq!(create_session["tmux_pane"], run_session["tmux_pane"]);
+    assert_eq!(create_session["agent_config"], run_session["agent_config"]);
+}
+
+#[test]
 fn removed_get_forms_are_rejected_by_clap() {
     for args in [
         ["get", "agent", "--help"].as_slice(),
@@ -200,6 +328,16 @@ fn unknown_namespace_error_is_surfaced_from_daemon() {
     assert!(!run.status.success());
     let stderr = String::from_utf8_lossy(&run.stderr);
     assert!(stderr.contains("namespace not found: missing"));
+}
+
+fn get_session_json(daemon: &common::DaemonFixture, id: &str) -> Value {
+    let output = daemon
+        .command()
+        .args(["get", "session", id, "--json"])
+        .output()
+        .expect("sm get session <id> --json executes");
+    assert_success("sm get session <id> --json", &output);
+    serde_json::from_slice(&output.stdout).expect("session JSON parses")
 }
 
 fn assert_success(command: &str, output: &std::process::Output) {

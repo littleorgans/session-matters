@@ -66,6 +66,16 @@ pub enum DaemonAction {
 
 #[derive(Debug, Args)]
 pub struct RunArgs {
+    #[command(flatten)]
+    pub session: SessionCreateArgs,
+    #[arg(long, default_value = "headless", help = generated_help::AGENT_RUN_TARGET_HELP)]
+    pub target: String,
+    #[arg(long)]
+    pub detach: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct SessionCreateArgs {
     #[arg(help = generated_help::AGENT_RUN_RUNTIME_HELP)]
     pub runtime: RuntimeKind,
     #[arg(long, help = generated_help::AGENT_RUN_ROLE_HELP)]
@@ -78,10 +88,6 @@ pub struct RunArgs {
     pub labels: Vec<String>,
     #[arg(long = "agent-config", help = generated_help::AGENT_RUN_AGENT_CONFIG_HELP)]
     pub agent_config: Option<String>,
-    #[arg(long, default_value = "headless", help = generated_help::AGENT_RUN_TARGET_HELP)]
-    pub target: String,
-    #[arg(long)]
-    pub detach: bool,
 }
 
 #[derive(Debug, Args)]
@@ -148,6 +154,8 @@ pub struct CreateArgs {
 pub enum CreateResource {
     #[command(about = "Create a namespace before spawning sessions into it")]
     Namespace(NamespaceCreateArgs),
+    #[command(about = "Create a headless session record without foreground attach")]
+    Session(SessionCreateArgs),
 }
 
 #[derive(Debug, Args)]
