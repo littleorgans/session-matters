@@ -1,6 +1,5 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
-assertion_line: 8
 expression: tool
 ---
 {
@@ -23,6 +22,10 @@ expression: tool
       "selector": {
         "description": "Optional session selector. Defaults to all.",
         "type": "string"
+      },
+      "show_labels": {
+        "description": "Render session labels in human output. JSON output already includes labels.",
+        "type": "boolean"
       }
     },
     "type": "object"
@@ -52,6 +55,24 @@ expression: tool
             "id": {
               "format": "uuid",
               "type": "string"
+            },
+            "labels": {
+              "items": {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "value"
+                ],
+                "type": "object"
+              },
+              "type": "array"
             },
             "role": {
               "type": "string"

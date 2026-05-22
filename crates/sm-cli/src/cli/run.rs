@@ -59,7 +59,7 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
 
     match response {
         RpcResponse::Spawned { response } => {
-            print_session_line(&response.session);
+            print_session_line(&response.session, false);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),

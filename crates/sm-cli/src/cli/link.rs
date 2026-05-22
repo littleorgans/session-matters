@@ -28,7 +28,7 @@ pub async fn run(args: LinkArgs) -> Result<()> {
 
     match response {
         RpcResponse::Linked { response } => {
-            print_session_line(&response.session);
+            print_session_line(&response.session, false);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),

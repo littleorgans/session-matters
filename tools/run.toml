@@ -42,6 +42,17 @@ output_schema   = '''
         "transcript_path": {"type": ["string", "null"]},
         "tmux_pane": {"type": ["string", "null"]},
         "agent_config": {"type": ["string", "null"]},
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "value"],
+            "properties": {
+              "key": {"type": "string"},
+              "value": {"type": "string"}
+            }
+          }
+        },
         "created_at": {"type": "string", "format": "date-time"},
         "started_at": {"type": "string", "format": "date-time"},
         "terminated_at": {"type": ["string", "null"], "format": "date-time"},

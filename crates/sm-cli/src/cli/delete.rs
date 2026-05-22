@@ -34,7 +34,7 @@ async fn delete_session(args: DeleteSessionArgs) -> Result<()> {
     match response {
         RpcResponse::Deleted { response } => {
             for session in response.sessions {
-                print_session_line(&session);
+                print_session_line(&session, false);
             }
             for error in response.errors {
                 eprintln!("{} {}", error.target, error.message);
@@ -72,7 +72,7 @@ async fn delete_namespace(args: DeleteNamespaceArgs) -> Result<()> {
                 )
             })?;
             for session in response.sessions {
-                print_session_line(&session);
+                print_session_line(&session, false);
             }
             println!("deleted namespace: {}", response.namespace);
             Ok(())

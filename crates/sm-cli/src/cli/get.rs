@@ -36,7 +36,7 @@ async fn get_session(args: SessionGetArgs) -> Result<()> {
                 .sessions
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("unknown session: {id}"))?;
-            print_session_line(session);
+            print_session_line(session, args.read.show_labels);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),
@@ -60,7 +60,7 @@ async fn list_sessions(args: SessionListArgs) -> Result<()> {
             Ok(())
         }
         RpcResponse::Listed { response } => {
-            print_session_table(&response.sessions);
+            print_session_table(&response.sessions, args.read.show_labels);
             Ok(())
         }
         RpcResponse::Error { message } => bail!(message),

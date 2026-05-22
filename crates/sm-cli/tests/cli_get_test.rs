@@ -18,6 +18,7 @@ fn get_session_help_exposes_only_session_read_arguments() {
         assert!(stdout.contains("--namespace"));
         assert!(stdout.contains("--all-namespaces"));
         assert!(stdout.contains("--json"));
+        assert!(stdout.contains("--show-labels"));
     }
 }
 
@@ -184,6 +185,7 @@ fn removed_get_forms_are_rejected_by_clap() {
     for args in [
         ["get", "agent", "--help"].as_slice(),
         ["get", "agents", "--help"].as_slice(),
+        ["get", "label", "--help"].as_slice(),
         ["get", "namespace", "--selector", "all"].as_slice(),
     ] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
@@ -209,6 +211,8 @@ fn session_resources_list_and_get_by_id() {
             "engineer",
             "--dir",
             &daemon.dir.path().display().to_string(),
+            "--label",
+            "area=get",
             "--detach",
         ])
         .output()
@@ -240,6 +244,16 @@ fn session_resources_list_and_get_by_id() {
     assert_success("sm get session --selector all", &selected_list);
     assert_table_contains(&selected_list.stdout, &id);
 
+    let labeled_list = daemon
+        .command()
+        .args(["get", "session", "--show-labels"])
+        .output()
+        .expect("sm get session --show-labels executes");
+    assert_success("sm get session --show-labels", &labeled_list);
+    let labeled_stdout = stdout(&labeled_list);
+    assert!(labeled_stdout.starts_with("ID RUNTIME ROLE NAMESPACE DIR STATE PID TMUX LABELS"));
+    assert!(labeled_stdout.contains("area=get"));
+
     let json_list = daemon
         .command()
         .args(["get", "session", "--json"])
@@ -255,9 +269,20 @@ fn session_resources_list_and_get_by_id() {
         .output()
         .expect("sm get session <id> executes");
     assert_success("sm get session <id>", &single);
-    let stdout = String::from_utf8_lossy(&single.stdout);
-    assert!(stdout.contains(&id));
-    assert!(!stdout.starts_with("ID RUNTIME"));
+    let single_stdout = String::from_utf8_lossy(&single.stdout);
+    assert!(single_stdout.contains(&id));
+    assert!(!single_stdout.contains("area=get"));
+    assert!(!single_stdout.starts_with("ID RUNTIME"));
+
+    let labeled_single = daemon
+        .command()
+        .args(["get", "session", &id, "--show-labels"])
+        .output()
+        .expect("sm get session <id> --show-labels executes");
+    assert_success("sm get session <id> --show-labels", &labeled_single);
+    let labeled_single_stdout = stdout(&labeled_single);
+    assert!(labeled_single_stdout.contains(&id));
+    assert!(labeled_single_stdout.contains("area=get"));
 }
 
 #[test]

@@ -24,6 +24,17 @@ output_schema   = '''
           "transcript_path": {"type": ["string", "null"]},
           "tmux_pane": {"type": ["string", "null"]},
           "agent_config": {"type": ["string", "null"]},
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "value"],
+              "properties": {
+                "key": {"type": "string"},
+                "value": {"type": "string"}
+              }
+            }
+          },
           "created_at": {"type": "string", "format": "date-time"},
           "started_at": {"type": "string", "format": "date-time"},
           "terminated_at": {"type": ["string", "null"], "format": "date-time"},
@@ -53,6 +64,14 @@ cli_help        = "Optional session selector."
 cli_flag        = "--selector"
 selector        = true
 
+[[tools.session_list.params]]
+name            = "show_labels"
+type            = "boolean"
+required        = false
+mcp_description = "Render session labels in human output. JSON output already includes labels."
+cli_help        = "Render session labels in human output. JSON output already includes labels."
+cli_flag        = "--show-labels"
+
 [[tools.session_list.mcp_aliases]]
 name            = "agent_list"
 mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar."
@@ -81,6 +100,17 @@ output_schema   = '''
         "transcript_path": {"type": ["string", "null"]},
         "tmux_pane": {"type": ["string", "null"]},
         "agent_config": {"type": ["string", "null"]},
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "value"],
+            "properties": {
+              "key": {"type": "string"},
+              "value": {"type": "string"}
+            }
+          }
+        },
         "created_at": {"type": "string", "format": "date-time"},
         "started_at": {"type": "string", "format": "date-time"},
         "terminated_at": {"type": ["string", "null"], "format": "date-time"},

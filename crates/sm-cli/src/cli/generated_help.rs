@@ -25,6 +25,8 @@ pub const SESSION_LIST_ABOUT: &str = "List session records, or get one session r
 pub const SESSION_LIST_ID_HELP: &str = "Optional session id to load instead of listing.";
 #[rustfmt::skip]
 pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+#[rustfmt::skip]
+pub const SESSION_LIST_SHOW_LABELS_HELP: &str = "Render session labels in human output. JSON output already includes labels.";
 
 #[rustfmt::skip]
 pub const SESSION_GET_ABOUT: &str = "Get one session record by id.";

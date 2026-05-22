@@ -138,6 +138,8 @@ pub struct SessionReadArgs {
     pub scope: NamespaceScopeArgs,
     #[arg(long)]
     pub json: bool,
+    #[arg(long, help = generated_help::SESSION_LIST_SHOW_LABELS_HELP)]
+    pub show_labels: bool,
 }
 
 #[derive(Debug, Args)]

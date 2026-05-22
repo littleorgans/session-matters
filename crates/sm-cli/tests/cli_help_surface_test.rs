@@ -134,10 +134,33 @@ fn get_help_collapses_resources_to_singular_with_plural_aliases() {
     let session = help(&["get", "sessions", "--help"]);
     assert!(session.contains("Optional session id to load instead of listing."));
     assert!(session.contains("--selector"));
+    assert!(session.contains("--show-labels"));
+    assert!(session.contains("JSON output already includes labels."));
 
     let namespace = help(&["get", "namespaces", "--help"]);
     assert!(namespace.contains("Optional namespace slug to load instead of listing."));
     assert!(!namespace.contains("--selector"));
+}
+
+#[test]
+fn labels_are_not_crud_resources() {
+    for args in [
+        ["create", "label", "--help"].as_slice(),
+        ["get", "label", "--help"].as_slice(),
+        ["delete", "label", "--help"].as_slice(),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_sm"))
+            .args(args)
+            .output()
+            .unwrap_or_else(|error| panic!("sm {} executes: {error}", args.join(" ")));
+        assert!(
+            !output.status.success(),
+            "sm {} unexpectedly succeeded\nstdout:\n{}\nstderr:\n{}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 fn help(args: &[&str]) -> String {

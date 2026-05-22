@@ -18,6 +18,10 @@
       "selector": {
         "description": "Optional session selector. Defaults to all.",
         "type": "string"
+      },
+      "show_labels": {
+        "description": "Render session labels in human output. JSON output already includes labels.",
+        "type": "boolean"
       }
     },
     "type": "object"
@@ -47,6 +51,24 @@
             "id": {
               "format": "uuid",
               "type": "string"
+            },
+            "labels": {
+              "items": {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "value"
+                ],
+                "type": "object"
+              },
+              "type": "array"
             },
             "role": {
               "type": "string"
