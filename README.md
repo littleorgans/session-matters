@@ -10,10 +10,13 @@ Control plane for Helioy sessions.
 rtm daemon start
 sm daemon start
 sm create namespace project-alpha
+sm config set-context project-alpha
+sm create session claude --role general --dir "$PWD"
 sm run claude --role general --dir "$PWD" --detach
-sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --detach
+sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --force --detach
 sm capture --selector id:<session-id>
 sm get sessions
+sm delete namespace project-alpha
 sm logs id:<session-id>
 sm doctor
 sm daemon stop
@@ -31,6 +34,17 @@ Namespaces group sessions under explicit, operator created slugs. The `default`
 namespace always exists, and pre migration session rows are backfilled into
 `default` on upgrade.
 
+The CLI uses kubectl shaped resource buckets for CRUD: `sm create session`,
+`sm get sessions`, `sm get session`, `sm delete session`, `sm create namespace`,
+`sm get namespaces`, `sm get namespace`, and `sm delete namespace`.
+
+`sm create session` is the declarative create-resource surface. It creates a
+daemon backed headless session record. `sm run` is the imperative surface for
+create and bind target workflows. It accepts the same session identity inputs
+plus runtime target controls such as `--target`, `--detach`, and `--force`.
+Use `sm run --force` only to preempt an occupied tmux pane. Other spawn
+conflicts remain fatal.
+
 ### Migration Guide
 
 Create the namespace before running sessions into it:
@@ -45,6 +59,9 @@ unset. CLI selector reads default to that context. If no context is set, the CLI
 uses `default`. `--namespace <slug>` overrides user context, and the namespace
 must already exist.
 
+Namespace resolution precedence is: explicit `--namespace`, `SM_NAMESPACE`,
+user namespace context, then `default`.
+
 `sm run --dir <path>` is the directory flag. New callers should use `--dir` and
 `--namespace`.
 
@@ -57,6 +74,12 @@ CLI selector reads default to the resolved namespace when user context or
 `sm get session`, `sm get sessions`, `sm mail send --to <selector>`,
 `sm nudge --to <selector>`, `sm label`, and `sm delete session`. Use `-A`
 or `--all-namespaces` to bypass default scoping.
+
+`sm delete namespace <slug>` terminates sessions in that namespace, deletes the
+namespace record, and clears the user context when it points at the deleted
+namespace. Namespaces cannot be renamed. Sessions cannot move between
+namespaces. Stop the old session and spawn a replacement in the target namespace
+when a namespace choice changes.
 
 MCP callers should use `session_*` tools. `agent_*` tools remain deprecated
 compatibility aliases during this release. MCP read tools accept `namespace` to
