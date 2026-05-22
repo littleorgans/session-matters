@@ -2,7 +2,7 @@
 
 # session-matters
 
-Control plane for Helioy agent sessions.
+Control plane for Helioy sessions.
 
 ## Runtime
 
@@ -33,19 +33,17 @@ namespace always exists, and pre migration session rows are backfilled into
 
 ### Migration Guide
 
-Create the namespace before spawning into it:
+Create the namespace before running sessions into it:
 
 ```bash
 sm create namespace project-alpha
-mkdir -p .sm
-echo project-alpha > .sm/namespace
+sm config set-context project-alpha
 ```
 
-The marker is a UTF-8 text file at `.sm/namespace` containing one namespace
-slug. CLI marker discovery walks from the selected directory toward the
-filesystem root and stops after checking `$HOME`. If no marker resolves, the CLI
-uses `default`. `--namespace <slug>` overrides marker discovery, and the
-namespace must already exist.
+The user namespace context lives under `SM_HOME`, or `~/.sm` when `SM_HOME` is
+unset. CLI selector reads default to that context. If no context is set, the CLI
+uses `default`. `--namespace <slug>` overrides user context, and the namespace
+must already exist.
 
 `sm run --dir <path>` is the directory flag. New callers should use `--dir` and
 `--namespace`.
@@ -54,11 +52,11 @@ Selectors support `namespace:<slug>` and `dir:<path>`. `workspace:<path>` select
 were removed in this migration. Use `dir:<path>` for path based selection or
 `namespace:<slug>` for namespace based selection.
 
-CLI selector reads default to the resolved namespace when a marker or
-`--namespace` resolves. This applies to the selector consuming surfaces in this
-release: `sm get session`, `sm get sessions`, `sm mail send --to <selector>`,
-`sm nudge --to <selector>`, `sm label`, and `sm delete agent`. Use `-A` or
-`--all-namespaces` to bypass default scoping.
+CLI selector reads default to the resolved namespace when user context or
+`--namespace` resolves. This applies to selector consuming surfaces:
+`sm get session`, `sm get sessions`, `sm mail send --to <selector>`,
+`sm nudge --to <selector>`, `sm label`, and `sm delete session`. Use `-A`
+or `--all-namespaces` to bypass default scoping.
 
 MCP callers should use `session_*` tools. `agent_*` tools remain deprecated
 compatibility aliases during this release. MCP read tools accept `namespace` to
@@ -79,18 +77,18 @@ sm mcp
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `agent_list` | `sm get agents` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `session_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `agent_get` | `sm get agent` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
-| `session_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
-| `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
+| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `session_list` | `sm get sessions` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `agent_list` | `sm get sessions` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `session_get` | `sm get session` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `agent_get` | `sm get session` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `session_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
-| `agent_delete` | `sm delete agent` | Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period. |
-| `session_delete` | `sm delete agent` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
-| `agent_label` | `sm label` | Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
+| `session_delete` | `sm delete session` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
+| `agent_delete` | `sm delete session` | Deprecated compatibility alias for session_delete. Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
 | `session_label` | `sm label` | Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `agent_label` | `sm label` | Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
 | `mail_send` | `sm mail send` | Send durable mail to sessions selected by selector. |
 | `mail_read` | `sm mail read` | Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true. |
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
@@ -160,7 +158,7 @@ sm mcp
 ## Session Control Workflow
 
 Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
-Use `session_run` to start a local session through the session-matters daemon.
+Use `session_run` to run a local session through the session-matters daemon.
 Use `session_list` to inspect live and terminated sessions.
 Use `session_get` before acting on one session id.
 Use `session_capture` to read tmux pane scrollback for a tmux backed session.

@@ -97,12 +97,12 @@ impl ToolContractRegistry {
 }
 
 const TOOL_CONTRACT_ORDER: &[&str] = &[
-    "agent_run",
-    "agent_list",
-    "agent_get",
-    "agent_capture",
-    "agent_delete",
-    "agent_label",
+    "session_run",
+    "session_list",
+    "session_get",
+    "session_capture",
+    "session_delete",
+    "session_label",
     "mail_send",
     "mail_read",
     "mail_check",
@@ -128,6 +128,9 @@ fn validate_unique_render_names(tools: &[ToolContract]) -> Result<(), String> {
     for tool in tools {
         if !tool_names.insert(tool.name.as_str()) {
             return Err(format!("duplicate MCP tool name {}", tool.name));
+        }
+        if !tool.artifacts.render_cli_help {
+            continue;
         }
         let prefix = &tool.artifacts.cli_help_prefix;
         let about_const = format!("{prefix}_ABOUT");
@@ -222,7 +225,7 @@ impl ToolContract {
             return Err(format!("{}.mcp_aliases name must not be empty", self.name));
         }
         Ok(Self {
-            artifacts: ArtifactRenderMetadata::for_tool(&raw.name),
+            artifacts: ArtifactRenderMetadata::for_alias(&raw.name),
             cli: self.cli.clone(),
             mcp_description: raw.mcp_description,
             name: raw.name,
@@ -242,6 +245,7 @@ pub struct CliMetadata {
 pub struct ArtifactRenderMetadata {
     pub mcp_schema_file: String,
     pub cli_help_prefix: String,
+    pub render_cli_help: bool,
 }
 
 impl ArtifactRenderMetadata {
@@ -249,6 +253,15 @@ impl ArtifactRenderMetadata {
         Self {
             mcp_schema_file: format!("{name}.json"),
             cli_help_prefix: rust_const_name(name),
+            render_cli_help: true,
+        }
+    }
+
+    fn for_alias(name: &str) -> Self {
+        Self {
+            mcp_schema_file: format!("{name}.json"),
+            cli_help_prefix: rust_const_name(name),
+            render_cli_help: false,
         }
     }
 }
@@ -439,18 +452,18 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "agent_run",
                 "session_run",
-                "agent_list",
+                "agent_run",
                 "session_list",
-                "agent_get",
+                "agent_list",
                 "session_get",
-                "agent_capture",
+                "agent_get",
                 "session_capture",
-                "agent_delete",
+                "agent_capture",
                 "session_delete",
-                "agent_label",
+                "agent_delete",
                 "session_label",
+                "agent_label",
                 "mail_send",
                 "mail_read",
                 "mail_check",

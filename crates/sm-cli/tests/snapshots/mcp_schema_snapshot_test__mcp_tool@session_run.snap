@@ -27,7 +27,7 @@ expression: tool
         "type": "array"
       },
       "namespace": {
-        "description": "Namespace slug for the spawned session. The namespace must already exist before spawning.",
+        "description": "Namespace slug for the session. The namespace must already exist before running.",
         "type": "string"
       },
       "role": {

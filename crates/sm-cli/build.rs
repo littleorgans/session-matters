@@ -187,6 +187,9 @@ fn generate_cli_help(tools: &[ToolContract]) -> String {
         "#![allow(clippy::all)]".to_string(),
     ];
     for tool in tools {
+        if !tool.artifacts.render_cli_help {
+            continue;
+        }
         let prefix = &tool.artifacts.cli_help_prefix;
         lines.push("#[rustfmt::skip]".to_string());
         lines.push(format!(

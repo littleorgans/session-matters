@@ -1,6 +1,6 @@
-[tools.agent_label]
+[tools.session_label]
 cli_name        = "label"
-mcp_description = "Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
+mcp_description = "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
 cli_about       = "Add or remove labels on selected sessions."
 output_schema   = '''
 {
@@ -13,7 +13,7 @@ output_schema   = '''
 }
 '''
 
-[[tools.agent_label.params]]
+[[tools.session_label.params]]
 name            = "selector"
 type            = "string"
 required        = true
@@ -21,7 +21,7 @@ mcp_description = "Session selector to mutate."
 cli_help        = "Session selector to mutate."
 cli_flag        = "selector"
 
-[[tools.agent_label.params]]
+[[tools.session_label.params]]
 name            = "mutation"
 type            = "string"
 required        = true
@@ -29,7 +29,6 @@ mcp_description = "Label mutation as key=value or key-."
 cli_help        = "Label mutation as key=value or key-."
 cli_flag        = "mutation"
 
-[[tools.agent_label.mcp_aliases]]
-name            = "session_label"
-mcp_description = "Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."
-
+[[tools.session_label.mcp_aliases]]
+name            = "agent_label"
+mcp_description = "Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove."

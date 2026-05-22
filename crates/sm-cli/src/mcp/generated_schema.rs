@@ -3,30 +3,30 @@
 
 pub fn generated_tool_list() -> serde_json::Value {
     let tools: Vec<serde_json::Value> = vec![
-        serde_json::from_str(include_str!("generated_schema/agent_run.json"))
-            .expect("generated schema for agent_run is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_run.json"))
             .expect("generated schema for session_run is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/agent_list.json"))
-            .expect("generated schema for agent_list is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_run.json"))
+            .expect("generated schema for agent_run is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_list.json"))
             .expect("generated schema for session_list is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/agent_get.json"))
-            .expect("generated schema for agent_get is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_list.json"))
+            .expect("generated schema for agent_list is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_get.json"))
             .expect("generated schema for session_get is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/agent_capture.json"))
-            .expect("generated schema for agent_capture is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_get.json"))
+            .expect("generated schema for agent_get is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_capture.json"))
             .expect("generated schema for session_capture is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/agent_delete.json"))
-            .expect("generated schema for agent_delete is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_capture.json"))
+            .expect("generated schema for agent_capture is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_delete.json"))
             .expect("generated schema for session_delete is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/agent_label.json"))
-            .expect("generated schema for agent_label is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_delete.json"))
+            .expect("generated schema for agent_delete is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/session_label.json"))
             .expect("generated schema for session_label is valid JSON"),
+        serde_json::from_str(include_str!("generated_schema/agent_label.json"))
+            .expect("generated schema for agent_label is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/mail_send.json"))
             .expect("generated schema for mail_send is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/mail_read.json"))

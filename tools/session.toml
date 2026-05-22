@@ -1,6 +1,6 @@
-[tools.agent_list]
-cli_name        = "get agents"
-mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
+[tools.session_list]
+cli_name        = "get sessions"
+mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
 cli_about       = "List session records known to the session-matters daemon."
 mcp_namespace_scope = true
 output_schema   = '''
@@ -36,7 +36,7 @@ output_schema   = '''
 }
 '''
 
-[[tools.agent_list.params]]
+[[tools.session_list.params]]
 name            = "selector"
 type            = "string"
 required        = false
@@ -44,13 +44,13 @@ mcp_description = "Optional session selector. Defaults to all."
 cli_help        = "Optional session selector."
 cli_flag        = "--selector"
 
-[[tools.agent_list.mcp_aliases]]
-name            = "session_list"
-mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
+[[tools.session_list.mcp_aliases]]
+name            = "agent_list"
+mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
 
-[tools.agent_get]
-cli_name        = "get agent"
-mcp_description = "Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown."
+[tools.session_get]
+cli_name        = "get session"
+mcp_description = "Get one session record by id. The tool returns an error envelope when the id is unknown."
 cli_about       = "Get one session record by id."
 mcp_namespace_scope = true
 output_schema   = '''
@@ -83,7 +83,7 @@ output_schema   = '''
 }
 '''
 
-[[tools.agent_get.params]]
+[[tools.session_get.params]]
 name            = "id"
 type            = "string"
 required        = true
@@ -91,14 +91,14 @@ mcp_description = "Session id to load."
 cli_help        = "Session id to load."
 cli_flag        = "id"
 
-[[tools.agent_get.mcp_aliases]]
-name            = "session_get"
-mcp_description = "Get one session record by id. The tool returns an error envelope when the id is unknown."
+[[tools.session_get.mcp_aliases]]
+name            = "agent_get"
+mcp_description = "Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown."
 
-[tools.agent_delete]
-cli_name        = "delete agent"
-mcp_description = "Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period."
-cli_about       = "Terminate daemon owned agent runtimes by selector."
+[tools.session_delete]
+cli_name        = "delete session"
+mcp_description = "Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period."
+cli_about       = "Terminate daemon owned sessions by selector."
 output_schema   = '''
 {
   "type": "object",
@@ -110,7 +110,7 @@ output_schema   = '''
 }
 '''
 
-[[tools.agent_delete.params]]
+[[tools.session_delete.params]]
 name            = "selector"
 type            = "string"
 required        = true
@@ -118,7 +118,7 @@ mcp_description = "Session selector to terminate."
 cli_help        = "Session selector to terminate."
 cli_flag        = "selector"
 
-[[tools.agent_delete.params]]
+[[tools.session_delete.params]]
 name            = "signal"
 type            = "string"
 required        = false
@@ -126,7 +126,7 @@ mcp_description = "Signal to send. Defaults to SIGTERM."
 cli_help        = "Signal to send. Defaults to SIGTERM."
 cli_flag        = "--signal"
 
-[[tools.agent_delete.params]]
+[[tools.session_delete.params]]
 name            = "grace_secs"
 type            = "integer"
 required        = false
@@ -134,7 +134,6 @@ mcp_description = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_help        = "Seconds to wait before SIGKILL. Defaults to 5."
 cli_flag        = "--grace"
 
-[[tools.agent_delete.mcp_aliases]]
-name            = "session_delete"
-mcp_description = "Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period."
-
+[[tools.session_delete.mcp_aliases]]
+name            = "agent_delete"
+mcp_description = "Deprecated compatibility alias for session_delete. Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period."

@@ -7,7 +7,7 @@ workflow = """
 ## Session Control Workflow
 
 Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
-Use `session_run` to start a local session through the session-matters daemon.
+Use `session_run` to run a local session through the session-matters daemon.
 Use `session_list` to inspect live and terminated sessions.
 Use `session_get` before acting on one session id.
 Use `session_capture` to read tmux pane scrollback for a tmux backed session.
@@ -19,10 +19,10 @@ Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
 Use `nudge` for the ephemeral notification surface.
 """
 
-[tools.agent_run]
+[tools.session_run]
 cli_name        = "run"
-mcp_description = "Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
-cli_about       = "Start an agent runtime through the session-matters daemon."
+mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+cli_about       = "Imperatively run a session through the session-matters daemon."
 output_schema   = '''
 {
   "type": "object",
@@ -53,7 +53,7 @@ output_schema   = '''
 }
 '''
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "runtime"
 type            = "string"
 required        = true
@@ -62,7 +62,7 @@ mcp_description = "Runtime command to launch."
 cli_help        = "Runtime to launch."
 cli_flag        = "runtime"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "role"
 type            = "string"
 required        = true
@@ -70,7 +70,7 @@ mcp_description = "Role label recorded on the session."
 cli_help        = "Role label recorded on the session."
 cli_flag        = "--role"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "dir"
 type            = "string"
 required        = false
@@ -78,21 +78,21 @@ mcp_description = "Canonical filesystem directory used as the runtime's working 
 cli_help        = "Filesystem directory used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
 cli_flag        = "--dir"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "namespace"
 type            = "string"
 required        = false
-mcp_description = "Namespace slug for the spawned session. The namespace must already exist before spawning."
-cli_help        = "Namespace slug for the spawned session. Overrides SM_NAMESPACE and the user namespace context."
+mcp_description = "Namespace slug for the session. The namespace must already exist before running."
+cli_help        = "Namespace slug for the session. Overrides SM_NAMESPACE and the user namespace context."
 cli_flag        = "--namespace"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "workspace"
 type            = "string"
 required        = false
 mcp_description = "Deprecated compatibility alias for dir. Use dir for new callers."
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "labels"
 type            = "array"
 items_type      = "string"
@@ -101,7 +101,7 @@ mcp_description = "Optional session labels as key=value strings."
 cli_help        = "Session label as key=value."
 cli_flag        = "--label"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "agent_config"
 type            = "string"
 required        = false
@@ -109,7 +109,7 @@ mcp_description = "Agent config name resolved as ~/.agm/<name>/agent.toml, or an
 cli_help        = "Agent config name or explicit agent.toml path."
 cli_flag        = "--agent-config"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "target"
 type            = "string"
 required        = false
@@ -117,7 +117,7 @@ mcp_description = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Def
 cli_help        = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless."
 cli_flag        = "--target"
 
-[[tools.agent_run.params]]
+[[tools.session_run.params]]
 name            = "force"
 type            = "boolean"
 required        = false
@@ -125,7 +125,6 @@ mcp_description = "Preempt an occupied tmux pane when the target pane is already
 cli_help        = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal."
 cli_flag        = "--force"
 
-[[tools.agent_run.mcp_aliases]]
-name            = "session_run"
-mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
-
+[[tools.session_run.mcp_aliases]]
+name            = "agent_run"
+mcp_description = "Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."

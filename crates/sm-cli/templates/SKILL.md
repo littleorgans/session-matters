@@ -1,28 +1,28 @@
 ---
 name: session-matters
-description: Control local Helioy agent sessions through smd via MCP tools.
+description: Control local Helioy sessions through smd via MCP tools.
 ---
 
 # session-matters
 
-Use this skill when you need to spawn, list, inspect, or terminate local Helioy agent sessions.
+Use this skill when you need to run, list, inspect, or terminate local Helioy sessions.
 
 ## MCP Tools
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start an agent runtime through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `agent_list` | `sm get agents` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `session_list` | `sm get agents` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `agent_get` | `sm get agent` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
-| `session_get` | `sm get agent` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
-| `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
+| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `session_list` | `sm get sessions` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `agent_list` | `sm get sessions` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `session_get` | `sm get session` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
+| `agent_get` | `sm get session` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `session_capture` | `sm capture` | Capture tmux pane scrollback for one selected session. |
-| `agent_delete` | `sm delete agent` | Deprecated compatibility alias for session_delete. Terminate daemon owned agent runtimes selected by selector. Defaults to SIGTERM with a five second grace period. |
-| `session_delete` | `sm delete agent` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
-| `agent_label` | `sm label` | Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `agent_capture` | `sm capture` | Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session. |
+| `session_delete` | `sm delete session` | Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
+| `agent_delete` | `sm delete session` | Deprecated compatibility alias for session_delete. Terminate daemon owned sessions selected by selector. Defaults to SIGTERM with a five second grace period. |
 | `session_label` | `sm label` | Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
+| `agent_label` | `sm label` | Deprecated compatibility alias for session_label. Add or remove one label on sessions selected by selector. Mutations use key=value to set and key- to remove. |
 | `mail_send` | `sm mail send` | Send durable mail to sessions selected by selector. |
 | `mail_read` | `sm mail read` | Read unread mail for sessions selected by selector. Reads mark messages read unless peek is true. |
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
@@ -90,7 +90,7 @@ Use this skill when you need to spawn, list, inspect, or terminate local Helioy 
 ## Session Control Workflow
 
 Start runtime-matters with `rtm daemon start` before `smd`; session-matters requires runtime-matters protocol 0.6 or newer.
-Use `session_run` to start a local session through the session-matters daemon.
+Use `session_run` to run a local session through the session-matters daemon.
 Use `session_list` to inspect live and terminated sessions.
 Use `session_get` before acting on one session id.
 Use `session_capture` to read tmux pane scrollback for a tmux backed session.
