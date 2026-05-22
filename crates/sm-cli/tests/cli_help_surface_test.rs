@@ -92,6 +92,20 @@ fn retained_leaf_commands_print_help_on_bare_invocation() {
             args.join(" "),
             stdout = rendered_help
         );
+        if args.len() == 1
+            && matches!(
+                args[0],
+                "label" | "logs" | "capture" | "wait" | "nudge" | "run"
+            )
+        {
+            let expected_usage = format!("Usage: sm {}", args[0]);
+            assert!(
+                rendered_help.contains(&expected_usage),
+                "sm {} usage dropped parent prefix\n{stdout}",
+                args.join(" "),
+                stdout = rendered_help
+            );
+        }
     }
 }
 

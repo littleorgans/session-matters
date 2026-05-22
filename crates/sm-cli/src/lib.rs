@@ -4,7 +4,7 @@ pub mod tool_contracts;
 pub mod tool_docs;
 pub mod tool_examples;
 
-use clap::{CommandFactory, Parser};
+use clap::Parser;
 
 use cli::cli_def::{Cli, Command};
 
@@ -46,13 +46,14 @@ fn render_bare_leaf_help() -> anyhow::Result<bool> {
         return Ok(false);
     }
 
-    let mut command = Cli::command();
-    let Some(subcommand) = command.find_subcommand_mut(&command_name) else {
-        return Ok(false);
-    };
-    subcommand.print_help()?;
-    println!();
-    Ok(true)
+    match Cli::try_parse_from(["sm", command_name.as_str(), "--help"]) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == clap::error::ErrorKind::DisplayHelp => {
+            error.print()?;
+            Ok(true)
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 const BARE_HELP_LEAF_COMMANDS: &[&str] = &["label", "logs", "capture", "wait", "nudge", "run"];
