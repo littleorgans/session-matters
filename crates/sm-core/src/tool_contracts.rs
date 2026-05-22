@@ -40,7 +40,7 @@ pub struct ToolContractRegistry {
 impl ToolContractRegistry {
     pub fn from_toml_str(content: &str) -> Result<Self, String> {
         let parsed: RawToolsToml = toml::from_str(content)
-            .map_err(|error| format!("failed to parse tools.toml: {error}"))?;
+            .map_err(|error| format!("failed to parse tools/*.toml: {error}"))?;
         let mut raw_tools = parsed.tools.into_iter().enumerate().collect::<Vec<_>>();
         raw_tools.sort_by(
             |(left_index, (left_name, _)), (right_index, (right_name, _))| {
@@ -499,6 +499,14 @@ cli_about = "second tool"
         .expect_err("duplicate alias should fail");
 
         assert!(error.contains("duplicate MCP tool name second"));
+    }
+
+    #[test]
+    fn parse_error_points_to_tool_source_layout() {
+        let error =
+            ToolContractRegistry::from_toml_str("[tools").expect_err("invalid TOML should fail");
+
+        assert!(error.contains("failed to parse tools/*.toml"));
     }
 
     #[test]
