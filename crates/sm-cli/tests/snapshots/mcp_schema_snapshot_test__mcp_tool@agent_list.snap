@@ -1,9 +1,10 @@
 ---
 source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
+assertion_line: 8
 expression: tool
 ---
 {
-  "description": "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b).",
+  "description": "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {

@@ -102,8 +102,8 @@ sm mcp
 |------|-----|---------|
 | `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `session_list` | `sm get session` | List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
-| `agent_list` | `sm get session` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b). |
+| `session_list` | `sm get session` | List session records known to the session-matters daemon. Supports the shared selector grammar. |
+| `agent_list` | `sm get session` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar. |
 | `session_get` | `sm get session` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `agent_get` | `sm get session` | Deprecated compatibility alias for session_get. Get one session record by id. The tool returns an error envelope when the id is unknown. |
 | `namespace_list` | `sm get namespace` | List namespace records known to the session-matters daemon. |

@@ -22,7 +22,7 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "Manage the session-matters daemon")]
     Daemon(DaemonArgs),
-    #[command(about = generated_help::SESSION_RUN_ABOUT, long_about = generated_help::SESSION_RUN_ABOUT)]
+    #[command(about = generated_help::SESSION_RUN_ABOUT, long_about = generated_help::SESSION_RUN_ABOUT, arg_required_else_help = true)]
     Run(RunArgs),
     #[command(about = "Create namespace and session records")]
     Create(CreateArgs),
@@ -36,17 +36,17 @@ pub enum Command {
     Doctor(DoctorArgs),
     #[command(about = "Send and read durable session mail")]
     Mail(MailArgs),
-    #[command(about = generated_help::SESSION_LABEL_ABOUT, long_about = generated_help::SESSION_LABEL_ABOUT)]
+    #[command(about = generated_help::SESSION_LABEL_ABOUT, long_about = generated_help::SESSION_LABEL_ABOUT, arg_required_else_help = true)]
     Label(LabelArgs),
     #[command(about = generated_help::LINK_ABOUT, long_about = generated_help::LINK_ABOUT)]
     Link(LinkArgs),
-    #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT)]
+    #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT, arg_required_else_help = true)]
     Logs(LogsArgs),
-    #[command(about = generated_help::SESSION_CAPTURE_ABOUT, long_about = generated_help::SESSION_CAPTURE_ABOUT)]
+    #[command(about = generated_help::SESSION_CAPTURE_ABOUT, long_about = generated_help::SESSION_CAPTURE_ABOUT, arg_required_else_help = true)]
     Capture(CaptureArgs),
-    #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT)]
+    #[command(about = generated_help::WAIT_ABOUT, long_about = generated_help::WAIT_ABOUT, arg_required_else_help = true)]
     Wait(WaitArgs),
-    #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT)]
+    #[command(about = generated_help::NUDGE_ABOUT, long_about = generated_help::NUDGE_ABOUT, arg_required_else_help = true)]
     Nudge(NudgeArgs),
     #[command(about = "Bridge MCP stdio to the session-matters daemon")]
     Mcp(McpArgs),
@@ -71,6 +71,7 @@ pub enum DaemonAction {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct RunArgs {
     #[command(flatten)]
     pub session: SessionCreateArgs,
@@ -233,6 +234,7 @@ pub struct LinkArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct LogsArgs {
     #[arg(help = generated_help::LOGS_SELECTOR_HELP)]
     pub selector: String,
@@ -243,6 +245,7 @@ pub struct LogsArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct CaptureArgs {
     #[arg(long, help = generated_help::SESSION_CAPTURE_SELECTOR_HELP)]
     pub selector: String,
@@ -253,6 +256,7 @@ pub struct CaptureArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct WaitArgs {
     #[arg(help = generated_help::WAIT_SELECTOR_HELP)]
     pub selector: String,
@@ -313,14 +317,18 @@ pub struct MailStopCheckArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct LabelArgs {
+    #[arg(help = generated_help::SESSION_LABEL_SELECTOR_HELP)]
     pub selector: String,
     #[command(flatten)]
     pub scope: NamespaceScopeArgs,
+    #[arg(help = generated_help::SESSION_LABEL_MUTATION_HELP)]
     pub mutation: String,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct NudgeArgs {
     #[arg(long, help = generated_help::NUDGE_TO_HELP)]
     pub to: String,

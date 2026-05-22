@@ -20,6 +20,7 @@ required        = true
 mcp_description = "Recipient selector."
 cli_help        = "Recipient selector."
 cli_flag        = "--to"
+selector        = true
 
 [[tools.mail_send.params]]
 name            = "from"
@@ -60,6 +61,7 @@ required        = true
 mcp_description = "Inbox owner selector."
 cli_help        = "Inbox owner selector."
 cli_flag        = "--selector"
+selector        = true
 
 [[tools.mail_read.params]]
 name            = "peek"
@@ -92,6 +94,7 @@ required        = true
 mcp_description = "Inbox owner selector."
 cli_help        = "Inbox owner selector."
 cli_flag        = "--selector"
+selector        = true
 
 [tools.mail_stop_check]
 cli_name        = "mail stop-check"
@@ -116,4 +119,4 @@ required        = true
 mcp_description = "Inbox owner selector."
 cli_help        = "Inbox owner selector."
 cli_flag        = "--selector"
-
+selector        = true

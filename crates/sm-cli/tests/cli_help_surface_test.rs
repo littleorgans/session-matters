@@ -59,6 +59,53 @@ fn run_help_describes_every_flag() {
 }
 
 #[test]
+fn retained_leaf_commands_print_help_on_bare_invocation() {
+    for args in [
+        ["label"].as_slice(),
+        ["logs"].as_slice(),
+        ["capture"].as_slice(),
+        ["wait"].as_slice(),
+        ["nudge"].as_slice(),
+        ["run"].as_slice(),
+    ] {
+        let stdout = help(args);
+        assert!(
+            stdout.contains("Usage:"),
+            "sm {} did not print help\n{stdout}",
+            args.join(" ")
+        );
+    }
+}
+
+#[test]
+fn label_help_describes_positionals_and_selector_grammar() {
+    let stdout = help(&["label", "--help"]);
+
+    for expected in [
+        "<SELECTOR>",
+        "Session selector to mutate.",
+        "<MUTATION>",
+        "Label mutation as key=value or key-.",
+        "Grammar:",
+        "all",
+        "<uuid>",
+        "id:<uuid>",
+        "Examples:",
+        "019e44f9-...",
+        "role:engineer",
+    ] {
+        assert!(
+            stdout.contains(expected),
+            "label help missing {expected:?}\n{stdout}"
+        );
+    }
+    assert!(
+        !stdout.contains("Grammar: all,"),
+        "selector grammar should render vertically\n{stdout}"
+    );
+}
+
+#[test]
 fn create_and_delete_resource_help_uses_current_lifecycle_copy() {
     let create = help(&["create", "--help"]);
     assert!(create.contains("Create namespace and session records"));

@@ -20,6 +20,7 @@ required        = true
 mcp_description = "Session selector to mutate."
 cli_help        = "Session selector to mutate."
 cli_flag        = "selector"
+selector        = true
 
 [[tools.session_label.params]]
 name            = "mutation"

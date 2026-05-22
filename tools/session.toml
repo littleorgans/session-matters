@@ -1,6 +1,6 @@
 [tools.session_list]
 cli_name        = "get session"
-mcp_description = "List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
+mcp_description = "List session records known to the session-matters daemon. Supports the shared selector grammar."
 cli_about       = "List session records, or get one session record by id."
 mcp_namespace_scope = true
 output_schema   = '''
@@ -51,10 +51,11 @@ required        = false
 mcp_description = "Optional session selector. Defaults to all."
 cli_help        = "Optional session selector."
 cli_flag        = "--selector"
+selector        = true
 
 [[tools.session_list.mcp_aliases]]
 name            = "agent_list"
-mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. The selector grammar is all, id:<uuid>, role:<name>, namespace:<slug>, dir:<path>, label:<key>=<value>, and label:<key> in (a,b)."
+mcp_description = "Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar."
 
 [tools.session_get]
 cli_name        = "get session"
@@ -125,6 +126,7 @@ required        = true
 mcp_description = "Session selector to terminate."
 cli_help        = "Session selector to terminate."
 cli_flag        = "selector"
+selector        = true
 
 [[tools.session_delete.params]]
 name            = "signal"

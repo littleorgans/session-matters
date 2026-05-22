@@ -33,6 +33,7 @@ fn bundled_tool_sources() -> String {
 
 #[derive(Debug, Clone)]
 pub struct ToolContractRegistry {
+    shared: SharedContent,
     skill: Option<SkillConfig>,
     tools: Vec<ToolContract>,
 }
@@ -73,9 +74,14 @@ impl ToolContractRegistry {
         validate_unique_render_names(&tools)?;
 
         Ok(Self {
+            shared: parsed.shared.unwrap_or_default(),
             skill: parsed.skill,
             tools,
         })
+    }
+
+    pub fn shared(&self) -> &SharedContent {
+        &self.shared
     }
 
     pub fn skill(&self) -> Option<&SkillConfig> {
@@ -155,6 +161,17 @@ fn validate_unique_render_names(tools: &[ToolContract]) -> Result<(), String> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SkillConfig {
     pub workflow: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SharedContent {
+    pub selector_grammar: Option<SelectorGrammar>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SelectorGrammar {
+    pub forms: Vec<String>,
+    pub examples: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -276,6 +293,7 @@ pub struct ToolParamContract {
     pub mcp_description: String,
     pub cli_help: Option<String>,
     pub cli_flag: Option<String>,
+    pub selector: bool,
     shape: ParamShape,
 }
 
@@ -289,6 +307,7 @@ impl ToolParamContract {
             mcp_description: raw.mcp_description,
             cli_help: raw.cli_help,
             cli_flag: raw.cli_flag,
+            selector: raw.selector,
         })
     }
 
@@ -346,6 +365,8 @@ impl ParamShape {
 
 #[derive(Debug, Deserialize)]
 struct RawToolsToml {
+    #[serde(default)]
+    shared: Option<SharedContent>,
     skill: Option<SkillConfig>,
     tools: IndexMap<String, RawToolDef>,
 }
@@ -376,6 +397,8 @@ struct RawParamDef {
     mcp_description: String,
     cli_help: Option<String>,
     cli_flag: Option<String>,
+    #[serde(default)]
+    selector: bool,
     mcp_schema: Option<String>,
 }
 
@@ -394,6 +417,7 @@ fn mcp_namespace_scope_params() -> Vec<ToolParamContract> {
             mcp_description: "Namespace slug to scope this read. Overrides the caller session namespace fallback.".to_string(),
             cli_help: None,
             cli_flag: None,
+            selector: false,
             shape: ParamShape::Scalar("string".to_string()),
         },
         ToolParamContract {
@@ -403,6 +427,7 @@ fn mcp_namespace_scope_params() -> Vec<ToolParamContract> {
             mcp_description: "Bypass namespace scoping and read across all namespaces.".to_string(),
             cli_help: None,
             cli_flag: None,
+            selector: false,
             shape: ParamShape::Scalar("boolean".to_string()),
         },
     ]

@@ -21,6 +21,7 @@ required        = true
 mcp_description = "Session selector to observe."
 cli_help        = "Session selector to observe."
 cli_flag        = "selector"
+selector        = true
 
 [[tools.wait.params]]
 name            = "for"
@@ -37,4 +38,3 @@ required        = false
 mcp_description = "Seconds to wait before timing out. Defaults to 30."
 cli_help        = "Seconds to wait before timing out. Defaults to 30."
 cli_flag        = "--timeout"
-

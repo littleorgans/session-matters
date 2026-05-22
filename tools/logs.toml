@@ -22,6 +22,7 @@ required        = true
 mcp_description = "Selector that must match exactly one session with transcript logs."
 cli_help        = "Selector that must match exactly one session with transcript logs."
 cli_flag        = "selector"
+selector        = true
 
 [[tools.logs.params]]
 name            = "follow"
@@ -38,4 +39,3 @@ required        = false
 mcp_description = "Maximum bytes to return from the end of the transcript."
 cli_help        = "Maximum bytes to return from the end of the transcript."
 cli_flag        = "--max-bytes"
-

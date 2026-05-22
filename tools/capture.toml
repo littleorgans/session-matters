@@ -28,6 +28,7 @@ required        = true
 mcp_description = "Session selector to capture. Usually id:<uuid>."
 cli_help        = "Session selector to capture. Usually id:<uuid>."
 cli_flag        = "--selector"
+selector        = true
 
 [[tools.session_capture.params]]
 name            = "scrollback_lines"

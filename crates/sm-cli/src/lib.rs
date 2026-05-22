@@ -4,13 +4,17 @@ pub mod tool_contracts;
 pub mod tool_docs;
 pub mod tool_examples;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 use cli::cli_def::{Cli, Command};
 
 pub const VERSION: &str = env!("SM_CLI_VERSION");
 
 pub async fn run() -> anyhow::Result<()> {
+    if render_bare_leaf_help()? {
+        return Ok(());
+    }
+
     match Cli::parse().command {
         Command::Daemon(args) => cli::daemon::run(args).await,
         Command::Run(args) => cli::run::run(args).await,
@@ -30,3 +34,26 @@ pub async fn run() -> anyhow::Result<()> {
         Command::InternalDaemon => sm_daemon::run_daemon(sm_core::SmPaths::from_env()?).await,
     }
 }
+
+fn render_bare_leaf_help() -> anyhow::Result<bool> {
+    let mut args = std::env::args_os();
+    let Some(_) = args.next() else {
+        return Ok(false);
+    };
+    let Some(command_name) = args.next().and_then(|arg| arg.into_string().ok()) else {
+        return Ok(false);
+    };
+    if args.next().is_some() || !BARE_HELP_LEAF_COMMANDS.contains(&command_name.as_str()) {
+        return Ok(false);
+    }
+
+    let mut command = Cli::command();
+    let Some(subcommand) = command.find_subcommand_mut(&command_name) else {
+        return Ok(false);
+    };
+    subcommand.print_help()?;
+    println!();
+    Ok(true)
+}
+
+const BARE_HELP_LEAF_COMMANDS: &[&str] = &["label", "logs", "capture", "wait", "nudge", "run"];
