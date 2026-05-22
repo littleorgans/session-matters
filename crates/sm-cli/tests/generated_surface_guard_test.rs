@@ -28,6 +28,78 @@ fn generated_docs_do_not_reference_removed_cli_forms() {
     }
 }
 
+#[test]
+fn selector_help_sources_match_cli_shape_matrix() {
+    let cases = [
+        (
+            "tools/session.toml",
+            "[tools.session_list]",
+            "cli_flag        = \"--selector\"",
+        ),
+        (
+            "tools/session.toml",
+            "[tools.session_delete]",
+            "cli_flag        = \"selector\"",
+        ),
+        (
+            "tools/label.toml",
+            "[tools.session_label]",
+            "cli_flag        = \"selector\"",
+        ),
+        (
+            "tools/logs.toml",
+            "[tools.logs]",
+            "cli_flag        = \"selector\"",
+        ),
+        (
+            "tools/wait.toml",
+            "[tools.wait]",
+            "cli_flag        = \"selector\"",
+        ),
+        (
+            "tools/capture.toml",
+            "[tools.session_capture]",
+            "name            = \"id\"",
+        ),
+        (
+            "tools/mail.toml",
+            "[tools.mail_send]",
+            "cli_flag        = \"--to\"",
+        ),
+        (
+            "tools/mail.toml",
+            "[tools.mail_read]",
+            "cli_flag        = \"--selector\"",
+        ),
+        (
+            "tools/mail.toml",
+            "[tools.mail_check]",
+            "cli_flag        = \"--selector\"",
+        ),
+        (
+            "tools/mail.toml",
+            "[tools.mail_stop_check]",
+            "cli_flag        = \"--selector\"",
+        ),
+        (
+            "tools/nudge.toml",
+            "[tools.nudge]",
+            "cli_flag        = \"--to\"",
+        ),
+    ];
+    for (path, table, flag) in cases {
+        let content = read_repo_file(path);
+        let table_body = content
+            .split(table)
+            .nth(1)
+            .unwrap_or_else(|| panic!("{path} missing table {table}"));
+        assert!(
+            table_body.contains(flag),
+            "{path} {table} missing expected selector shape {flag}"
+        );
+    }
+}
+
 fn removed_surface_guard_paths() -> Vec<PathBuf> {
     let mut paths = repo_paths([
         "crates/sm-cli/src/tool_docs.rs",
@@ -79,11 +151,19 @@ fn repo_root() -> PathBuf {
 }
 
 fn assert_absent(path: &Path, token: &str) {
-    let content = fs::read_to_string(path)
-        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+    let content = read_file(path);
     assert!(
         !content.contains(token),
         "{} contains forbidden token {token:?}",
         path.display()
     );
+}
+
+fn read_repo_file(path: &str) -> String {
+    read_file(&repo_root().join(path))
+}
+
+fn read_file(path: &Path) -> String {
+    fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()))
 }

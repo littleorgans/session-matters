@@ -16,7 +16,7 @@
         "type": "string"
       },
       "selector": {
-        "description": "Optional session selector. Defaults to all.",
+        "description": "Optional session selector used for matching sessions. Defaults to all.",
         "type": "string"
       },
       "show_labels": {

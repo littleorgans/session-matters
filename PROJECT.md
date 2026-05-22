@@ -27,6 +27,18 @@ kubectl shaped exception verb for mutating that metadata. There is no
 labels with `sm get session --show-labels`, or select sessions with the
 `label:key=value` selector grammar.
 
+Selector arguments follow one shape rule. Batch mutation commands take
+positional selectors: `sm delete session <SELECTOR>` and
+`sm label <SELECTOR> <MUTATION>`. Single-session commands take positional
+session ids: `sm capture <SESSION_ID>`. Session list and read commands take
+selectors through `--selector`: `sm get session --selector <SELECTOR>`.
+
+Selector matching is separate from namespace scoping. `namespace:default` is a
+selector that matches sessions in the default namespace. `--namespace default`
+and `-A` control the namespace scope used while resolving selectors. Namespace
+reads are not selector-consuming; `sm get namespace` lists namespaces and
+`sm get namespace <slug>` reads one namespace by slug.
+
 Namespace context precedence is explicit `--namespace`, `SM_NAMESPACE`, user
 context from `sm config set-context`, then `default`. Deleting a namespace
 cascades to its sessions and clears the user context when it points at the

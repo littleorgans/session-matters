@@ -15,7 +15,9 @@ fn get_session_help_exposes_only_session_read_arguments() {
         assert_success("sm get session help", &output);
         let stdout = stdout(&output);
         assert!(stdout.contains("--selector"));
+        assert!(stdout.contains("Optional session selector used for matching sessions."));
         assert!(stdout.contains("--namespace"));
+        assert!(stdout.contains("Namespace scope for resolving session selectors"));
         assert!(stdout.contains("--all-namespaces"));
         assert!(stdout.contains("--json"));
         assert!(stdout.contains("--show-labels"));
@@ -187,6 +189,7 @@ fn removed_get_forms_are_rejected_by_clap() {
         ["get", "agents", "--help"].as_slice(),
         ["get", "label", "--help"].as_slice(),
         ["get", "namespace", "--selector", "all"].as_slice(),
+        ["get", "namespace", "namespace:default"].as_slice(),
     ] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(args)

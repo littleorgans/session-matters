@@ -59,8 +59,8 @@ cli_flag        = "id"
 name            = "selector"
 type            = "string"
 required        = false
-mcp_description = "Optional session selector. Defaults to all."
-cli_help        = "Optional session selector."
+mcp_description = "Optional session selector used for matching sessions. Defaults to all."
+cli_help        = "Optional session selector used for matching sessions."
 cli_flag        = "--selector"
 selector        = true
 
@@ -153,8 +153,8 @@ output_schema   = '''
 name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Session selector to terminate."
-cli_help        = "Session selector to terminate."
+mcp_description = "Session selector used for matching sessions to terminate."
+cli_help        = "Session selector used for matching sessions to terminate."
 cli_flag        = "selector"
 selector        = true
 

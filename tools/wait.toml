@@ -18,8 +18,8 @@ output_schema   = '''
 name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Session selector to observe."
-cli_help        = "Session selector to observe."
+mcp_description = "Session selector used for matching sessions to observe."
+cli_help        = "Session selector used for matching sessions to observe."
 cli_flag        = "selector"
 selector        = true
 

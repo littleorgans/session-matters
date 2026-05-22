@@ -8,7 +8,7 @@
         "type": "integer"
       },
       "selector": {
-        "description": "Session selector to terminate.",
+        "description": "Session selector used for matching sessions to terminate.",
         "type": "string"
       },
       "signal": {

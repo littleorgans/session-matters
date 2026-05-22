@@ -24,7 +24,7 @@ pub const SESSION_LIST_ABOUT: &str = "List session records, or get one session r
 #[rustfmt::skip]
 pub const SESSION_LIST_ID_HELP: &str = "Optional session id to load instead of listing.";
 #[rustfmt::skip]
-pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const SESSION_LIST_SHOW_LABELS_HELP: &str = "Render session labels in human output. JSON output already includes labels.";
 
@@ -55,7 +55,7 @@ pub const SESSION_CAPTURE_JSON_HELP: &str = "Render the captured session and cap
 #[rustfmt::skip]
 pub const SESSION_DELETE_ABOUT: &str = "Terminate daemon owned sessions by selector.";
 #[rustfmt::skip]
-pub const SESSION_DELETE_SELECTOR_HELP: &str = "Session selector to terminate.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const SESSION_DELETE_SELECTOR_HELP: &str = "Session selector used for matching sessions to terminate.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const SESSION_DELETE_SIGNAL_HELP: &str = "Signal to send. Defaults to SIGTERM.";
 #[rustfmt::skip]
@@ -64,14 +64,14 @@ pub const SESSION_DELETE_GRACE_SECS_HELP: &str = "Seconds to wait before SIGKILL
 #[rustfmt::skip]
 pub const SESSION_LABEL_ABOUT: &str = "Add or remove labels on selected sessions.";
 #[rustfmt::skip]
-pub const SESSION_LABEL_SELECTOR_HELP: &str = "Session selector to mutate.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const SESSION_LABEL_SELECTOR_HELP: &str = "Session selector used for matching sessions to label.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const SESSION_LABEL_MUTATION_HELP: &str = "Label mutation as key=value or key-.";
 
 #[rustfmt::skip]
 pub const MAIL_SEND_ABOUT: &str = "Send durable mail to selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_SEND_TO_HELP: &str = "Recipient selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const MAIL_SEND_TO_HELP: &str = "Recipient selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const MAIL_SEND_FROM_HELP: &str = "Sender session id. Defaults to HELIOY_SESSION_ID when set.";
 #[rustfmt::skip]
@@ -80,24 +80,24 @@ pub const MAIL_SEND_CONTENT_HELP: &str = "Message content.";
 #[rustfmt::skip]
 pub const MAIL_READ_ABOUT: &str = "Read unread mail for selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_READ_SELECTOR_HELP: &str = "Inbox owner selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const MAIL_READ_SELECTOR_HELP: &str = "Inbox owner selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const MAIL_READ_PEEK_HELP: &str = "Return unread mail without marking it read.";
 
 #[rustfmt::skip]
 pub const MAIL_CHECK_ABOUT: &str = "Return unread mail count for selected sessions.";
 #[rustfmt::skip]
-pub const MAIL_CHECK_SELECTOR_HELP: &str = "Inbox owner selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const MAIL_CHECK_SELECTOR_HELP: &str = "Inbox owner selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 
 #[rustfmt::skip]
 pub const MAIL_STOP_CHECK_ABOUT: &str = "Check unread mail for stop-hook decisions.";
 #[rustfmt::skip]
-pub const MAIL_STOP_CHECK_SELECTOR_HELP: &str = "Inbox owner selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const MAIL_STOP_CHECK_SELECTOR_HELP: &str = "Inbox owner selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 
 #[rustfmt::skip]
 pub const NUDGE_ABOUT: &str = "Send an ephemeral nudge to selected sessions.";
 #[rustfmt::skip]
-pub const NUDGE_TO_HELP: &str = "Recipient selector.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const NUDGE_TO_HELP: &str = "Recipient selector used for matching sessions.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";
 
@@ -124,7 +124,7 @@ pub const LOGS_MAX_BYTES_HELP: &str = "Maximum bytes to return from the end of t
 #[rustfmt::skip]
 pub const WAIT_ABOUT: &str = "Wait until a selector satisfies a condition.";
 #[rustfmt::skip]
-pub const WAIT_SELECTOR_HELP: &str = "Session selector to observe.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const WAIT_SELECTOR_HELP: &str = "Session selector used for matching sessions to observe.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
 #[rustfmt::skip]
 pub const WAIT_FOR_HELP: &str = "Condition to wait for: running, terminated, or count=N.";
 #[rustfmt::skip]

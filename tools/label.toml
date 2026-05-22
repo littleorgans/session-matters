@@ -17,8 +17,8 @@ output_schema   = '''
 name            = "selector"
 type            = "string"
 required        = true
-mcp_description = "Session selector to mutate."
-cli_help        = "Session selector to mutate."
+mcp_description = "Session selector used for matching sessions to label."
+cli_help        = "Session selector used for matching sessions to label."
 cli_flag        = "selector"
 selector        = true
 

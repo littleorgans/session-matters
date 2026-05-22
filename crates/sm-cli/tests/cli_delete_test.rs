@@ -9,11 +9,28 @@ fn delete_session_help_exposes_session_flags() {
         assert_success(&format!("sm delete {noun} --help"), &output);
         let stdout = stdout(&output);
         assert!(stdout.contains("<SELECTOR>"));
+        assert!(stdout.contains("Session selector used for matching sessions to terminate."));
+        assert!(stdout.contains("namespace:<slug>"));
         assert!(stdout.contains("--namespace"));
+        assert!(stdout.contains("Namespace scope for resolving session selectors"));
         assert!(stdout.contains("--all-namespaces"));
+        assert!(stdout.contains("Resolve session selectors across all namespaces"));
         assert!(stdout.contains("--signal"));
         assert!(stdout.contains("--grace"));
     }
+}
+
+#[test]
+fn delete_session_rejects_selector_flag_near_miss() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args(["delete", "session", "--selector", "namespace:default"])
+        .output()
+        .expect("sm delete session near miss executes");
+
+    assert!(!output.status.success());
+    let stderr = stderr(&output);
+    assert!(stderr.contains("unexpected argument '--selector'"));
+    assert!(stderr.contains("Usage: sm delete session [OPTIONS] <SELECTOR>"));
 }
 
 #[test]

@@ -83,7 +83,8 @@ fn label_help_describes_positionals_and_selector_grammar() {
 
     for expected in [
         "<SELECTOR>",
-        "Session selector to mutate.",
+        "Session selector used for matching sessions to label.",
+        "Namespace scope for resolving session selectors",
         "<MUTATION>",
         "Label mutation as key=value or key-.",
         "Grammar:",

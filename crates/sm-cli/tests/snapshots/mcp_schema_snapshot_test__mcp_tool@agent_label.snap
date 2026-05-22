@@ -12,7 +12,7 @@ expression: tool
         "type": "string"
       },
       "selector": {
-        "description": "Session selector to mutate.",
+        "description": "Session selector used for matching sessions to label.",
         "type": "string"
       }
     },

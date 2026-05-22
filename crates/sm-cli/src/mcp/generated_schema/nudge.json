@@ -16,7 +16,7 @@
         "type": "string"
       },
       "to": {
-        "description": "Recipient selector.",
+        "description": "Recipient selector used for matching sessions.",
         "type": "string"
       }
     },

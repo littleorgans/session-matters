@@ -8,13 +8,13 @@ use crate::cli::namespace_resolver::resolve_namespace_dir;
 
 #[derive(Debug, Clone, Default, Args)]
 pub struct NamespaceScopeArgs {
-    #[arg(long, help = "Namespace slug used to scope selector resolution")]
+    #[arg(long, help = "Namespace scope for resolving session selectors")]
     pub namespace: Option<Namespace>,
     #[arg(
         short = 'A',
         long = "all-namespaces",
         conflicts_with = "namespace",
-        help = "Bypass default namespace scoping"
+        help = "Resolve session selectors across all namespaces"
     )]
     pub all_namespaces: bool,
 }

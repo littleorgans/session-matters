@@ -16,7 +16,7 @@
         "type": "string"
       },
       "selector": {
-        "description": "Session selector to observe.",
+        "description": "Session selector used for matching sessions to observe.",
         "type": "string"
       },
       "timeout_secs": {

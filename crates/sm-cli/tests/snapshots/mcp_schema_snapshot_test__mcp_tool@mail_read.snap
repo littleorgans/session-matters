@@ -20,7 +20,7 @@ expression: tool
         "type": "boolean"
       },
       "selector": {
-        "description": "Inbox owner selector.",
+        "description": "Inbox owner selector used for matching sessions.",
         "type": "string"
       }
     },
