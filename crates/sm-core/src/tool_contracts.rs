@@ -1,20 +1,34 @@
 #![allow(dead_code)]
 
+use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
-const TOOLS_TOML: &str = include_str!("../../../tools.toml");
+include!(concat!(env!("OUT_DIR"), "/tool_sources.rs"));
 
 static REGISTRY: OnceLock<ToolContractRegistry> = OnceLock::new();
 
 pub fn contract_registry() -> &'static ToolContractRegistry {
     REGISTRY.get_or_init(|| {
-        ToolContractRegistry::from_toml_str(TOOLS_TOML)
-            .unwrap_or_else(|error| panic!("tools.toml is valid: {error}"))
+        let content = bundled_tool_sources();
+        ToolContractRegistry::from_toml_str(&content)
+            .unwrap_or_else(|error| panic!("tools/*.toml sources are valid: {error}"))
     })
+}
+
+fn bundled_tool_sources() -> String {
+    let mut content = String::new();
+    for (_, source) in TOOL_SOURCE_FILES {
+        content.push_str(source);
+        if !content.ends_with('\n') {
+            content.push('\n');
+        }
+        content.push('\n');
+    }
+    content
 }
 
 #[derive(Debug, Clone)]
@@ -27,9 +41,17 @@ impl ToolContractRegistry {
     pub fn from_toml_str(content: &str) -> Result<Self, String> {
         let parsed: RawToolsToml = toml::from_str(content)
             .map_err(|error| format!("failed to parse tools.toml: {error}"))?;
-        let tools = parsed
-            .tools
+        let mut raw_tools = parsed.tools.into_iter().enumerate().collect::<Vec<_>>();
+        raw_tools.sort_by(
+            |(left_index, (left_name, _)), (right_index, (right_name, _))| {
+                tool_contract_sort_key(left_name, *left_index)
+                    .cmp(&tool_contract_sort_key(right_name, *right_index))
+            },
+        );
+
+        let tools = raw_tools
             .into_iter()
+            .map(|(_, tool)| tool)
             .map(|(name, raw)| {
                 let aliases = raw.mcp_aliases.clone();
                 let tool = ToolContract::from_raw(name, raw)?;
@@ -46,7 +68,9 @@ impl ToolContractRegistry {
             .collect::<Result<Vec<_>, String>>()?
             .into_iter()
             .flatten()
-            .collect();
+            .collect::<Vec<_>>();
+
+        validate_unique_render_names(&tools)?;
 
         Ok(Self {
             skill: parsed.skill,
@@ -70,6 +94,57 @@ impl ToolContractRegistry {
             .collect::<Vec<_>>();
         json!({ "tools": tools })
     }
+}
+
+const TOOL_CONTRACT_ORDER: &[&str] = &[
+    "agent_run",
+    "agent_list",
+    "agent_get",
+    "agent_capture",
+    "agent_delete",
+    "agent_label",
+    "mail_send",
+    "mail_read",
+    "mail_check",
+    "mail_stop_check",
+    "nudge",
+    "link",
+    "logs",
+    "wait",
+    "doctor",
+];
+
+fn tool_contract_sort_key(name: &str, original_index: usize) -> (usize, usize) {
+    let index = TOOL_CONTRACT_ORDER
+        .iter()
+        .position(|known| *known == name)
+        .unwrap_or(TOOL_CONTRACT_ORDER.len());
+    (index, original_index)
+}
+
+fn validate_unique_render_names(tools: &[ToolContract]) -> Result<(), String> {
+    let mut tool_names = HashSet::new();
+    let mut const_names = HashSet::new();
+    for tool in tools {
+        if !tool_names.insert(tool.name.as_str()) {
+            return Err(format!("duplicate MCP tool name {}", tool.name));
+        }
+        let prefix = &tool.artifacts.cli_help_prefix;
+        let about_const = format!("{prefix}_ABOUT");
+        if !const_names.insert(about_const.clone()) {
+            return Err(format!("duplicate CLI help constant {about_const}"));
+        }
+        for param in &tool.params {
+            if param.cli_help.is_none() {
+                continue;
+            }
+            let const_name = format!("{prefix}_{}_HELP", rust_const_name(&param.name));
+            if !const_names.insert(const_name.clone()) {
+                return Err(format!("duplicate CLI help constant {const_name}"));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -347,4 +422,89 @@ pub fn rust_const_name(value: &str) -> String {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_registry_preserves_committed_tool_order() {
+        let names = contract_registry()
+            .tools()
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            names,
+            vec![
+                "agent_run",
+                "session_run",
+                "agent_list",
+                "session_list",
+                "agent_get",
+                "session_get",
+                "agent_capture",
+                "session_capture",
+                "agent_delete",
+                "session_delete",
+                "agent_label",
+                "session_label",
+                "mail_send",
+                "mail_read",
+                "mail_check",
+                "mail_stop_check",
+                "nudge",
+                "link",
+                "logs",
+                "wait",
+                "doctor",
+            ]
+        );
+    }
+
+    #[test]
+    fn duplicate_final_mcp_tool_names_are_rejected() {
+        let error = ToolContractRegistry::from_toml_str(
+            r#"
+[tools.first]
+cli_name = "first"
+mcp_description = "first tool"
+cli_about = "first tool"
+
+[[tools.first.mcp_aliases]]
+name = "second"
+mcp_description = "duplicate alias"
+
+[tools.second]
+cli_name = "second"
+mcp_description = "second tool"
+cli_about = "second tool"
+"#,
+        )
+        .expect_err("duplicate alias should fail");
+
+        assert!(error.contains("duplicate MCP tool name second"));
+    }
+
+    #[test]
+    fn duplicate_cli_help_constants_are_rejected() {
+        let error = ToolContractRegistry::from_toml_str(
+            r#"
+[tools.foo_bar]
+cli_name = "foo-bar"
+mcp_description = "first tool"
+cli_about = "first tool"
+
+[tools.foo-bar]
+cli_name = "foo bar"
+mcp_description = "second tool"
+cli_about = "second tool"
+"#,
+        )
+        .expect_err("duplicate generated constant should fail");
+
+        assert!(error.contains("duplicate CLI help constant FOO_BAR_ABOUT"));
+    }
 }

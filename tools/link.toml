@@ -1,0 +1,46 @@
+[tools.link]
+cli_name        = "link"
+mcp_description = "Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically."
+cli_about       = "Attach runtime metadata to one unmanaged session."
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["session"],
+  "properties": {
+    "session": {"type": "object"}
+  }
+}
+'''
+
+[[tools.link.params]]
+name            = "session_id"
+type            = "string"
+required        = false
+mcp_description = "Session id to link. CLI defaults to HELIOY_SESSION_ID when omitted."
+cli_help        = "Session id to link. Defaults to HELIOY_SESSION_ID."
+cli_flag        = "--session-id"
+
+[[tools.link.params]]
+name            = "selector"
+type            = "string"
+required        = false
+mcp_description = "Selector that must match exactly one session when session_id is omitted."
+cli_help        = "Selector that must match exactly one session."
+cli_flag        = "--selector"
+
+[[tools.link.params]]
+name            = "runtime_session"
+type            = "string"
+required        = true
+mcp_description = "Runtime session id reported by the SessionStart hook."
+cli_help        = "Runtime session id reported by the SessionStart hook."
+cli_flag        = "--runtime-session"
+
+[[tools.link.params]]
+name            = "transcript"
+type            = "string"
+required        = true
+mcp_description = "Transcript path reported by the SessionStart hook."
+cli_help        = "Transcript path reported by the SessionStart hook."
+cli_flag        = "--transcript"
+

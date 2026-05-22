@@ -1,0 +1,43 @@
+[tools.agent_capture]
+cli_name        = "capture"
+mcp_description = "Deprecated compatibility alias for session_capture. Capture tmux pane scrollback for one selected session."
+cli_about       = "Capture tmux pane scrollback for one selected session."
+mcp_namespace_scope = true
+output_schema   = '''
+{
+  "type": "object",
+  "required": ["session", "capture"],
+  "properties": {
+    "session": {"type": "object"},
+    "capture": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "string", "enum": ["captured", "failed"]},
+        "payload": {"type": "object"}
+      }
+    }
+  }
+}
+'''
+
+[[tools.agent_capture.params]]
+name            = "selector"
+type            = "string"
+required        = true
+mcp_description = "Session selector to capture. Usually id:<uuid>."
+cli_help        = "Session selector to capture. Usually id:<uuid>."
+cli_flag        = "--selector"
+
+[[tools.agent_capture.params]]
+name            = "scrollback_lines"
+type            = "integer"
+required        = false
+mcp_description = "Maximum tmux scrollback lines to include."
+cli_help        = "Maximum tmux scrollback lines to include."
+cli_flag        = "--scrollback-lines"
+
+[[tools.agent_capture.mcp_aliases]]
+name            = "session_capture"
+mcp_description = "Capture tmux pane scrollback for one selected session."
+
