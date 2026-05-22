@@ -220,27 +220,6 @@ impl SqliteStore {
         self.get_session(id)
     }
 
-    pub fn link_session(
-        &self,
-        id: &Uuid,
-        runtime_session: &str,
-        transcript_path: &std::path::Path,
-        updated_at: DateTime<Utc>,
-    ) -> Result<Option<Session>, SessionRowError> {
-        self.connection.execute(
-            "UPDATE sessions
-             SET runtime_session = ?1, transcript_path = ?2, updated_at = ?3
-             WHERE id = ?4",
-            params![
-                runtime_session,
-                transcript_path.display().to_string(),
-                updated_at.to_rfc3339(),
-                id.to_string(),
-            ],
-        )?;
-        self.get_session(id)
-    }
-
     pub fn record_transcript_path(
         &self,
         id: &Uuid,
@@ -259,19 +238,6 @@ impl SqliteStore {
             ],
         )?;
         self.get_session(id)
-    }
-
-    pub fn get_session_by_runtime_session(
-        &self,
-        runtime_session: &str,
-    ) -> Result<Option<Session>, SessionRowError> {
-        Ok(self
-            .query_sessions(
-                "SELECT * FROM sessions WHERE runtime_session = ?1 ORDER BY created_at",
-                [runtime_session.to_string()],
-            )?
-            .into_iter()
-            .next())
     }
 }
 
