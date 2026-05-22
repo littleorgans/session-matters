@@ -34,7 +34,7 @@ pub fn examples() -> Vec<ToolExample> {
         ToolExample {
             tool: "session_capture",
             arguments: json!({
-                "selector": "id:019e32e3-0000-7000-8000-000000000000",
+                "id": "019e32e3-0000-7000-8000-000000000000",
                 "scrollback_lines": 500
             }),
         },

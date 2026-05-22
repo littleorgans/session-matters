@@ -286,6 +286,58 @@ fn session_resources_list_and_get_by_id() {
 }
 
 #[test]
+fn capture_takes_exact_session_id() {
+    let runtime_path = common::fake_runtime_path("claude");
+    let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
+
+    let run = daemon
+        .command()
+        .args([
+            "run",
+            "claude",
+            "--role",
+            "engineer",
+            "--dir",
+            &daemon.dir.path().display().to_string(),
+            "--detach",
+        ])
+        .output()
+        .expect("sm run executes");
+    assert_success("sm run", &run);
+    let id = first_field(&run.stdout);
+
+    let capture = daemon
+        .command()
+        .args(["capture", &id, "--json", "--scrollback-lines", "20"])
+        .output()
+        .expect("sm capture <id> --json executes");
+    assert_success("sm capture <id> --json", &capture);
+    let body: Value = serde_json::from_slice(&capture.stdout).expect("capture JSON parses");
+    assert_eq!(body["session"]["id"], id);
+    assert_eq!(body["capture"]["status"], "failed");
+
+    for args in [
+        ["capture", "--selector", "all"].as_slice(),
+        ["capture", "all"].as_slice(),
+        ["capture", "role:engineer"].as_slice(),
+        ["capture", "namespace:default"].as_slice(),
+    ] {
+        let output = daemon
+            .command()
+            .args(args)
+            .output()
+            .unwrap_or_else(|error| panic!("sm {} executes: {error}", args.join(" ")));
+        assert!(
+            !output.status.success(),
+            "sm {} unexpectedly succeeded\nstdout:\n{}\nstderr:\n{}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 fn run_persists_canonical_dir_from_cli_resolution() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());

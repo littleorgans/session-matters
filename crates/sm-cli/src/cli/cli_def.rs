@@ -249,11 +249,11 @@ pub struct LogsArgs {
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct CaptureArgs {
-    #[arg(long, help = generated_help::SESSION_CAPTURE_SELECTOR_HELP)]
-    pub selector: String,
+    #[arg(help = generated_help::SESSION_CAPTURE_ID_HELP)]
+    pub session_id: uuid::Uuid,
     #[arg(long = "scrollback-lines", help = generated_help::SESSION_CAPTURE_SCROLLBACK_LINES_HELP)]
     pub scrollback_lines: Option<u32>,
-    #[arg(long)]
+    #[arg(long, help = generated_help::SESSION_CAPTURE_JSON_HELP)]
     pub json: bool,
 }
 

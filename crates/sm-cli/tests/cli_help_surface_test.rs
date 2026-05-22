@@ -106,6 +106,28 @@ fn label_help_describes_positionals_and_selector_grammar() {
 }
 
 #[test]
+fn capture_help_targets_one_session_id() {
+    let stdout = help(&["capture", "--help"]);
+
+    for expected in [
+        "Usage: sm capture [OPTIONS] <SESSION_ID>",
+        "<SESSION_ID>",
+        "Exact session id to capture.",
+        "--scrollback-lines",
+        "runtime-matters uses its default capture depth",
+        "--json",
+        "Render the captured session and capture result as JSON.",
+    ] {
+        assert!(
+            stdout.contains(expected),
+            "capture help missing {expected:?}\n{stdout}"
+        );
+    }
+    assert!(!stdout.contains("--selector"), "{stdout}");
+    assert!(!stdout.contains("role:<name>"), "{stdout}");
+}
+
+#[test]
 fn create_and_delete_resource_help_uses_current_lifecycle_copy() {
     let create = help(&["create", "--help"]);
     assert!(create.contains("Create namespace and session records"));

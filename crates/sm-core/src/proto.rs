@@ -222,7 +222,7 @@ pub struct LogsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CaptureRequest {
-    pub selector: Selector,
+    pub session_id: uuid::Uuid,
     #[serde(default)]
     pub scrollback_lines: Option<u32>,
 }

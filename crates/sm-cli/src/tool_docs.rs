@@ -19,7 +19,7 @@ sm config set-context project-alpha
 sm create session claude --role general --dir "$PWD"
 sm run claude --role general --dir "$PWD" --detach
 sm run codex --role reviewer --namespace project-alpha --target tmux:agents:0.1 --force --detach
-sm capture --selector id:<session-id>
+sm capture <session-id>
 sm get sessions
 sm delete namespace project-alpha
 sm logs id:<session-id>

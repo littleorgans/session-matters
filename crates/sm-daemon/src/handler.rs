@@ -232,8 +232,12 @@ impl DaemonState {
         request: CaptureRequest,
     ) -> Result<RpcResponse> {
         let session = self
-            .resolve_selector(&request.selector, "capture")?
-            .remove(0);
+            .store
+            .lock()
+            .expect("store lock poisoned")
+            .get_session(&request.session_id)
+            .context("failed to load capture session")?
+            .ok_or_else(|| anyhow::anyhow!("unknown capture session: {}", request.session_id))?;
         self.identity
             .authorize(
                 &context.principal,

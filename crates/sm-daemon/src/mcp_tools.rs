@@ -235,15 +235,19 @@ async fn agent_capture(
     context: &RequestContext,
     arguments: &Value,
 ) -> Result<Value> {
-    let selector = required_selector(arguments, "selector")
-        .or_else(|_| required_string(arguments, "id").and_then(selector_from_id))?;
+    let selector = selector_from_id(required_string(arguments, "id")?)?;
     let selector = scoped_required_selector(state, context, arguments, selector)?;
+    let session_id = state
+        .resolve_selector(&selector, "capture")?
+        .pop()
+        .expect("id selector matched one session")
+        .id;
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::Capture {
                 request: CaptureRequest {
-                    selector,
+                    session_id,
                     scrollback_lines: optional_u64(arguments, "scrollback_lines")
                         .map(u32::try_from)
                         .transpose()
@@ -642,11 +646,9 @@ fn read_namespace_scope(
 fn required_string<'a>(arguments: &'a Value, field: &str) -> Result<&'a str> {
     optional_string(arguments, field).ok_or_else(|| anyhow!("missing required argument `{field}`"))
 }
-
 fn optional_string<'a>(arguments: &'a Value, field: &str) -> Option<&'a str> {
     arguments.get(field).and_then(Value::as_str)
 }
-
 fn optional_u64(arguments: &Value, field: &str) -> Option<u64> {
     arguments.get(field).and_then(Value::as_u64)
 }

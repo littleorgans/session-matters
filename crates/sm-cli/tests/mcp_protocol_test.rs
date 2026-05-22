@@ -66,6 +66,15 @@ fn initialize_and_tools_list_follow_mcp_shape() {
     );
     assert_deprecation_hint(&listed["result"]["tools"], "agent_list", "session_list");
     assert_deprecation_hint(&listed["result"]["tools"], "agent_get", "session_get");
+    let capture = find_tool(&listed["result"]["tools"], "session_capture");
+    assert!(
+        capture["inputSchema"]["required"]
+            .as_array()
+            .expect("required is array")
+            .contains(&json!("id"))
+    );
+    assert_eq!(capture["inputSchema"]["properties"]["id"]["format"], "uuid");
+    assert!(capture["inputSchema"]["properties"]["selector"].is_null());
 }
 
 #[tokio::test]
@@ -138,6 +147,36 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         "hello transcript\n"
     );
 
+    let capture = call_tool(
+        &mut mcp,
+        10,
+        "session_capture",
+        json!({ "id": id, "scrollback_lines": 20 }),
+    );
+    assert!(capture["error"].is_null());
+    assert_eq!(
+        capture["result"]["structuredContent"]["capture"]["status"],
+        "failed"
+    );
+
+    let broad_capture = call_tool(
+        &mut mcp,
+        11,
+        "session_capture",
+        json!({ "selector": "all" }),
+    );
+    assert!(broad_capture["error"].is_null());
+    assert_eq!(
+        broad_capture["result"]["_meta"]["sm_tool_error"]["is_error"],
+        true
+    );
+    assert!(
+        broad_capture["result"]["_meta"]["sm_tool_error"]["message"]
+            .as_str()
+            .expect("error message is string")
+            .contains("missing required argument `id`")
+    );
+
     let waited = call_tool(
         &mut mcp,
         7,
@@ -187,6 +226,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
             Action::Spawn,
             Action::Link,
             Action::Logs,
+            Action::Read,
             Action::Doctor,
             Action::Kill
         ]
@@ -537,6 +577,15 @@ fn tool_names(tools: &Value) -> Vec<&str> {
         .iter()
         .map(|tool| tool["name"].as_str().expect("tool name"))
         .collect()
+}
+
+fn find_tool<'a>(tools: &'a Value, name: &str) -> &'a Value {
+    tools
+        .as_array()
+        .expect("tools is array")
+        .iter()
+        .find(|tool| tool["name"] == name)
+        .unwrap_or_else(|| panic!("missing tool {name}"))
 }
 
 fn create_namespace(daemon: &DaemonFixture, name: &str) {

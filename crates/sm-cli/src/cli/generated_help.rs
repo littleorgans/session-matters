@@ -46,9 +46,11 @@ pub const NAMESPACE_GET_SLUG_HELP: &str = "Namespace slug to load.";
 #[rustfmt::skip]
 pub const SESSION_CAPTURE_ABOUT: &str = "Capture tmux pane scrollback for one selected session.";
 #[rustfmt::skip]
-pub const SESSION_CAPTURE_SELECTOR_HELP: &str = "Session selector to capture. Usually id:<uuid>.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
+pub const SESSION_CAPTURE_ID_HELP: &str = "Exact session id to capture.";
 #[rustfmt::skip]
-pub const SESSION_CAPTURE_SCROLLBACK_LINES_HELP: &str = "Maximum tmux scrollback lines to include.";
+pub const SESSION_CAPTURE_SCROLLBACK_LINES_HELP: &str = "Maximum tmux scrollback lines to include. When omitted, runtime-matters uses its default capture depth.";
+#[rustfmt::skip]
+pub const SESSION_CAPTURE_JSON_HELP: &str = "Render the captured session and capture result as JSON.";
 
 #[rustfmt::skip]
 pub const SESSION_DELETE_ABOUT: &str = "Terminate daemon owned sessions by selector.";

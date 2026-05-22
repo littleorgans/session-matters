@@ -73,8 +73,8 @@ Use this skill when you need to run, list, inspect, or terminate local Helioy se
 
 ```json
 {
-  "scrollback_lines": 500,
-  "selector": "id:019e32e3-0000-7000-8000-000000000000"
+  "id": "019e32e3-0000-7000-8000-000000000000",
+  "scrollback_lines": 500
 }
 ```
 

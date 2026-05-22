@@ -1,10 +1,7 @@
 use anyhow::{Result, bail};
 use lilo_rm_core::{CaptureError, CaptureResponse};
-use std::str::FromStr;
 
-use sm_core::{
-    CaptureRequest, RpcRequest, RpcResponse, Selector, SmEndpoint, humanize_capture_error,
-};
+use sm_core::{CaptureRequest, RpcRequest, RpcResponse, SmEndpoint, humanize_capture_error};
 
 use crate::cli::cli_def::CaptureArgs;
 
@@ -14,7 +11,7 @@ pub async fn run(args: CaptureArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Capture {
             request: CaptureRequest {
-                selector: Selector::from_str(&args.selector)?,
+                session_id: args.session_id,
                 scrollback_lines: args.scrollback_lines,
             },
         },

@@ -2,7 +2,7 @@ mod common;
 
 use common::{LOCAL_UID, TestDaemon, local_context};
 use lilo_rm_core::{CaptureError, CaptureResponse, PaneSnapshot};
-use sm_core::{CaptureRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest};
+use sm_core::{CaptureRequest, RpcRequest, RpcResponse, RuntimeKind, SpawnRequest};
 
 #[tokio::test]
 async fn spawn_validates_target_and_persists_tmux_pane() {
@@ -99,7 +99,7 @@ async fn capture_delegates_to_driver_for_selected_session() {
             context,
             RpcRequest::Capture {
                 request: CaptureRequest {
-                    selector: Selector::Id { id: session.id },
+                    session_id: session.id,
                     scrollback_lines: Some(20),
                 },
             },
@@ -130,7 +130,7 @@ async fn capture_surfaces_pane_unavailable_failure() {
             context,
             RpcRequest::Capture {
                 request: CaptureRequest {
-                    selector: Selector::Id { id: session.id },
+                    session_id: session.id,
                     scrollback_lines: Some(20),
                 },
             },
