@@ -10,39 +10,19 @@ use crate::cli::namespace_resolver::resolve_namespace_dir;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
-    spawn_session(SessionSpawnArgs {
-        runtime: args.session.runtime,
-        role: args.session.role,
-        dir: args.session.dir,
-        namespace: args.session.namespace,
-        labels: args.session.labels,
-        agent_config: args.session.agent_config,
-        target: args.target,
-        force: args.force,
-    })
-    .await
+    spawn_session(args.session, args.target, args.force).await
 }
 
 pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
-    spawn_session(SessionSpawnArgs {
-        runtime: args.runtime,
-        role: args.role,
-        dir: args.dir,
-        namespace: args.namespace,
-        labels: args.labels,
-        agent_config: args.agent_config,
-        target: "headless".to_string(),
-        force: false,
-    })
-    .await
+    spawn_session(args, "headless".to_string(), false).await
 }
 
-async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
+async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> Result<()> {
     let spawn_location = resolve_spawn_location(args.dir.as_ref(), args.namespace.clone())?;
     let endpoint = SmEndpoint::from_env()?;
     let env = lilo_rm_core::capture_caller_env();
-    let target = SpawnTarget::from_str(&args.target).ok();
-    let shell_resume = if target
+    let spawn_target = SpawnTarget::from_str(&target).ok();
+    let shell_resume = if spawn_target
         .as_ref()
         .and_then(SpawnTarget::tmux_address)
         .is_some()
@@ -62,7 +42,7 @@ async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
                 workspace: spawn_location.dir.clone(),
                 dir: Some(spawn_location.dir),
                 namespace: Some(spawn_location.namespace),
-                target: args.target,
+                target,
                 agent_config: args.agent_config,
                 env,
                 shell_resume,
@@ -71,7 +51,7 @@ async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
                     .iter()
                     .map(|label| Label::from_str(label))
                     .collect::<Result<Vec<_>, _>>()?,
-                force: args.force,
+                force,
             },
         },
     )
@@ -88,18 +68,6 @@ async fn spawn_session(args: SessionSpawnArgs) -> Result<()> {
             other.kind()
         ),
     }
-}
-
-#[derive(Debug)]
-struct SessionSpawnArgs {
-    runtime: sm_core::RuntimeKind,
-    role: String,
-    dir: Option<PathBuf>,
-    namespace: Option<Namespace>,
-    labels: Vec<String>,
-    agent_config: Option<String>,
-    target: String,
-    force: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
