@@ -36,7 +36,7 @@ pub enum Command {
     Doctor(DoctorArgs),
     #[command(about = "Send and read durable session mail")]
     Mail(MailArgs),
-    #[command(about = "Add or remove labels on selected sessions")]
+    #[command(about = generated_help::SESSION_LABEL_ABOUT, long_about = generated_help::SESSION_LABEL_ABOUT)]
     Label(LabelArgs),
     #[command(about = generated_help::LINK_ABOUT, long_about = generated_help::LINK_ABOUT)]
     Link(LinkArgs),
@@ -111,7 +111,7 @@ pub struct GetArgs {
 pub enum GetResource {
     #[command(about = generated_help::SESSION_GET_ABOUT, long_about = generated_help::SESSION_GET_ABOUT)]
     Session(SessionGetArgs),
-    #[command(about = "List session records known to the session-matters daemon")]
+    #[command(about = generated_help::SESSION_LIST_ABOUT, long_about = generated_help::SESSION_LIST_ABOUT)]
     Sessions(SessionListArgs),
     #[command(about = "Get one namespace record by slug")]
     Namespace(NamespaceGetArgs),
