@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const TOOL_SOURCE_ORDER: &[&str] = &[
-    "run", "session", "capture", "label", "mail", "nudge", "link", "logs", "wait", "doctor",
+    "run", "session", "capture", "label", "mail", "nudge", "logs", "wait", "doctor",
 ];
 
 pub fn ordered_tool_source_paths(tools_dir: &Path) -> Result<Vec<PathBuf>, String> {

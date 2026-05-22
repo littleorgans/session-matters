@@ -113,7 +113,6 @@ impl DaemonState {
             RpcRequest::MailStopCheck { request } => response(self.mail_stop_check(request), false),
             RpcRequest::Nudge { request } => response(self.nudge(&context, request).await, false),
             RpcRequest::Label { request } => response(self.label(&context, request).await, false),
-            RpcRequest::Link { request } => response(self.link(&context, request).await, false),
             RpcRequest::Logs { request } => response(self.logs(&context, request).await, false),
             RpcRequest::Capture { request } => {
                 response(self.capture(&context, request).await, false)

@@ -186,6 +186,29 @@ fn labels_are_not_crud_resources() {
     }
 }
 
+#[test]
+fn link_command_is_not_a_visible_surface() {
+    let stdout = help(&["--help"]);
+    assert!(!stdout.contains(" link "), "{stdout}");
+    assert!(!stdout.contains("sm link"), "{stdout}");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args(["link", "--help"])
+        .output()
+        .expect("sm link --help executes");
+    assert!(
+        !output.status.success(),
+        "sm link --help unexpectedly succeeded\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unrecognized subcommand 'link'"),
+        "sm link --help should be rejected as an unknown subcommand\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn help(args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(args)

@@ -18,9 +18,9 @@ pub use mcp::{
 pub use paths::{SmEndpoint, SmPaths, SmPathsError, rtmd_socket_path};
 pub use proto::{
     CaptureRequest, CaptureResponse, DaemonStatus, DeleteRequest, DeleteResponse, DoctorFinding,
-    DoctorRequest, DoctorResponse, LabelRequest, LabelResponse, LinkRequest, LinkResponse,
-    ListRequest, ListResponse, LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse,
-    MailReadRequest, MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
+    DoctorRequest, DoctorResponse, LabelRequest, LabelResponse, ListRequest, ListResponse,
+    LogsRequest, LogsResponse, MailCheckRequest, MailCheckResponse, MailReadRequest,
+    MailReadResponse, MailSendRequest, MailSendResponse, MailStopCheckRequest,
     MailStopCheckResponse, MailUnreadCount, McpBridgeRequest, McpBridgeResponse,
     NamespaceCreateRequest, NamespaceCreateResponse, NamespaceDeleteRequest,
     NamespaceDeleteResponse, NamespaceGetRequest, NamespaceGetResponse, NamespaceListRequest,

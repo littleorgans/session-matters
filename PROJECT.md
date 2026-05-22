@@ -44,3 +44,8 @@ context from `sm config set-context`, then `default`. Deleting a namespace
 cascades to its sessions and clears the user context when it points at the
 deleted namespace. Namespaces cannot be renamed, and sessions cannot move between
 namespaces. Stop and respawn the session in the desired namespace.
+
+Unmanaged-session adoption is deferred to the `schedule-matters` Linear project:
+https://linear.app/alphabio/project/schedule-matters. The removed `sm link`
+surface should return only with a coherent reconcile model such as import,
+adopt, or scheduler-owned binding.

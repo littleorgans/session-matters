@@ -6,9 +6,9 @@ use common::{
     spawn_test_session,
 };
 use sm_core::{
-    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LinkRequest, LogsRequest,
-    LostEvidence, Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
-    SpawnRequest, WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LogsRequest, LostEvidence,
+    Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest,
+    WaitCondition, WaitRequest,
 };
 
 #[tokio::test]
@@ -408,53 +408,20 @@ fn create_namespace(daemon: &TestDaemon, value: &str) -> Namespace {
 }
 
 #[tokio::test]
-async fn link_logs_wait_and_doctor_polish_paths_work() {
+async fn logs_wait_and_doctor_polish_paths_work() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let session = spawn_test_session(&daemon, &context, "engineer").await;
     let transcript = daemon._dir.path().join("transcript.jsonl");
     std::fs::write(&transcript, "first\nsecond\n").expect("transcript writes");
-
-    let linked = daemon
+    daemon
         .state
-        .handle(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id: Some(session.id),
-                    selector: None,
-                    runtime_session: "runtime-1".to_string(),
-                    transcript_path: transcript.clone(),
-                },
-            },
-        )
-        .await;
-    let RpcResponse::Linked { response } = linked.response else {
-        panic!("expected link response");
-    };
-    assert_eq!(
-        response.session.runtime_session.as_deref(),
-        Some("runtime-1")
-    );
-
-    let relinked = daemon
-        .state
-        .handle(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id: None,
-                    selector: None,
-                    runtime_session: "runtime-1".to_string(),
-                    transcript_path: transcript.clone(),
-                },
-            },
-        )
-        .await;
-    let RpcResponse::Linked { response } = relinked.response else {
-        panic!("expected idempotent link response");
-    };
-    assert_eq!(response.session.id, session.id);
+        .store
+        .lock()
+        .expect("store lock poisoned")
+        .record_transcript_path(&session.id, &transcript, Utc::now())
+        .expect("transcript path records")
+        .expect("session exists");
 
     let logs = daemon
         .state

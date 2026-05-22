@@ -195,19 +195,6 @@ pub struct LabelResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LinkRequest {
-    pub session_id: Option<uuid::Uuid>,
-    pub selector: Option<Selector>,
-    pub runtime_session: String,
-    pub transcript_path: PathBuf,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LinkResponse {
-    pub session: Session,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LogsRequest {
     pub selector: Selector,
     pub max_bytes: Option<u64>,
@@ -351,7 +338,6 @@ pub enum RpcRequest {
     MailStopCheck { request: MailStopCheckRequest },
     Nudge { request: NudgeRequest },
     Label { request: LabelRequest },
-    Link { request: LinkRequest },
     Logs { request: LogsRequest },
     Capture { request: CaptureRequest },
     Doctor { request: DoctorRequest },
@@ -376,7 +362,6 @@ pub enum RpcResponse {
     MailStopChecked { response: MailStopCheckResponse },
     Nudged { response: NudgeResponse },
     Labeled { response: LabelResponse },
-    Linked { response: LinkResponse },
     Logs { response: LogsResponse },
     Capture { response: CaptureResponse },
     Doctor { response: DoctorResponse },
@@ -402,7 +387,6 @@ impl RpcResponse {
             RpcResponse::MailStopChecked { .. } => "MailStopChecked",
             RpcResponse::Nudged { .. } => "Nudged",
             RpcResponse::Labeled { .. } => "Labeled",
-            RpcResponse::Linked { .. } => "Linked",
             RpcResponse::Logs { .. } => "Logs",
             RpcResponse::Capture { .. } => "Capture",
             RpcResponse::Doctor { .. } => "Doctor",

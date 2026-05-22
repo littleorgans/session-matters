@@ -102,17 +102,6 @@ pub const NUDGE_TO_HELP: &str = "Recipient selector used for matching sessions.\
 pub const NUDGE_CONTENT_HELP: &str = "Nudge content.";
 
 #[rustfmt::skip]
-pub const LINK_ABOUT: &str = "Attach runtime metadata to one unmanaged session.";
-#[rustfmt::skip]
-pub const LINK_SESSION_ID_HELP: &str = "Session id to link. Defaults to HELIOY_SESSION_ID.";
-#[rustfmt::skip]
-pub const LINK_SELECTOR_HELP: &str = "Selector that must match exactly one session.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";
-#[rustfmt::skip]
-pub const LINK_RUNTIME_SESSION_HELP: &str = "Runtime session id reported by the SessionStart hook.";
-#[rustfmt::skip]
-pub const LINK_TRANSCRIPT_HELP: &str = "Transcript path reported by the SessionStart hook.";
-
-#[rustfmt::skip]
 pub const LOGS_ABOUT: &str = "Read linked transcript logs for one session.";
 #[rustfmt::skip]
 pub const LOGS_SELECTOR_HELP: &str = "Selector that must match exactly one session with transcript logs.\n\nGrammar:\n  all\n  <uuid>\n  id:<uuid>\n  role:<name>\n  namespace:<slug>\n  dir:<path>\n  label:<key>=<value>\n  label:<key> in (v1, v2)\nExamples:\n  all\n  019e44f9-...\n  role:engineer\n  namespace:default\n  dir:/tmp/project\n  label:app=nginx\n  \"label:app in (web, api)\"";

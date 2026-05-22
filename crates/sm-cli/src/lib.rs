@@ -25,7 +25,6 @@ pub async fn run() -> anyhow::Result<()> {
         Command::Doctor(args) => cli::doctor::run(args).await,
         Command::Mail(args) => cli::mail::run(args).await,
         Command::Label(args) => cli::label::run(args).await,
-        Command::Link(args) => cli::link::run(args).await,
         Command::Logs(args) => cli::logs::run(args).await,
         Command::Capture(args) => cli::capture::run(args).await,
         Command::Wait(args) => cli::wait::run(args).await,

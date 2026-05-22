@@ -13,7 +13,7 @@ Use `session_get` before acting on one session id.
 Use `session_capture` to read tmux pane scrollback for a tmux backed session.
 Use `session_delete` to terminate daemon owned sessions.
 Use `session_label` to add or remove labels on selected sessions.
-Use `logs` for daemon-spawned headless transcripts, and `link` only for unmanaged sessions.
+Use `logs` for daemon-spawned headless transcripts.
 Use `wait` and `doctor` for lifecycle and runtime-matters diagnostics.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
 Use `nudge` for the ephemeral notification surface.

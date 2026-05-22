@@ -2,63 +2,18 @@ use std::fs;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use chrono::Utc;
 use lilo_im_core::Action;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::RUNTIME_PROTOCOL_VERSION;
 use sm_core::{
-    DoctorFinding, DoctorRequest, DoctorResponse, LinkRequest, LinkResponse, LogsRequest,
-    LogsResponse, RpcResponse, RuntimeDoctorReport, Selector, Session, SessionState, WaitCondition,
-    WaitRequest, WaitResponse,
+    DoctorFinding, DoctorRequest, DoctorResponse, LogsRequest, LogsResponse, RpcResponse,
+    RuntimeDoctorReport, Selector, Session, SessionState, WaitCondition, WaitRequest, WaitResponse,
 };
 
 use crate::handler::DaemonState;
 use crate::identity_client::session_resource;
 
 impl DaemonState {
-    pub(crate) async fn link(
-        &self,
-        context: &crate::identity_client::RequestContext,
-        request: LinkRequest,
-    ) -> Result<RpcResponse> {
-        if let Some(session) = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .get_session_by_runtime_session(&request.runtime_session)
-            .context("failed to load runtime session link")?
-        {
-            return Ok(RpcResponse::Linked {
-                response: LinkResponse { session },
-            });
-        }
-
-        let session = self.link_target(&request)?;
-        self.identity
-            .authorize(
-                &context.principal,
-                Action::Link,
-                &session_resource(session.id),
-            )
-            .await?;
-        let session = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
-            .link_session(
-                &session.id,
-                &request.runtime_session,
-                &request.transcript_path,
-                Utc::now(),
-            )
-            .context("failed to persist runtime session link")?
-            .with_context(|| format!("unknown session: {}", session.id))?;
-
-        Ok(RpcResponse::Linked {
-            response: LinkResponse { session },
-        })
-    }
-
     pub(crate) async fn logs(
         &self,
         context: &crate::identity_client::RequestContext,
@@ -166,22 +121,6 @@ impl DaemonState {
             sessions.len()
         );
         Ok(sessions.into_iter().next().expect("one session"))
-    }
-
-    fn link_target(&self, request: &LinkRequest) -> Result<Session> {
-        if let Some(id) = request.session_id {
-            return self
-                .store
-                .lock()
-                .expect("store lock poisoned")
-                .get_session(&id)
-                .context("failed to load link session")?
-                .with_context(|| format!("unknown link session: {id}"));
-        }
-        if let Some(selector) = &request.selector {
-            return self.single_session(selector, "link");
-        }
-        anyhow::bail!("link requires a session id or selector")
     }
 
     async fn runtime_doctor(&self) -> RuntimeDoctorReport {

@@ -38,8 +38,6 @@ pub enum Command {
     Mail(MailArgs),
     #[command(about = generated_help::SESSION_LABEL_ABOUT, long_about = generated_help::SESSION_LABEL_ABOUT, arg_required_else_help = true)]
     Label(LabelArgs),
-    #[command(about = generated_help::LINK_ABOUT, long_about = generated_help::LINK_ABOUT)]
-    Link(LinkArgs),
     #[command(about = generated_help::LOGS_ABOUT, long_about = generated_help::LOGS_ABOUT, arg_required_else_help = true)]
     Logs(LogsArgs),
     #[command(about = generated_help::SESSION_CAPTURE_ABOUT, long_about = generated_help::SESSION_CAPTURE_ABOUT, arg_required_else_help = true)]
@@ -222,18 +220,6 @@ pub struct DeleteNamespaceArgs {
 
 #[derive(Debug, Args)]
 pub struct DoctorArgs {}
-
-#[derive(Debug, Args)]
-pub struct LinkArgs {
-    #[arg(long, help = generated_help::LINK_SESSION_ID_HELP)]
-    pub session_id: Option<String>,
-    #[arg(long, help = generated_help::LINK_SELECTOR_HELP)]
-    pub selector: Option<String>,
-    #[arg(long = "runtime-session", help = generated_help::LINK_RUNTIME_SESSION_HELP)]
-    pub runtime_session: String,
-    #[arg(long, help = generated_help::LINK_TRANSCRIPT_HELP)]
-    pub transcript: PathBuf,
-}
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]

@@ -30,7 +30,6 @@ Use this skill when you need to run, list, inspect, or terminate local Helioy se
 | `mail_check` | `sm mail check` | Return the unread mail count for sessions selected by selector without draining mail. |
 | `mail_stop_check` | `sm mail stop-check` | Return the unread mail count for stop-hook decisions without draining mail. |
 | `nudge` | `sm nudge` | Send an ephemeral nudge to sessions selected by selector. Tmux-backed runtimes deliver through rtmd; headless or ended runtimes return typed failure messages. |
-| `link` | `sm link` | Attach runtime metadata to one unmanaged session. Daemon-spawned headless sessions link stdout logs automatically. |
 | `logs` | `sm logs` | Read the transcript linked to one selected session. |
 | `wait` | `sm wait` | Wait until a selector satisfies running, terminated, or count=N. |
 | `doctor` | `sm doctor` | Report session-matters daemon health, LOST sessions, and runtime-matters status. |
@@ -98,7 +97,7 @@ Use `session_get` before acting on one session id.
 Use `session_capture` to read tmux pane scrollback for a tmux backed session.
 Use `session_delete` to terminate daemon owned sessions.
 Use `session_label` to add or remove labels on selected sessions.
-Use `logs` for daemon-spawned headless transcripts, and `link` only for unmanaged sessions.
+Use `logs` for daemon-spawned headless transcripts.
 Use `wait` and `doctor` for lifecycle and runtime-matters diagnostics.
 Use `mail_send`, `mail_check`, and `mail_read` for durable session mail.
 Use `nudge` for the ephemeral notification surface.

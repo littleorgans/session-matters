@@ -58,7 +58,6 @@ fn initialize_and_tools_list_follow_mcp_shape() {
             "mail_check",
             "mail_stop_check",
             "nudge",
-            "link",
             "logs",
             "wait",
             "doctor"
@@ -115,36 +114,6 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert_eq!(
         found["result"]["structuredContent"]["session"]["workspace"],
         daemon.dir.path().display().to_string()
-    );
-
-    let transcript = daemon.dir.path().join("transcript.jsonl");
-    std::fs::write(&transcript, "hello transcript\n").expect("transcript writes");
-    let linked = call_tool(
-        &mut mcp,
-        5,
-        "link",
-        json!({
-            "session_id": id.clone(),
-            "runtime_session": "runtime-mcp-1",
-            "transcript": transcript.display().to_string()
-        }),
-    );
-    assert!(linked["error"].is_null());
-    assert_eq!(
-        linked["result"]["structuredContent"]["session"]["runtime_session"],
-        "runtime-mcp-1"
-    );
-
-    let logs = call_tool(
-        &mut mcp,
-        6,
-        "logs",
-        json!({ "selector": format!("id:{id}") }),
-    );
-    assert!(logs["error"].is_null());
-    assert_eq!(
-        logs["result"]["structuredContent"]["content"],
-        "hello transcript\n"
     );
 
     let capture = call_tool(
@@ -222,14 +191,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
-        vec![
-            Action::Spawn,
-            Action::Link,
-            Action::Logs,
-            Action::Read,
-            Action::Doctor,
-            Action::Kill
-        ]
+        vec![Action::Spawn, Action::Read, Action::Doctor, Action::Kill]
     );
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
 }

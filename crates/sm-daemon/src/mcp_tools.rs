@@ -3,11 +3,11 @@ use std::str::FromStr;
 use anyhow::{Context, Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LinkRequest,
-    ListRequest, LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest,
-    MailStopCheckRequest, Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope,
-    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition,
-    WaitRequest, tool_error, tool_success,
+    CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, ListRequest,
+    LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
+    Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope, NudgeRequest, RpcRequest,
+    RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest, tool_error,
+    tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -33,7 +33,6 @@ pub async fn call_tool(
         "mail_check" => mail_check(state, context, arguments).await,
         "mail_stop_check" => mail_stop_check(state, context, arguments).await,
         "nudge" => nudge(state, context, arguments).await,
-        "link" => link(state, context, arguments).await,
         "logs" => logs(state, context, arguments).await,
         "wait" => wait(state, context, arguments).await,
         "doctor" => doctor(state, context, arguments).await,
@@ -447,34 +446,6 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
                 "nudges": response.nudges,
                 "errors": response.errors
             }),
-        )),
-        RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
-    }
-}
-
-async fn link(state: &DaemonState, context: &RequestContext, arguments: &Value) -> Result<Value> {
-    let session_id = optional_string(arguments, "session_id")
-        .map(uuid::Uuid::parse_str)
-        .transpose()?;
-    let selector = optional_selector(arguments, "selector")?;
-    let response = state
-        .handle_direct(
-            context.clone(),
-            RpcRequest::Link {
-                request: LinkRequest {
-                    session_id,
-                    selector,
-                    runtime_session: required_string(arguments, "runtime_session")?.to_string(),
-                    transcript_path: required_string(arguments, "transcript")?.into(),
-                },
-            },
-        )
-        .await;
-    match response.response {
-        RpcResponse::Linked { response } => Ok(tool_success(
-            format!("linked {}", response.session.id),
-            &json!({ "session": response.session }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
         other => Err(unexpected_response(other)),

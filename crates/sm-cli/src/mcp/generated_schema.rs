@@ -41,8 +41,6 @@ pub fn generated_tool_list() -> serde_json::Value {
             .expect("generated schema for mail_stop_check is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/nudge.json"))
             .expect("generated schema for nudge is valid JSON"),
-        serde_json::from_str(include_str!("generated_schema/link.json"))
-            .expect("generated schema for link is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/logs.json"))
             .expect("generated schema for logs is valid JSON"),
         serde_json::from_str(include_str!("generated_schema/wait.json"))
