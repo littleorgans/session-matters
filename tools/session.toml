@@ -80,6 +80,7 @@ mcp_description = "Deprecated compatibility alias for session_list. List session
 cli_name        = "get session"
 mcp_description = "Get one session record by id. The tool returns an error envelope when the id is unknown."
 cli_about       = "Get one session record by id."
+render_cli_help = false
 mcp_namespace_scope = true
 output_schema   = '''
 {

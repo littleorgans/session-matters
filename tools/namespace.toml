@@ -34,6 +34,7 @@ cli_flag        = "slug"
 cli_name        = "get namespace"
 mcp_description = "Get one namespace record by slug. The tool returns an error envelope when the slug is unknown."
 cli_about       = "Get one namespace record by slug."
+render_cli_help = false
 output_schema   = '''
 {
   "type": "object",

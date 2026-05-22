@@ -29,19 +29,9 @@ pub const SESSION_LIST_SELECTOR_HELP: &str = "Optional session selector used for
 pub const SESSION_LIST_SHOW_LABELS_HELP: &str = "Render session labels in human output. JSON output already includes labels.";
 
 #[rustfmt::skip]
-pub const SESSION_GET_ABOUT: &str = "Get one session record by id.";
-#[rustfmt::skip]
-pub const SESSION_GET_ID_HELP: &str = "Session id to load.";
-
-#[rustfmt::skip]
 pub const NAMESPACE_LIST_ABOUT: &str = "List namespace records, or get one namespace record by slug.";
 #[rustfmt::skip]
 pub const NAMESPACE_LIST_SLUG_HELP: &str = "Optional namespace slug to load instead of listing.";
-
-#[rustfmt::skip]
-pub const NAMESPACE_GET_ABOUT: &str = "Get one namespace record by slug.";
-#[rustfmt::skip]
-pub const NAMESPACE_GET_SLUG_HELP: &str = "Namespace slug to load.";
 
 #[rustfmt::skip]
 pub const SESSION_CAPTURE_ABOUT: &str = "Capture tmux pane scrollback for one selected session.";

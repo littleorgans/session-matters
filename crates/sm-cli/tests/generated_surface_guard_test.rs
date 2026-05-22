@@ -100,6 +100,20 @@ fn selector_help_sources_match_cli_shape_matrix() {
     }
 }
 
+#[test]
+fn generated_help_constants_have_source_consumers() {
+    let constants = generated_help_constants();
+    let source = consumer_source();
+
+    for constant in constants {
+        let reference = format!("generated_help::{constant}");
+        assert!(
+            source.contains(&reference),
+            "generated_help constant {constant} has no source consumer"
+        );
+    }
+}
+
 fn removed_surface_guard_paths() -> Vec<PathBuf> {
     let mut paths = repo_paths([
         "crates/sm-cli/src/tool_docs.rs",
@@ -109,6 +123,49 @@ fn removed_surface_guard_paths() -> Vec<PathBuf> {
     ]);
     paths.extend(generated_schema_paths());
     paths
+}
+
+fn generated_help_constants() -> Vec<String> {
+    let generated_help = read_repo_file("crates/sm-cli/src/cli/generated_help.rs");
+    generated_help
+        .lines()
+        .filter_map(|line| line.strip_prefix("pub const "))
+        .map(|line| {
+            line.split_once(':')
+                .unwrap_or_else(|| panic!("generated help const line has type separator: {line}"))
+                .0
+                .to_string()
+        })
+        .collect()
+}
+
+fn consumer_source() -> String {
+    consumer_source_paths()
+        .into_iter()
+        .filter(|path| !path.ends_with("src/cli/generated_help.rs"))
+        .map(|path| read_file(&path))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn consumer_source_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    collect_rust_sources(&repo_root().join("crates/sm-cli/src/cli"), &mut paths);
+    collect_rust_sources(&repo_root().join("crates/sm-cli/src/mcp"), &mut paths);
+    paths
+}
+
+fn collect_rust_sources(dir: &Path, paths: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()))
+    {
+        let path = entry.expect("source entry reads").path();
+        if path.is_dir() {
+            collect_rust_sources(&path, paths);
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            paths.push(path);
+        }
+    }
 }
 
 fn tool_source_paths() -> Vec<PathBuf> {

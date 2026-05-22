@@ -196,7 +196,7 @@ impl ToolContract {
         let output_schema = parse_optional_json(&name, "output_schema", raw.output_schema)?;
 
         Ok(Self {
-            artifacts: ArtifactRenderMetadata::for_tool(&name),
+            artifacts: ArtifactRenderMetadata::for_tool(&name, raw.render_cli_help),
             cli: CliMetadata {
                 name: raw.cli_name,
                 about: raw.cli_about,
@@ -267,11 +267,11 @@ pub struct ArtifactRenderMetadata {
 }
 
 impl ArtifactRenderMetadata {
-    fn for_tool(name: &str) -> Self {
+    fn for_tool(name: &str, render_cli_help: bool) -> Self {
         Self {
             mcp_schema_file: format!("{name}.json"),
             cli_help_prefix: rust_const_name(name),
-            render_cli_help: true,
+            render_cli_help,
         }
     }
 
@@ -375,6 +375,8 @@ struct RawToolDef {
     cli_name: String,
     mcp_description: String,
     cli_about: String,
+    #[serde(default = "default_render_cli_help")]
+    render_cli_help: bool,
     output_schema: Option<String>,
     #[serde(default)]
     mcp_namespace_scope: bool,
@@ -405,6 +407,10 @@ struct RawParamDef {
 struct RawToolAlias {
     name: String,
     mcp_description: String,
+}
+
+fn default_render_cli_help() -> bool {
+    true
 }
 
 fn mcp_namespace_scope_params() -> Vec<ToolParamContract> {
@@ -554,5 +560,31 @@ cli_about = "second tool"
         .expect_err("duplicate generated constant should fail");
 
         assert!(error.contains("duplicate CLI help constant FOO_BAR_ABOUT"));
+    }
+
+    #[test]
+    fn render_cli_help_false_skips_cli_constant_collision() {
+        let registry = ToolContractRegistry::from_toml_str(
+            r#"
+[tools.foo_bar]
+cli_name = "foo-bar"
+mcp_description = "first tool"
+cli_about = "first tool"
+
+[tools.foo-bar]
+cli_name = "foo bar"
+mcp_description = "second tool"
+cli_about = "second tool"
+render_cli_help = false
+"#,
+        )
+        .expect("non-rendered CLI help does not collide");
+
+        let skipped = registry
+            .tools()
+            .iter()
+            .find(|tool| tool.name == "foo-bar")
+            .expect("second tool is present");
+        assert!(!skipped.artifacts.render_cli_help);
     }
 }
