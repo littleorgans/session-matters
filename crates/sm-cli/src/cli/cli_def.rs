@@ -180,12 +180,13 @@ pub struct DeleteArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum DeleteResource {
-    Agent(DeleteAgentArgs),
+    #[command(alias = "sessions")]
+    Session(DeleteSessionArgs),
     Namespace(DeleteNamespaceArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct DeleteAgentArgs {
+pub struct DeleteSessionArgs {
     #[arg(help = generated_help::AGENT_DELETE_SELECTOR_HELP)]
     pub selector: String,
     #[command(flatten)]

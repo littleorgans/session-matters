@@ -257,7 +257,7 @@ impl DaemonState {
         context: &RequestContext,
         request: DeleteRequest,
     ) -> Result<RpcResponse> {
-        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let targets = self.resolve_selector(&request.selector, "session")?;
         let mut sessions = Vec::new();
         let mut errors = Vec::new();
         for target in targets {
@@ -369,7 +369,7 @@ impl DaemonState {
     }
 
     async fn label(&self, context: &RequestContext, request: LabelRequest) -> Result<RpcResponse> {
-        let targets = self.resolve_selector(&request.selector, "agent")?;
+        let targets = self.resolve_selector(&request.selector, "session")?;
         let mut sessions = Vec::new();
         let mut errors = Vec::new();
         for target in targets {
@@ -569,7 +569,9 @@ impl DaemonState {
             return Ok(sessions);
         }
         match selector {
+            Selector::Id { id } if label == "session" => anyhow::bail!("unknown session: {id}"),
             Selector::Id { id } => anyhow::bail!("unknown {label} session: {id}"),
+            _ if label == "session" => anyhow::bail!("selector matched no sessions: {selector}"),
             _ => anyhow::bail!("{label} selector matched no sessions: {selector}"),
         }
     }

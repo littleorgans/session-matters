@@ -184,7 +184,7 @@ fn namespace_scope_applies_to_selector_consuming_cli_surfaces() {
     let deleted = daemon
         .command()
         .current_dir(&alpha_dir)
-        .args(["delete", "agent", "all", "--namespace", "beta"])
+        .args(["delete", "session", "all", "--namespace", "beta"])
         .output()
         .expect("sm delete executes");
     assert_success("sm delete --namespace beta", &deleted);

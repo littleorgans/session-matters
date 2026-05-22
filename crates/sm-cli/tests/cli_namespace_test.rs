@@ -80,7 +80,7 @@ fn init_namespace_command_is_rejected_by_clap() {
 }
 
 #[test]
-fn delete_namespace_help_does_not_expose_agent_flags() {
+fn delete_namespace_help_does_not_expose_session_flags() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["delete", "namespace", "--help"])
         .output()

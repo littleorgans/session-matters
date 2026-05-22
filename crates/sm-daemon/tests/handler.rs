@@ -6,8 +6,9 @@ use common::{
     spawn_test_session,
 };
 use sm_core::{
-    DeleteRequest, DoctorRequest, LinkRequest, LogsRequest, LostEvidence, Namespace, RpcRequest,
-    RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest, WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LinkRequest, LogsRequest,
+    LostEvidence, Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
+    SpawnRequest, WaitCondition, WaitRequest,
 };
 
 #[tokio::test]
@@ -37,6 +38,57 @@ async fn drives_session_through_delete_lifecycle() {
     assert_eq!(response.sessions[0].state, SessionState::Terminated);
     assert_eq!(response.sessions[0].exit_code, Some(143));
     assert!(response.sessions[0].terminated_at.is_some());
+}
+
+#[tokio::test]
+async fn delete_unknown_id_uses_session_noun() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let id = uuid::Uuid::nil();
+
+    let deleted = daemon
+        .state
+        .handle(
+            local_context(),
+            RpcRequest::Delete {
+                request: DeleteRequest {
+                    selector: Selector::Id { id },
+                    signal: "SIGTERM".to_string(),
+                    grace_secs: 5,
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Error { message } = deleted.response else {
+        panic!("expected delete error response");
+    };
+
+    assert_eq!(message, format!("unknown session: {id}"));
+}
+
+#[tokio::test]
+async fn label_empty_selector_uses_session_noun() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+
+    let labeled = daemon
+        .state
+        .handle(
+            local_context(),
+            RpcRequest::Label {
+                request: LabelRequest {
+                    selector: Selector::All,
+                    mutation: LabelMutation::Set(Label {
+                        key: "scope".to_string(),
+                        value: "alpha".to_string(),
+                    }),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Error { message } = labeled.response else {
+        panic!("expected label error response");
+    };
+
+    assert_eq!(message, "selector matched no sessions: all");
 }
 
 #[tokio::test]
