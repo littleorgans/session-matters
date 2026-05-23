@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
+use lilo_rm_core::IsolationPolicy;
 use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
@@ -78,6 +79,10 @@ pub enum DaemonAction {
 pub struct RunArgs {
     #[command(flatten)]
     pub session: SessionCreateArgs,
+    #[arg(long, help = generated_help::SESSION_RUN_ISOLATION_HELP)]
+    pub isolation: Option<IsolationPolicy>,
+    #[arg(long, help = generated_help::SESSION_RUN_IMAGE_HELP)]
+    pub image: Option<String>,
     #[arg(long, default_value = "headless", help = generated_help::SESSION_RUN_TARGET_HELP)]
     pub target: String,
     #[arg(long, help = generated_help::SESSION_RUN_FORCE_HELP)]

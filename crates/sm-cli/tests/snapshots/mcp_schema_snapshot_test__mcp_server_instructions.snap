@@ -7,8 +7,8 @@ session-matters controls local Helioy sessions through smd.
 Use session_run to run a session, session_list to inspect sessions, session_get before acting on one id, and session_delete to terminate a session.
 
 Tools:
-- session_run: Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
-- agent_run: Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
+- session_run: Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
+- agent_run: Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.
 - session_list: List session records known to the session-matters daemon. Supports the shared selector grammar.
 - agent_list: Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar.
 - session_get: Get one session record by id. The tool returns an error envelope when the id is unknown.

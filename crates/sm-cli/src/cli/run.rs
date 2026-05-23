@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use lilo_rm_core::SpawnTarget;
+use lilo_rm_core::{IsolationPolicy, SpawnTarget};
 use sm_core::{
     Label, Namespace, RpcRequest, RpcResponse, SmEndpoint, SpawnRequest,
     agent_config_uses_home_prefix, is_agent_config_path_like, normalize_agent_config_request,
@@ -13,14 +13,34 @@ use crate::cli::namespace_resolver::resolve_namespace_dir;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
-    spawn_session(args.session, args.target, args.force).await
+    spawn_session(
+        args.session,
+        args.target,
+        args.force,
+        args.isolation.unwrap_or_default(),
+        args.image,
+    )
+    .await
 }
 
 pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
-    spawn_session(args, "headless".to_string(), false).await
+    spawn_session(
+        args,
+        "headless".to_string(),
+        false,
+        IsolationPolicy::default(),
+        None,
+    )
+    .await
 }
 
-async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> Result<()> {
+async fn spawn_session(
+    args: SessionCreateArgs,
+    target: String,
+    force: bool,
+    isolation: IsolationPolicy,
+    image: Option<String>,
+) -> Result<()> {
     let spawn_location = resolve_spawn_location(args.dir.as_ref(), args.namespace.clone())?;
     let agent_config = normalize_cli_agent_config(args.agent_config.as_deref())?;
     let endpoint = SmEndpoint::from_env()?;
@@ -48,8 +68,8 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
                 namespace: Some(spawn_location.namespace),
                 target,
                 agent_config,
-                isolation: Default::default(),
-                image: None,
+                isolation,
+                image,
                 env,
                 mounts: Vec::new(),
                 shell_resume,

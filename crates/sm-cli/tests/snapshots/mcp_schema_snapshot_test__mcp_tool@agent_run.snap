@@ -3,7 +3,7 @@ source: crates/sm-cli/tests/mcp_schema_snapshot_test.rs
 expression: tool
 ---
 {
-  "description": "Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
+  "description": "Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -18,6 +18,14 @@ expression: tool
       "force": {
         "description": "Preempt an occupied tmux pane when the target pane is already owned by another runtime. Other spawn conflicts remain fatal.",
         "type": "boolean"
+      },
+      "image": {
+        "description": "Container image for docker isolated runtimes.",
+        "type": "string"
+      },
+      "isolation": {
+        "description": "Runtime isolation policy. Accepted shapes are host, docker, or docker:PROFILE.",
+        "type": "string"
       },
       "labels": {
         "description": "Optional session labels as key=value strings.",

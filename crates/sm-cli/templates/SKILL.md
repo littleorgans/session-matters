@@ -11,8 +11,8 @@ Use this skill when you need to run, list, inspect, or terminate local Helioy se
 
 | Tool | CLI | Purpose |
 |------|-----|---------|
-| `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
-| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `session_run` | `sm run` | Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
+| `agent_run` | `sm run` | Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record. |
 | `session_list` | `sm get session` | List session records known to the session-matters daemon. Supports the shared selector grammar. |
 | `agent_list` | `sm get session` | Deprecated compatibility alias for session_list. List session records known to the session-matters daemon. Supports the shared selector grammar. |
 | `session_get` | `sm get session` | Get one session record by id. The tool returns an error envelope when the id is unknown. |
