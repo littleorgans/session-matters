@@ -635,9 +635,12 @@ fn spawn_launch(
     let shell_resume = shell_resume(request, &cwd);
     SpawnLaunch {
         runtime: request.runtime,
+        isolation: request.isolation.clone(),
+        image: request.image.clone(),
         cwd,
         target: request.target.clone(),
         env,
+        mounts: request.mounts.clone(),
         shell_resume,
         force: request.force,
     }

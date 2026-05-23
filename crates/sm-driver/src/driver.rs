@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::ClientError;
 pub use lilo_rm_core::LaunchEnv;
-use lilo_rm_core::{CaptureResponse, ShellResume, SpawnConflictKind};
+use lilo_rm_core::{CaptureResponse, IsolationPolicy, MountSpec, ShellResume, SpawnConflictKind};
 use sm_core::RuntimeKind;
 use thiserror::Error;
 
@@ -20,9 +20,12 @@ pub struct SpawnedProcess {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpawnLaunch {
     pub runtime: RuntimeKind,
+    pub isolation: IsolationPolicy,
+    pub image: Option<String>,
     pub cwd: PathBuf,
     pub target: String,
     pub env: Vec<LaunchEnv>,
+    pub mounts: Vec<MountSpec>,
     pub shell_resume: Option<ShellResume>,
     pub force: bool,
 }

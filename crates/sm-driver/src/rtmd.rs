@@ -7,10 +7,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    CaptureRequest, IsolationPolicy, KillOutcome, KillRequest, Lifecycle, LifecycleState,
-    NudgeFailureReason, NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
-    SpawnConflictKind, SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget,
-    StatusFilter, ValidateTargetOutcome,
+    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
+    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictKind,
+    SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
+    ValidateTargetOutcome,
 };
 use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
@@ -60,10 +60,10 @@ impl SpawnDriver for RtmdDriver {
             .spawn(SpawnRequest {
                 session_id,
                 runtime: runtime_kind(launch.runtime),
-                isolation: IsolationPolicy::default(),
-                image: None,
+                isolation: launch.isolation.clone(),
+                image: launch.image.clone(),
                 env: launch.env.clone(),
-                mounts: Vec::new(),
+                mounts: launch.mounts.clone(),
                 cwd: launch.cwd.clone(),
                 target: runtime_target(&launch.target)?,
                 force: launch.force,
@@ -354,7 +354,7 @@ fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lilo_rm_core::TmuxAddress;
+    use lilo_rm_core::{IsolationPolicy, TmuxAddress};
 
     fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
         Lifecycle {
