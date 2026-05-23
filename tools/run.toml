@@ -111,7 +111,7 @@ name            = "agent_config"
 type            = "string"
 required        = false
 mcp_description = "Agent config name resolved as ~/.agm/<name>/agent.toml, or an explicit agent.toml path."
-cli_help        = "Agent config name or explicit agent.toml path."
+cli_help        = "Agent config name resolved as `~/.agm/<name>/agent.toml`, or an explicit `agent.toml` path. TOML keys: `claude_config_dir` (string), `[env]` (table of strings)."
 cli_flag        = "--agent-config"
 
 [[tools.session_run.params]]
