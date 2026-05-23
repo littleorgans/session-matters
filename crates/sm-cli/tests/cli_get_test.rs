@@ -239,6 +239,46 @@ fn run_agent_config_paths_are_canonicalized_from_caller_context() {
 }
 
 #[test]
+fn run_missing_named_agent_config_surfaces_resolved_path() {
+    let runtime_path = common::fake_runtime_path("claude");
+    let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
+    let workspace = daemon.dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace dir");
+
+    let run = daemon
+        .command()
+        .args([
+            "run",
+            "claude",
+            "--role",
+            "x",
+            "--dir",
+            &workspace.display().to_string(),
+            "--agent-config",
+            "does-not-exist",
+        ])
+        .output()
+        .expect("sm run executes");
+
+    assert!(!run.status.success());
+    let stderr = stderr(&run);
+    assert!(stderr.contains("agent config not found: does-not-exist"));
+    assert!(stderr.contains("looked for"));
+    assert!(
+        stderr.contains(
+            &daemon
+                .dir
+                .path()
+                .join(".agm")
+                .join("does-not-exist")
+                .join("agent.toml")
+                .display()
+                .to_string()
+        )
+    );
+}
+
+#[test]
 fn removed_get_forms_are_rejected_by_clap() {
     for args in [
         ["get", "agent", "--help"].as_slice(),
