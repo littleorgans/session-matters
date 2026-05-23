@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use lilo_rm_core::SpawnTarget;
-use sm_core::{Label, Namespace, RpcRequest, RpcResponse, SmEndpoint, SpawnRequest};
+use sm_core::{
+    Label, Namespace, RpcRequest, RpcResponse, SmEndpoint, SpawnRequest,
+    agent_config_uses_home_prefix, is_agent_config_path_like, normalize_agent_config_request,
+};
 
 use crate::cli::cli_def::{RunArgs, SessionCreateArgs};
 use crate::cli::namespace_resolver::resolve_namespace_dir;
@@ -19,6 +22,7 @@ pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
 
 async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> Result<()> {
     let spawn_location = resolve_spawn_location(args.dir.as_ref(), args.namespace.clone())?;
+    let agent_config = normalize_cli_agent_config(args.agent_config.as_deref())?;
     let endpoint = SmEndpoint::from_env()?;
     let env = lilo_rm_core::capture_caller_env();
     let spawn_target = SpawnTarget::from_str(&target).ok();
@@ -43,7 +47,7 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
                 dir: Some(spawn_location.dir),
                 namespace: Some(spawn_location.namespace),
                 target,
-                agent_config: args.agent_config,
+                agent_config,
                 env,
                 shell_resume,
                 labels: args
@@ -68,6 +72,33 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
             other.kind()
         ),
     }
+}
+
+fn normalize_cli_agent_config(agent_config: Option<&str>) -> Result<Option<String>> {
+    let Some(agent_config) = agent_config else {
+        return Ok(None);
+    };
+    if !is_agent_config_path_like(agent_config) {
+        return Ok(Some(agent_config.to_string()));
+    }
+    let cwd = lilo_rm_core::capture_caller_cwd()
+        .context("cannot read current directory to resolve --agent-config")?;
+    let home = home_for_agent_config(agent_config)?;
+    Ok(Some(normalize_agent_config_request(
+        agent_config,
+        &cwd,
+        home.as_deref(),
+    )))
+}
+
+fn home_for_agent_config(agent_config: &str) -> Result<Option<PathBuf>> {
+    if !agent_config_uses_home_prefix(agent_config) {
+        return Ok(None);
+    }
+    let Some(home) = std::env::var_os("HOME") else {
+        bail!("HOME is required to expand --agent-config path {agent_config}");
+    };
+    Ok(Some(PathBuf::from(home)))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

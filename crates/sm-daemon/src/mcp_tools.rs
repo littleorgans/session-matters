@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
@@ -6,8 +7,8 @@ use sm_core::{
     CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, ListRequest,
     LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
     Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope, NudgeRequest, RpcRequest,
-    RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest, tool_error,
-    tool_success,
+    RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest,
+    normalize_agent_config_request, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -128,7 +129,8 @@ async fn agent_run(
         .map(Namespace::from_str)
         .transpose()?;
     let labels = optional_labels(arguments)?;
-    let agent_config = optional_string(arguments, "agent_config").map(ToString::to_string);
+    let agent_config = optional_string(arguments, "agent_config")
+        .map(|value| normalize_agent_config_request(value, Path::new(&dir), None));
     let target = optional_string(arguments, "target")
         .unwrap_or("headless")
         .to_string();
