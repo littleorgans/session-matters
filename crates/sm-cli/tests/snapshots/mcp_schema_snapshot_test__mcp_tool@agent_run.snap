@@ -45,15 +45,12 @@ expression: tool
       "target": {
         "description": "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.",
         "type": "string"
-      },
-      "workspace": {
-        "description": "Deprecated compatibility alias for dir. Use dir for new callers.",
-        "type": "string"
       }
     },
     "required": [
       "runtime",
-      "role"
+      "role",
+      "dir"
     ],
     "type": "object"
   },

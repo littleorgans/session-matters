@@ -121,10 +121,7 @@ async fn agent_run(
 ) -> Result<Value> {
     let runtime = RuntimeKind::from_str(required_string(arguments, "runtime")?)?;
     let role = required_string(arguments, "role")?.to_string();
-    let dir = optional_string(arguments, "dir")
-        .or_else(|| optional_string(arguments, "workspace"))
-        .ok_or_else(|| anyhow!("missing required string argument: dir"))?
-        .to_string();
+    let dir = required_string(arguments, "dir")?.to_string();
     let namespace = optional_string(arguments, "namespace")
         .map(Namespace::from_str)
         .transpose()?;

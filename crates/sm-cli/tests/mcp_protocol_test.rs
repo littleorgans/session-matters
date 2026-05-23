@@ -93,7 +93,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         0
     );
 
-    let spawned = call_tool(
+    let alias_only = call_tool(
         &mut mcp,
         3,
         "agent_run",
@@ -103,13 +103,28 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
             "workspace": daemon.dir.path().display().to_string()
         }),
     );
+    assert_eq!(
+        alias_only["result"]["_meta"]["sm_tool_error"]["message"],
+        "missing required argument `dir`"
+    );
+
+    let spawned = call_tool(
+        &mut mcp,
+        4,
+        "agent_run",
+        json!({
+            "runtime": "codex",
+            "role": "engineer",
+            "dir": daemon.dir.path().display().to_string()
+        }),
+    );
     assert!(spawned["error"].is_null());
     let id = spawned["result"]["structuredContent"]["session"]["id"]
         .as_str()
         .expect("spawn returns session id")
         .to_string();
 
-    let found = call_tool(&mut mcp, 4, "agent_get", json!({ "id": id }));
+    let found = call_tool(&mut mcp, 5, "agent_get", json!({ "id": id }));
     assert!(found["error"].is_null());
     assert_eq!(
         found["result"]["structuredContent"]["session"]["workspace"],
@@ -118,7 +133,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
 
     let capture = call_tool(
         &mut mcp,
-        10,
+        11,
         "session_capture",
         json!({ "id": id, "scrollback_lines": 20 }),
     );
@@ -556,7 +571,7 @@ fn spawn_agent_with_labels(
         json!({
             "runtime": "codex",
             "role": role,
-            "workspace": workspace.display().to_string(),
+            "dir": workspace.display().to_string(),
             "labels": labels
         }),
     );
