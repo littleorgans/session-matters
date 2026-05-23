@@ -1,3 +1,4 @@
+pub mod agent_config;
 pub mod error;
 pub mod label;
 pub mod mail;
@@ -11,6 +12,7 @@ pub mod session;
 pub mod tool_contracts;
 pub mod types;
 
+pub use agent_config::is_agent_config_path_like;
 pub use error::{SmError, SmResult, humanize_capture_error};
 pub use mcp::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_PROTOCOL_VERSION, tool_error, tool_success,

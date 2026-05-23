@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
+use sm_core::is_agent_config_path_like;
 use sm_driver::LaunchEnv;
 use toml::Value;
 
@@ -47,17 +48,10 @@ fn resolve_agent_config_with_home(requested: &str, home: &Path) -> Result<Resolv
 }
 
 fn agent_config_path(requested: &str, home: &Path) -> PathBuf {
-    if is_path_like(requested) {
+    if is_agent_config_path_like(requested) {
         return expand_home(requested, home);
     }
     home.join(".agm").join(requested).join("agent.toml")
-}
-
-fn is_path_like(value: &str) -> bool {
-    value.contains(std::path::MAIN_SEPARATOR)
-        || value.starts_with('~')
-        || value.starts_with('.')
-        || value.ends_with(".toml")
 }
 
 fn expand_home(value: &str, home: &Path) -> PathBuf {
@@ -127,6 +121,23 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn bare_toml_filename_resolves_as_home_agm_name() {
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let config_dir = dir.path().join(".agm/tools.toml");
+        fs::create_dir_all(&config_dir).expect("config dir creates");
+        fs::write(
+            config_dir.join("agent.toml"),
+            "[env]\nHELIOY_AGENT_NAME = \"tools\"\n",
+        )
+        .expect("config writes");
+
+        let resolved =
+            resolve_agent_config_with_home("tools.toml", dir.path()).expect("config resolves");
+
+        assert_eq!(resolved.path, config_dir.join("agent.toml"));
     }
 
     #[test]
