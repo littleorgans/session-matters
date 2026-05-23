@@ -125,10 +125,10 @@ async fn spawn_uses_strict_create_before_spawn_policy() {
         .handle(
             context.clone(),
             RpcRequest::Spawn {
-                request: spawn_request(
+                request: Box::new(spawn_request(
                     daemon._dir.path().display().to_string(),
                     Namespace::new("alpha").expect("namespace validates"),
-                ),
+                )),
             },
         )
         .await;
@@ -154,10 +154,10 @@ async fn spawn_uses_strict_create_before_spawn_policy() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: spawn_request(
+                request: Box::new(spawn_request(
                     daemon._dir.path().display().to_string(),
                     Namespace::new("alpha").expect("namespace validates"),
-                ),
+                )),
             },
         )
         .await;
@@ -178,10 +178,10 @@ async fn namespace_delete_terminates_and_removes_namespace_sessions() {
         .handle(
             context.clone(),
             RpcRequest::Spawn {
-                request: spawn_request(
+                request: Box::new(spawn_request(
                     daemon._dir.path().display().to_string(),
                     Namespace::new("alpha").expect("namespace validates"),
-                ),
+                )),
             },
         )
         .await;
@@ -280,7 +280,10 @@ fn spawn_request(dir: String, namespace: Namespace) -> SpawnRequest {
         namespace: Some(namespace),
         target: "headless".to_string(),
         agent_config: None,
+        isolation: Default::default(),
+        image: None,
         env: Vec::new(),
+        mounts: Vec::new(),
         shell_resume: None,
         labels: Vec::new(),
         force: false,

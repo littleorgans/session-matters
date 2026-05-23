@@ -90,7 +90,7 @@ impl DaemonState {
         request: RpcRequest,
     ) -> HandlerResult {
         match request {
-            RpcRequest::Spawn { request } => response(self.spawn(&context, request).await, false),
+            RpcRequest::Spawn { request } => response(self.spawn(&context, *request).await, false),
             RpcRequest::List { request } => response(self.list(request).await, false),
             RpcRequest::NamespaceCreate { request } => {
                 response(self.create_namespace(request).await, false)

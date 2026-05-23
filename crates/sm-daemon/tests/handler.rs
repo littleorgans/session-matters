@@ -110,7 +110,7 @@ async fn agent_config_env_reaches_spawn_driver() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -118,11 +118,14 @@ async fn agent_config_env_reaches_spawn_driver() {
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: Some(config.display().to_string()),
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -167,7 +170,7 @@ async fn named_agent_config_persists_resolved_path() {
         .handle(
             context.clone(),
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -175,11 +178,14 @@ async fn named_agent_config_persists_resolved_path() {
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: Some("demo-agent".to_string()),
+                    isolation: Default::default(),
+                    image: None,
                     env: vec![launch_env("HOME", "/Users/tester")],
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -227,7 +233,7 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -235,14 +241,17 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
                     namespace: None,
                     target: "tmux:test:0.0".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: vec![
                         launch_env("HOME", "/Users/tester"),
                         launch_env("PATH", "/opt/node/bin:/usr/bin"),
                     ],
+                    mounts: Vec::new(),
                     shell_resume: Some(shell_resume.clone()),
                     labels: Vec::new(),
                     force: true,
-                },
+                }),
             },
         )
         .await;
@@ -307,7 +316,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: String::new(),
@@ -315,11 +324,14 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
                     namespace: Some(namespace.clone()),
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -345,7 +357,7 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: legacy_workspace.path().display().to_string(),
@@ -353,11 +365,14 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
                     namespace: Some(namespace.clone()),
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -382,7 +397,7 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: String::new(),
@@ -390,11 +405,14 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
                     namespace: Some(namespace),
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -419,7 +437,7 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: String::new(),
@@ -427,11 +445,14 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;

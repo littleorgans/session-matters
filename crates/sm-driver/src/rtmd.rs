@@ -7,10 +7,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::{
-    CaptureRequest, KillOutcome, KillRequest, Lifecycle, LifecycleState, NudgeFailureReason,
-    NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal, SpawnConflictKind,
-    SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget, StatusFilter,
-    ValidateTargetOutcome,
+    CaptureRequest, IsolationPolicy, KillOutcome, KillRequest, Lifecycle, LifecycleState,
+    NudgeFailureReason, NudgeOutcome, NudgeRequest, RuntimeKind as RtmdRuntimeKind, RuntimeSignal,
+    SpawnConflictKind, SpawnConflictPayload, SpawnRequest, SpawnTarget as RtmdSpawnTarget,
+    StatusFilter, ValidateTargetOutcome,
 };
 use sm_core::RuntimeKind;
 use tokio::time::{Instant, sleep};
@@ -60,7 +60,10 @@ impl SpawnDriver for RtmdDriver {
             .spawn(SpawnRequest {
                 session_id,
                 runtime: runtime_kind(launch.runtime),
+                isolation: IsolationPolicy::default(),
+                image: None,
                 env: launch.env.clone(),
+                mounts: Vec::new(),
                 cwd: launch.cwd.clone(),
                 target: runtime_target(&launch.target)?,
                 force: launch.force,
@@ -357,6 +360,7 @@ mod tests {
         Lifecycle {
             session_id: Uuid::nil(),
             runtime: RtmdRuntimeKind::Claude,
+            isolation: IsolationPolicy::default(),
             state: LifecycleState::Running,
             shim_pid: None,
             runtime_pid: Some(29032),

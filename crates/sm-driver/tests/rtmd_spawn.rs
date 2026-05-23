@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use lilo_rm_core::{
-    LaunchEnv, Lifecycle, LifecycleState, LostEvidence, RuntimeEvent, RuntimeKind, RuntimeResponse,
-    RuntimeRpc, ShellResume, SpawnRequest, SpawnedPayload, read_json_line, write_json_line,
+    IsolationPolicy, LaunchEnv, Lifecycle, LifecycleState, LostEvidence, RuntimeEvent, RuntimeKind,
+    RuntimeResponse, RuntimeRpc, ShellResume, SpawnRequest, SpawnedPayload, read_json_line,
+    write_json_line,
 };
 use sm_core::RuntimeKind as SmRuntimeKind;
 use sm_driver::{RtmdDriver, SpawnDriver, SpawnLaunch};
@@ -73,6 +74,7 @@ fn spawned(request: SpawnRequest) -> SpawnedPayload {
     let lifecycle = Lifecycle {
         session_id: request.session_id,
         runtime: RuntimeKind::Claude,
+        isolation: IsolationPolicy::default(),
         state: LifecycleState::Running,
         shim_pid: None,
         runtime_pid: Some(42),

@@ -15,7 +15,7 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -23,11 +23,14 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
                     namespace: None,
                     target: "tmux:test:0.0".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -152,7 +155,7 @@ async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::hand
         .handle(
             local_context(),
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -160,11 +163,14 @@ async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::hand
                     namespace: None,
                     target: target.to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await

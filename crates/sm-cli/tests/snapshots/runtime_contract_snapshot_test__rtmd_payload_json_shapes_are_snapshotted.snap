@@ -99,7 +99,8 @@ expression: "serde_json::json!({\n    \"spawn\":\n    RuntimeResponse::Spawned(S
             "events_long_poll",
             "tmux_pane_snapshot",
             "kill_outcomes",
-            "spawn_conflicts"
+            "spawn_conflicts",
+            "spawn_request_mounts"
           ],
           "git_sha": "0123456",
           "protocol_version": "0.6",

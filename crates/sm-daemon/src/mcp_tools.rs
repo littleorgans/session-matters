@@ -136,7 +136,7 @@ async fn agent_run(
         .handle_direct(
             context.clone(),
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime,
                     role,
                     workspace: dir.clone(),
@@ -144,11 +144,14 @@ async fn agent_run(
                     namespace,
                     target,
                     agent_config,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels,
                     force,
-                },
+                }),
             },
         )
         .await;

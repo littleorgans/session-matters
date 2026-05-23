@@ -317,7 +317,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
         .handle(
             denied_context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -325,11 +325,14 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;

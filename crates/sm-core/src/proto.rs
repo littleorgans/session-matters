@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use lilo_rm_core::{LaunchEnv, ShellResume};
+use lilo_rm_core::{IsolationPolicy, LaunchEnv, MountSpec, ShellResume};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -28,7 +28,13 @@ pub struct SpawnRequest {
     #[serde(default)]
     pub agent_config: Option<String>,
     #[serde(default)]
+    pub isolation: IsolationPolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(default)]
     pub env: Vec<LaunchEnv>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<MountSpec>,
     #[serde(default)]
     pub shell_resume: Option<ShellResume>,
     #[serde(default)]
@@ -325,7 +331,7 @@ pub struct DaemonStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RpcRequest {
-    Spawn { request: SpawnRequest },
+    Spawn { request: Box<SpawnRequest> },
     List { request: ListRequest },
     NamespaceCreate { request: NamespaceCreateRequest },
     NamespaceGet { request: NamespaceGetRequest },
@@ -405,7 +411,7 @@ mod tests {
     #[test]
     fn spawn_request_round_trips_as_tagged_json() {
         let request = RpcRequest::Spawn {
-            request: SpawnRequest {
+            request: Box::new(SpawnRequest {
                 runtime: RuntimeKind::Claude,
                 role: "general".to_string(),
                 workspace: "test".to_string(),
@@ -413,11 +419,18 @@ mod tests {
                 namespace: None,
                 target: "headless".to_string(),
                 agent_config: None,
+                isolation: IsolationPolicy::Docker(Default::default()),
+                image: Some("runtime-matters-claude:local".to_string()),
                 env: Vec::new(),
+                mounts: vec![MountSpec {
+                    source: "/host/config".into(),
+                    target: "/container/config".into(),
+                    read_only: true,
+                }],
                 shell_resume: None,
                 labels: Vec::new(),
                 force: true,
-            },
+            }),
         };
 
         let json = serde_json::to_string(&request).expect("serializes request");
@@ -445,6 +458,9 @@ mod tests {
         assert_eq!(request.dir, None);
         assert_eq!(request.namespace, None);
         assert_eq!(request.target, "headless");
+        assert_eq!(request.isolation, IsolationPolicy::Host);
+        assert_eq!(request.image, None);
+        assert_eq!(request.mounts, Vec::new());
         assert!(!request.force);
     }
 

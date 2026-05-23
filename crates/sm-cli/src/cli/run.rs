@@ -40,7 +40,7 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
     let response = sm_daemon::send_request(
         &endpoint,
         &RpcRequest::Spawn {
-            request: SpawnRequest {
+            request: Box::new(SpawnRequest {
                 runtime: args.runtime,
                 role: args.role,
                 workspace: spawn_location.dir.clone(),
@@ -48,7 +48,10 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
                 namespace: Some(spawn_location.namespace),
                 target,
                 agent_config,
+                isolation: Default::default(),
+                image: None,
                 env,
+                mounts: Vec::new(),
                 shell_resume,
                 labels: args
                     .labels
@@ -56,7 +59,7 @@ async fn spawn_session(args: SessionCreateArgs, target: String, force: bool) -> 
                     .map(|label| Label::from_str(label))
                     .collect::<Result<Vec<_>, _>>()?,
                 force,
-            },
+            }),
         },
     )
     .await?;
