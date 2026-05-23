@@ -84,7 +84,7 @@ cli_flag        = "--role"
 [[tools.session_run.params]]
 name            = "dir"
 type            = "string"
-required        = false
+required        = true
 mcp_description = "Canonical filesystem directory used as the runtime's working directory. The path must be absolute and point to an existing directory."
 cli_help        = "Filesystem directory used as the runtime's working directory. Relative paths resolve against the current shell cwd; the path must exist."
 cli_flag        = "--dir"
@@ -96,12 +96,6 @@ required        = false
 mcp_description = "Namespace slug for the session. The namespace must already exist before running."
 cli_help        = "Namespace slug for the session. Overrides SM_NAMESPACE and the user namespace context."
 cli_flag        = "--namespace"
-
-[[tools.session_run.params]]
-name            = "workspace"
-type            = "string"
-required        = false
-mcp_description = "Deprecated compatibility alias for dir. Use dir for new callers."
 
 [[tools.session_run.params]]
 name            = "labels"
@@ -117,7 +111,7 @@ name            = "agent_config"
 type            = "string"
 required        = false
 mcp_description = "Agent config name resolved as ~/.agm/<name>/agent.toml, or an explicit agent.toml path."
-cli_help        = "Agent config name or explicit agent.toml path."
+cli_help        = "Agent config name resolved as `~/.agm/<name>/agent.toml`, or an explicit `agent.toml` path. TOML keys: `claude_config_dir` (string), `[env]` (table of strings)."
 cli_flag        = "--agent-config"
 
 [[tools.session_run.params]]

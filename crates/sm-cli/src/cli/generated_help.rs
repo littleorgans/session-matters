@@ -13,7 +13,7 @@ pub const SESSION_RUN_NAMESPACE_HELP: &str = "Namespace slug for the session. Ov
 #[rustfmt::skip]
 pub const SESSION_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]
-pub const SESSION_RUN_AGENT_CONFIG_HELP: &str = "Agent config name or explicit agent.toml path.";
+pub const SESSION_RUN_AGENT_CONFIG_HELP: &str = "Agent config name resolved as `~/.agm/<name>/agent.toml`, or an explicit `agent.toml` path. TOML keys: `claude_config_dir` (string), `[env]` (table of strings).";
 #[rustfmt::skip]
 pub const SESSION_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
 #[rustfmt::skip]

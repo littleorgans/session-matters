@@ -93,7 +93,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         0
     );
 
-    let spawned = call_tool(
+    let alias_only = call_tool(
         &mut mcp,
         3,
         "agent_run",
@@ -103,13 +103,28 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
             "workspace": daemon.dir.path().display().to_string()
         }),
     );
+    assert_eq!(
+        alias_only["result"]["_meta"]["sm_tool_error"]["message"],
+        "missing required argument `dir`"
+    );
+
+    let spawned = call_tool(
+        &mut mcp,
+        4,
+        "agent_run",
+        json!({
+            "runtime": "codex",
+            "role": "engineer",
+            "dir": daemon.dir.path().display().to_string()
+        }),
+    );
     assert!(spawned["error"].is_null());
     let id = spawned["result"]["structuredContent"]["session"]["id"]
         .as_str()
         .expect("spawn returns session id")
         .to_string();
 
-    let found = call_tool(&mut mcp, 4, "agent_get", json!({ "id": id }));
+    let found = call_tool(&mut mcp, 5, "agent_get", json!({ "id": id }));
     assert!(found["error"].is_null());
     assert_eq!(
         found["result"]["structuredContent"]["session"]["workspace"],
@@ -118,7 +133,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
 
     let capture = call_tool(
         &mut mcp,
-        10,
+        11,
         "session_capture",
         json!({ "id": id, "scrollback_lines": 20 }),
     );
@@ -194,6 +209,41 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         vec![Action::Spawn, Action::Read, Action::Doctor, Action::Kill]
     );
     assert!(rows.iter().all(|row| row.decision == AuditDecision::Allow));
+}
+
+#[tokio::test]
+async fn session_run_agent_config_path_is_canonicalized_against_request_dir() {
+    let runtime_path = common::fake_runtime_path("codex");
+    let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
+    let workspace = daemon.dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace dir");
+    let config = workspace.join("agent.toml");
+    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"mcp\"\n").expect("agent config");
+    let mut mcp = daemon.spawn_mcp();
+    mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+
+    let spawned = call_tool(
+        &mut mcp,
+        2,
+        "session_run",
+        json!({
+            "runtime": "codex",
+            "role": "engineer",
+            "dir": workspace.display().to_string(),
+            "agent_config": "./agent.toml"
+        }),
+    );
+
+    assert!(spawned["error"].is_null(), "{spawned:#}");
+    assert_eq!(
+        spawned["result"]["structuredContent"]["session"]["agent_config"],
+        Value::String(
+            std::fs::canonicalize(&config)
+                .expect("canonical agent config")
+                .display()
+                .to_string()
+        )
+    );
 }
 
 #[tokio::test]
@@ -521,7 +571,7 @@ fn spawn_agent_with_labels(
         json!({
             "runtime": "codex",
             "role": role,
-            "workspace": workspace.display().to_string(),
+            "dir": workspace.display().to_string(),
             "labels": labels
         }),
     );

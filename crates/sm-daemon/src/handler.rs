@@ -140,6 +140,9 @@ impl DaemonState {
             normalize_spawn_request(&mut request, &store)?
         };
         let agent_config = resolve_agent_config(request.agent_config.as_deref())?;
+        let agent_config_path = agent_config
+            .as_ref()
+            .map(|config| config.path.display().to_string());
         let launch = spawn_launch(id, &request, agent_config.as_ref());
         let mut labels = request.labels.clone();
         labels.sort();
@@ -173,7 +176,7 @@ impl DaemonState {
             runtime_session: None,
             transcript_path: spawned.stdout_path,
             tmux_pane: spawned.tmux_pane,
-            agent_config: request.agent_config,
+            agent_config: agent_config_path,
             created_at: now,
             started_at: now,
             terminated_at: None,
