@@ -1,8 +1,11 @@
 use std::collections::BTreeMap;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
+use serde::Deserialize;
+use serde::de::{self, DeserializeSeed, Deserializer, MapAccess, Visitor};
 use sm_core::is_agent_config_path_like;
 use sm_driver::LaunchEnv;
 use toml::Value;
@@ -38,7 +41,8 @@ fn resolve_agent_config_with_home(requested: &str, home: &Path) -> Result<Resolv
     let value = content
         .parse::<Value>()
         .with_context(|| format!("failed to parse agent config {}", path.display()))?;
-    let env = agent_env(&value)?;
+    let config = AgentConfigToml::deserialize(value)?;
+    let env = agent_env(config);
 
     Ok(ResolvedAgentConfig {
         requested: requested.to_string(),
@@ -64,29 +68,86 @@ fn expand_home(value: &str, home: &Path) -> PathBuf {
     PathBuf::from(value)
 }
 
-fn agent_env(value: &Value) -> Result<Vec<LaunchEnv>> {
-    let mut env = BTreeMap::new();
-    if let Some(path) = value.get("claude_config_dir") {
-        let path = path
-            .as_str()
-            .ok_or_else(|| anyhow!("agent config `claude_config_dir` must be a string"))?;
-        env.insert("CLAUDE_CONFIG_DIR".to_string(), path.to_string());
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentConfigToml {
+    #[serde(default, deserialize_with = "deserialize_claude_config_dir")]
+    claude_config_dir: Option<String>,
+    #[serde(default)]
+    env: AgentConfigEnv,
+}
+
+#[derive(Debug, Default)]
+struct AgentConfigEnv(BTreeMap<String, String>);
+
+impl<'de> Deserialize<'de> for AgentConfigEnv {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(AgentConfigEnvVisitor)
     }
-    if let Some(table) = value.get("env") {
-        let table = table
-            .as_table()
-            .ok_or_else(|| anyhow!("agent config `env` must be a table"))?;
-        for (key, value) in table {
-            let value = value
-                .as_str()
-                .ok_or_else(|| anyhow!("agent config env `{key}` must be a string"))?;
-            env.insert(key.to_string(), value.to_string());
+}
+
+struct AgentConfigEnvVisitor;
+
+impl<'de> Visitor<'de> for AgentConfigEnvVisitor {
+    type Value = AgentConfigEnv;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("agent config `env` must be a table")
+    }
+
+    fn visit_map<M>(self, mut access: M) -> std::result::Result<Self::Value, M::Error>
+    where
+        M: MapAccess<'de>,
+    {
+        let mut env = BTreeMap::new();
+        while let Some(key) = access.next_key::<String>()? {
+            let value = access.next_value_seed(AgentConfigEnvValue { key: &key })?;
+            env.insert(key, value);
         }
+        Ok(AgentConfigEnv(env))
     }
-    Ok(env
-        .into_iter()
+}
+
+struct AgentConfigEnvValue<'a> {
+    key: &'a str,
+}
+
+impl<'de> DeserializeSeed<'de> for AgentConfigEnvValue<'_> {
+    type Value = String;
+
+    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map_err(|_| {
+            de::Error::custom(format!("agent config env `{}` must be a string", self.key))
+        })
+    }
+}
+
+fn deserialize_claude_config_dir<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer)
+        .map(Some)
+        .map_err(|_| de::Error::custom("agent config `claude_config_dir` must be a string"))
+}
+
+fn agent_env(config: AgentConfigToml) -> Vec<LaunchEnv> {
+    let mut env = BTreeMap::new();
+    if let Some(path) = config.claude_config_dir {
+        env.insert("CLAUDE_CONFIG_DIR".to_string(), path);
+    }
+    env.extend(config.env.0);
+    env.into_iter()
         .map(|(key, value)| LaunchEnv { key, value })
-        .collect())
+        .collect()
 }
 
 #[cfg(test)]
@@ -161,6 +222,40 @@ mod tests {
     }
 
     #[test]
+    fn env_table_claude_config_dir_overrides_top_level_value() {
+        let resolved = resolve_inline_config(
+            "claude_config_dir = \"/a\"\n[env]\nCLAUDE_CONFIG_DIR = \"/b\"\n",
+        )
+        .expect("config resolves");
+
+        assert_eq!(
+            resolved.env,
+            vec![LaunchEnv {
+                key: "CLAUDE_CONFIG_DIR".to_string(),
+                value: "/b".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn unknown_top_level_agent_config_key_is_rejected() {
+        let error =
+            resolve_inline_config("clade_config_dir = \"/x\"\n").expect_err("unknown key fails");
+        let message = format!("{error:#}");
+
+        assert!(message.contains("unknown field `clade_config_dir`"));
+    }
+
+    #[test]
+    fn non_string_agent_config_env_value_names_key() {
+        let error = resolve_inline_config("[env]\nKEY = 42\n").expect_err("non-string env fails");
+        let message = format!("{error:#}");
+
+        assert!(message.contains("agent config env"));
+        assert!(message.contains("KEY"));
+    }
+
+    #[test]
     fn missing_agent_config_is_structured_error() {
         let dir = tempfile::tempdir().expect("tempdir creates");
         let error = resolve_agent_config_with_home("missing-agent", dir.path())
@@ -168,5 +263,13 @@ mod tests {
 
         assert!(error.to_string().contains("agent config not found"));
         assert!(error.to_string().contains("missing-agent"));
+    }
+
+    fn resolve_inline_config(content: &str) -> Result<ResolvedAgentConfig> {
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let path = dir.path().join("agent.toml");
+        fs::write(&path, content).expect("config writes");
+
+        resolve_agent_config_with_home(path.to_str().expect("path is utf8"), dir.path())
     }
 }
