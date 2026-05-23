@@ -1,14 +1,17 @@
 mod common;
 
+use std::ffi::OsString;
+use std::path::Path;
+
 use chrono::Utc;
 use common::{
     LOCAL_UID, TestDaemon, launch_env, local_context, mock_rtmd_doctor, runtime_doctor_response,
     spawn_test_session,
 };
 use sm_core::{
-    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, LogsRequest, LostEvidence,
-    Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState, SpawnRequest,
-    WaitCondition, WaitRequest,
+    DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, ListRequest, LogsRequest,
+    LostEvidence, Namespace, RpcRequest, RpcResponse, RuntimeKind, Selector, SessionState,
+    SpawnRequest, WaitCondition, WaitRequest,
 };
 
 #[tokio::test]
@@ -149,6 +152,67 @@ async fn agent_config_env_reaches_spawn_driver() {
 }
 
 #[tokio::test]
+async fn named_agent_config_persists_resolved_path() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let home = tempfile::tempdir().expect("home tempdir creates");
+    let config_dir = home.path().join(".agm").join("demo-agent");
+    std::fs::create_dir_all(&config_dir).expect("agent config dir creates");
+    let config = config_dir.join("agent.toml");
+    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"demo\"\n").expect("agent config writes");
+    let _home = set_home_for_test(home.path());
+
+    let spawned = daemon
+        .state
+        .handle(
+            context.clone(),
+            RpcRequest::Spawn {
+                request: SpawnRequest {
+                    runtime: RuntimeKind::Claude,
+                    role: "pm".to_string(),
+                    workspace: daemon._dir.path().display().to_string(),
+                    dir: None,
+                    namespace: None,
+                    target: "headless".to_string(),
+                    agent_config: Some("demo-agent".to_string()),
+                    env: vec![launch_env("HOME", "/Users/tester")],
+                    shell_resume: None,
+                    labels: Vec::new(),
+                    force: false,
+                },
+            },
+        )
+        .await;
+
+    let RpcResponse::Spawned { response } = spawned.response else {
+        panic!("expected spawn response");
+    };
+    let expected_path = config.display().to_string();
+    assert_eq!(response.session.agent_config, Some(expected_path.clone()));
+    assert_ne!(response.session.agent_config.as_deref(), Some("demo-agent"));
+
+    let listed = daemon
+        .state
+        .handle(
+            context,
+            RpcRequest::List {
+                request: ListRequest {
+                    selector: Some(Selector::Id {
+                        id: response.session.id,
+                    }),
+                },
+            },
+        )
+        .await;
+    let RpcResponse::Listed { response } = listed.response else {
+        panic!("expected list response");
+    };
+
+    assert_eq!(response.sessions.len(), 1);
+    assert_eq!(response.sessions[0].agent_config, Some(expected_path));
+}
+
+#[tokio::test]
 async fn caller_env_and_shell_resume_reach_spawn_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
@@ -195,6 +259,29 @@ async fn caller_env_and_shell_resume_reach_spawn_driver() {
             .contains(&launch_env("PATH", "/opt/node/bin:/usr/bin"))
     );
     assert_eq!(launch.shell_resume, Some(shell_resume));
+}
+
+struct HomeEnvGuard {
+    original: Option<OsString>,
+}
+
+impl Drop for HomeEnvGuard {
+    fn drop(&mut self) {
+        match self.original.take() {
+            Some(value) => unsafe { std::env::set_var("HOME", value) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+    }
+}
+
+fn set_home_for_test(home: &Path) -> HomeEnvGuard {
+    let guard = HomeEnvGuard {
+        original: std::env::var_os("HOME"),
+    };
+    unsafe {
+        std::env::set_var("HOME", home.as_os_str());
+    }
+    guard
 }
 
 #[tokio::test]
