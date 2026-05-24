@@ -28,8 +28,8 @@ async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2", features = ["serde"] }
-lilo-rm-client = "0.7.0"
-lilo-rm-core = "0.7.0"
+lilo-rm-client = "0.7.1"
+lilo-rm-core = "0.7.1"
 nix = { version = "0.30", features = ["process", "signal", "term", "user"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

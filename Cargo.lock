@@ -707,9 +707,9 @@ dependencies = [
 
 [[package]]
 name = "lilo-rm-client"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "640ffd0e325c8d5be1ec6f5649e1c87d5f7d022db90d7676f516601936a8fabf"
+checksum = "12e49c6d7fc47e54e4e029a27b1f204b3d66b60edf41258fbf95162c9ffe5329"
 dependencies = [
  "lilo-rm-core",
  "thiserror",
@@ -718,9 +718,9 @@ dependencies = [
 
 [[package]]
 name = "lilo-rm-core"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fa9c1270885c277d37118e08399215b51141e06e2a829904bb7a69e113acd9a"
+checksum = "37042359e7ee034e938cd7d58faa85a23e7482f737d610de1052fb1679193eaf"
 dependencies = [
  "chrono",
  "serde",

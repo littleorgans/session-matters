@@ -19,6 +19,8 @@ pub const SESSION_RUN_ISOLATION_HELP: &str = "Runtime isolation policy. Accepted
 #[rustfmt::skip]
 pub const SESSION_RUN_IMAGE_HELP: &str = "Container image for docker isolated runtimes.";
 #[rustfmt::skip]
+pub const SESSION_RUN_MOUNTS_HELP: &str = "Docker-only bind mount as HOST:CONTAINER[:ro|:rw]. Repeat to provide multiple mounts. Missing mode defaults to ro.";
+#[rustfmt::skip]
 pub const SESSION_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
 #[rustfmt::skip]
 pub const SESSION_RUN_FORCE_HELP: &str = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal.";

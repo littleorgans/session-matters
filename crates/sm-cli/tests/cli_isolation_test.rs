@@ -97,3 +97,25 @@ fn run_rejects_unknown_isolation_at_clap() {
     assert!(stderr.contains("invalid isolation policy kubernetes"));
     assert!(stderr.contains("expected host, docker, or docker:PROFILE"));
 }
+
+#[test]
+fn run_rejects_mount_with_host_isolation_before_daemon() {
+    let project = tempfile::tempdir().expect("project dir");
+    let output = Command::new(env!("CARGO_BIN_EXE_sm"))
+        .args([
+            "run",
+            "claude",
+            "--role",
+            "x",
+            "--dir",
+            &project.path().display().to_string(),
+            "--mount",
+            "/host/config:/container/config",
+        ])
+        .output()
+        .expect("sm run executes");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--mount is docker-only and cannot be used with --isolation host"));
+}

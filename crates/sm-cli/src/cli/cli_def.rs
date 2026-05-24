@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
-use lilo_rm_core::IsolationPolicy;
+use lilo_rm_core::{IsolationPolicy, MountSpec};
 use sm_core::{Namespace, RuntimeKind};
 
 use crate::cli::generated_help;
@@ -83,6 +83,12 @@ pub struct RunArgs {
     pub isolation: Option<IsolationPolicy>,
     #[arg(long, help = generated_help::SESSION_RUN_IMAGE_HELP)]
     pub image: Option<String>,
+    #[arg(
+        long = "mount",
+        value_name = "HOST:CONTAINER[:ro|:rw]",
+        help = generated_help::SESSION_RUN_MOUNTS_HELP
+    )]
+    pub mounts: Vec<MountSpec>,
     #[arg(long, default_value = "headless", help = generated_help::SESSION_RUN_TARGET_HELP)]
     pub target: String,
     #[arg(long, help = generated_help::SESSION_RUN_FORCE_HELP)]
