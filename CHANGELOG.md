@@ -27,6 +27,13 @@
 - Namespaces cannot be renamed, and sessions cannot move between namespaces. Stop and respawn the session in the desired namespace.
 - The future hard cut master will remove compatibility surfaces such as `SpawnRequest.workspace`, `sessions.workspace`, and `agent_*` MCP aliases after the migration window.
 
+## [0.2.8](https://github.com/littleorgans/session-matters/compare/v0.2.7...v0.2.8) (2026-05-24)
+
+
+### Features
+
+* **sm:** add run mount plumbing ([#21](https://github.com/littleorgans/session-matters/issues/21)) ([220389f](https://github.com/littleorgans/session-matters/commit/220389f60024b2b64212931652d124c3ae963fc9))
+
 ## [0.2.7](https://github.com/littleorgans/session-matters/compare/v0.2.6...v0.2.7) (2026-05-24)
 
 
