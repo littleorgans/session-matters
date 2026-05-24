@@ -1143,7 +1143,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "sm-cli"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1166,7 +1166,7 @@ dependencies = [
 
 [[package]]
 name = "sm-core"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "chrono",
  "indexmap",
@@ -1181,7 +1181,7 @@ dependencies = [
 
 [[package]]
 name = "sm-daemon"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1205,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "sm-driver"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "async-trait",
  "lilo-rm-client",
@@ -1219,11 +1219,11 @@ dependencies = [
 
 [[package]]
 name = "sm-paths"
-version = "0.2.7"
+version = "0.2.8"
 
 [[package]]
 name = "sm-store"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "chrono",
  "lilo-rm-core",
