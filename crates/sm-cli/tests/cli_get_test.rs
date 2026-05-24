@@ -69,6 +69,8 @@ fn create_session_help_exposes_only_declarative_arguments() {
     assert!(stdout.contains("--namespace"));
     assert!(stdout.contains("--label"));
     assert!(stdout.contains("--agent-config"));
+    assert!(!stdout.contains("--isolation"));
+    assert!(!stdout.contains("--image"));
     assert!(!stdout.contains("--target"));
     assert!(!stdout.contains("--detach"));
     assert!(!stdout.contains("--force"));

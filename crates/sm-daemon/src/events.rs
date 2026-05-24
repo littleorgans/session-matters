@@ -142,8 +142,8 @@ mod tests {
     use async_trait::async_trait;
     use chrono::Utc;
     use lilo_rm_core::{
-        Lifecycle, LifecycleState, LostEvidence, RuntimeEvent, RuntimeKind, RuntimeResponse,
-        StatusPayload, TerminationEvidence, read_json_line, write_json_line,
+        IsolationPolicy, Lifecycle, LifecycleState, LostEvidence, RuntimeEvent, RuntimeKind,
+        RuntimeResponse, StatusPayload, TerminationEvidence, read_json_line, write_json_line,
     };
     use sm_core::{Label, Namespace, RuntimeKind as SmRuntimeKind, Session, SessionState};
     use sm_driver::{
@@ -219,6 +219,7 @@ mod tests {
             vec![Lifecycle {
                 session_id,
                 runtime: RuntimeKind::Claude,
+                isolation: IsolationPolicy::default(),
                 state: LifecycleState::Lost(LostEvidence::PidReuseDetected),
                 shim_pid: None,
                 runtime_pid: Some(101),

@@ -256,7 +256,7 @@ pub async fn spawn_test_session_with_labels(
         .handle(
             context.clone(),
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
                     workspace: daemon._dir.path().display().to_string(),
@@ -264,11 +264,14 @@ pub async fn spawn_test_session_with_labels(
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels,
                     force: false,
-                },
+                }),
             },
         )
         .await;
@@ -363,6 +366,7 @@ pub fn runtime_doctor_response() -> lilo_rm_core::DoctorResponse {
             version: None,
             error: Some("tmux unavailable in test".to_string()),
         },
+        docker: Box::new(lilo_rm_core::DockerStatus::legacy_missing()),
         log_availability: Vec::new(),
         last_probe_sweep: None,
         recent_lost: Vec::new(),

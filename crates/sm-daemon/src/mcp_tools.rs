@@ -4,11 +4,11 @@ use std::str::FromStr;
 use anyhow::{Context, Result, anyhow};
 use serde_json::{Value, json};
 use sm_core::{
-    CaptureRequest, DeleteRequest, DoctorRequest, Label, LabelMutation, LabelRequest, ListRequest,
-    LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest, MailStopCheckRequest,
-    Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope, NudgeRequest, RpcRequest,
-    RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition, WaitRequest,
-    normalize_agent_config_request, tool_error, tool_success,
+    CaptureRequest, DeleteRequest, DoctorRequest, IsolationPolicy, Label, LabelMutation,
+    LabelRequest, ListRequest, LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest,
+    MailStopCheckRequest, Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope,
+    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition,
+    WaitRequest, normalize_agent_config_request, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -132,11 +132,17 @@ async fn agent_run(
         .unwrap_or("headless")
         .to_string();
     let force = optional_bool(arguments, "force").unwrap_or(false);
+    let isolation = optional_string(arguments, "isolation")
+        .map(IsolationPolicy::from_str)
+        .transpose()
+        .map_err(|error| anyhow!(error))?
+        .unwrap_or_default();
+    let image = optional_string(arguments, "image").map(str::to_string);
     let response = state
         .handle_direct(
             context.clone(),
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime,
                     role,
                     workspace: dir.clone(),
@@ -144,11 +150,14 @@ async fn agent_run(
                     namespace,
                     target,
                     agent_config,
+                    isolation,
+                    image,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels,
                     force,
-                },
+                }),
             },
         )
         .await;

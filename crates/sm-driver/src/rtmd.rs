@@ -60,7 +60,10 @@ impl SpawnDriver for RtmdDriver {
             .spawn(SpawnRequest {
                 session_id,
                 runtime: runtime_kind(launch.runtime),
+                isolation: launch.isolation.clone(),
+                image: launch.image.clone(),
                 env: launch.env.clone(),
+                mounts: launch.mounts.clone(),
                 cwd: launch.cwd.clone(),
                 target: runtime_target(&launch.target)?,
                 force: launch.force,
@@ -351,12 +354,13 @@ fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lilo_rm_core::TmuxAddress;
+    use lilo_rm_core::{IsolationPolicy, TmuxAddress};
 
     fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
         Lifecycle {
             session_id: Uuid::nil(),
             runtime: RtmdRuntimeKind::Claude,
+            isolation: IsolationPolicy::default(),
             state: LifecycleState::Running,
             shim_pid: None,
             runtime_pid: Some(29032),

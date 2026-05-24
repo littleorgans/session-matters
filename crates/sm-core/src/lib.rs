@@ -16,6 +16,7 @@ pub use agent_config::{
     agent_config_uses_home_prefix, is_agent_config_path_like, normalize_agent_config_request,
 };
 pub use error::{SmError, SmResult, humanize_capture_error};
+pub use lilo_rm_core::{IsolationPolicy, MountSpec};
 pub use mcp::{
     JsonRpcError, JsonRpcRequest, JsonRpcResponse, MCP_PROTOCOL_VERSION, tool_error, tool_success,
 };

@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use lilo_rm_core::{
     CaptureError, CapturePayload, CaptureResponse, CursorExpiredPayload, DoctorPayload, EventBatch,
-    EventsPayload, KillOutcome, KilledPayload, Lifecycle, LifecycleCounts,
+    EventsPayload, IsolationPolicy, KillOutcome, KilledPayload, Lifecycle, LifecycleCounts,
     LifecycleLogAvailability, LogAvailability, LostEvidence, MigrationState, NudgeFailureReason,
     NudgeOutcome, NudgePayload, NudgeResponse, PaneSnapshot, RecentLostEvent, RuntimeEvent,
     RuntimeKind, RuntimeResponse, SpawnedPayload, StatusPayload, TerminationEvidence, TmuxStatus,
@@ -88,6 +88,7 @@ fn lifecycle(session_id: Uuid) -> Lifecycle {
     Lifecycle {
         session_id,
         runtime: RuntimeKind::Claude,
+        isolation: IsolationPolicy::default(),
         state: lilo_rm_core::LifecycleState::Running,
         shim_pid: Some(4241),
         runtime_pid: Some(4242),
@@ -133,6 +134,7 @@ fn doctor_payload(session_id: Uuid) -> lilo_rm_core::DoctorResponse {
             version: Some("tmux 3.5a".to_string()),
             error: None,
         },
+        docker: Box::new(lilo_rm_core::DockerStatus::legacy_missing()),
         log_availability: vec![LifecycleLogAvailability {
             session_id,
             log_availability: LogAvailability::Headless {

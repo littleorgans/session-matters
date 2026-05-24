@@ -15,6 +15,10 @@ pub const SESSION_RUN_LABELS_HELP: &str = "Session label as key=value.";
 #[rustfmt::skip]
 pub const SESSION_RUN_AGENT_CONFIG_HELP: &str = "Agent config name resolved as `~/.agm/<name>/agent.toml`, or an explicit `agent.toml` path. TOML keys: `claude_config_dir` (string), `[env]` (table of strings).";
 #[rustfmt::skip]
+pub const SESSION_RUN_ISOLATION_HELP: &str = "Runtime isolation policy. Accepted shapes are host, docker, or docker:PROFILE.";
+#[rustfmt::skip]
+pub const SESSION_RUN_IMAGE_HELP: &str = "Container image for docker isolated runtimes.";
+#[rustfmt::skip]
 pub const SESSION_RUN_TARGET_HELP: &str = "Runtime target. Use headless or tmux:SESSION:WINDOW.PANE. Defaults to headless.";
 #[rustfmt::skip]
 pub const SESSION_RUN_FORCE_HELP: &str = "Preempt an occupied tmux pane. Other spawn conflicts remain fatal.";

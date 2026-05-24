@@ -204,27 +204,28 @@ fn wait_for_path_socket(socket: &Path, child: &mut Child) {
     panic!("daemon socket did not become ready");
 }
 
+const FAKE_RUNTIME_SCRIPT: &str = "#!/bin/sh\ntrap 'exit 0' TERM INT\nwhile :; do sleep 60; done\n";
+
 pub fn fake_runtime_path(command: &str) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("runtime path tempdir creates");
-    let runtime = dir.path().join(command);
-    std::fs::write(
-        &runtime,
-        "#!/bin/sh\ntrap 'exit 0' TERM INT\nwhile :; do sleep 60; done\n",
-    )
-    .expect("fake runtime writes");
+    write_fake_command(dir.path(), command, FAKE_RUNTIME_SCRIPT);
+    dir
+}
+
+pub fn write_fake_command(dir: &Path, command: &str, script: &str) {
+    let runtime = dir.join(command);
+    std::fs::write(&runtime, script).expect("fake command writes");
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
 
         let mut permissions = std::fs::metadata(&runtime)
-            .expect("fake runtime metadata")
+            .expect("fake command metadata")
             .permissions();
         permissions.set_mode(0o755);
-        std::fs::set_permissions(&runtime, permissions).expect("fake runtime is executable");
+        std::fs::set_permissions(&runtime, permissions).expect("fake command is executable");
     }
-
-    dir
 }
 
 fn rtm_bin() -> PathBuf {

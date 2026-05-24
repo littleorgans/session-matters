@@ -124,7 +124,7 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
         .handle(
             context,
             RpcRequest::Spawn {
-                request: SpawnRequest {
+                request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
                     workspace: workspace.display().to_string(),
@@ -132,11 +132,14 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
+                    isolation: Default::default(),
+                    image: None,
                     env: Vec::new(),
+                    mounts: Vec::new(),
                     shell_resume: None,
                     labels: Vec::new(),
                     force: false,
-                },
+                }),
             },
         )
         .await;
