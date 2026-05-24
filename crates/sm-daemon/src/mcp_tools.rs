@@ -6,9 +6,9 @@ use serde_json::{Value, json};
 use sm_core::{
     CaptureRequest, DeleteRequest, DoctorRequest, IsolationPolicy, Label, LabelMutation,
     LabelRequest, ListRequest, LogsRequest, MailCheckRequest, MailReadRequest, MailSendRequest,
-    MailStopCheckRequest, Namespace, NamespaceGetRequest, NamespaceListRequest, NamespaceScope,
-    NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest, WaitCondition,
-    WaitRequest, normalize_agent_config_request, tool_error, tool_success,
+    MailStopCheckRequest, MountSpec, Namespace, NamespaceGetRequest, NamespaceListRequest,
+    NamespaceScope, NudgeRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest,
+    WaitCondition, WaitRequest, normalize_agent_config_request, tool_error, tool_success,
 };
 
 use crate::handler::DaemonState;
@@ -138,6 +138,10 @@ async fn agent_run(
         .map_err(|error| anyhow!(error))?
         .unwrap_or_default();
     let image = optional_string(arguments, "image").map(str::to_string);
+    let mounts = optional_mounts(arguments)?;
+    if isolation.is_host() && !mounts.is_empty() {
+        anyhow::bail!("--mount is docker-only and cannot be used with --isolation host");
+    }
     let response = state
         .handle_direct(
             context.clone(),
@@ -153,7 +157,7 @@ async fn agent_run(
                     isolation,
                     image,
                     env: Vec::new(),
-                    mounts: Vec::new(),
+                    mounts,
                     shell_resume: None,
                     labels,
                     force,
@@ -634,6 +638,23 @@ fn optional_u64(arguments: &Value, field: &str) -> Option<u64> {
 
 fn optional_bool(arguments: &Value, field: &str) -> Option<bool> {
     arguments.get(field).and_then(Value::as_bool)
+}
+
+fn optional_mounts(arguments: &Value) -> Result<Vec<MountSpec>> {
+    let Some(value) = arguments.get("mounts") else {
+        return Ok(Vec::new());
+    };
+    value
+        .as_array()
+        .ok_or_else(|| anyhow!("`mounts` must be an array of HOST:CONTAINER[:ro|:rw] strings"))?
+        .iter()
+        .map(|value| {
+            let mount = value
+                .as_str()
+                .ok_or_else(|| anyhow!("`mounts` entries must be strings"))?;
+            MountSpec::from_str(mount).map_err(Into::into)
+        })
+        .collect()
 }
 
 fn required_selector(arguments: &Value, field: &str) -> Result<Selector> {

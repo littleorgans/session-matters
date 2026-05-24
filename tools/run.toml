@@ -21,7 +21,7 @@ Use `nudge` for the ephemeral notification surface.
 
 [tools.session_run]
 cli_name        = "run"
-mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+mcp_description = "Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, Docker bind mounts, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
 cli_about       = "Imperatively run a session through the session-matters daemon."
 output_schema   = '''
 {
@@ -131,6 +131,15 @@ cli_help        = "Container image for docker isolated runtimes."
 cli_flag        = "--image"
 
 [[tools.session_run.params]]
+name            = "mounts"
+type            = "array"
+items_type      = "string"
+required        = false
+mcp_description = "Docker-only bind mounts as HOST:CONTAINER[:ro|:rw]. Repeat to provide multiple mounts. Missing mode defaults to ro."
+cli_help        = "Docker-only bind mount as HOST:CONTAINER[:ro|:rw]. Repeat to provide multiple mounts. Missing mode defaults to ro."
+cli_flag        = "--mount"
+
+[[tools.session_run.params]]
 name            = "target"
 type            = "string"
 required        = false
@@ -148,4 +157,4 @@ cli_flag        = "--force"
 
 [[tools.session_run.mcp_aliases]]
 name            = "agent_run"
-mcp_description = "Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."
+mcp_description = "Deprecated compatibility alias for session_run. Start a session through the session-matters daemon and rtmd. Supports claude and codex runtimes, headless or tmux targets, docker isolation, image selection, Docker bind mounts, a role, a directory, a namespace, labels, and filesystem agent config resolution. The tool returns the persisted session record."

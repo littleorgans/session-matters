@@ -4,7 +4,7 @@ use std::path::Path;
 
 use common::{LOCAL_UID, TestDaemon, local_context};
 use serde_json::{Value, json};
-use sm_core::IsolationPolicy;
+use sm_core::{IsolationPolicy, MountSpec};
 
 const IMAGE: &str = "runtime-matters-claude:local";
 
@@ -54,10 +54,58 @@ async fn agent_run_unknown_isolation_returns_structured_mcp_error() {
     assert!(daemon.driver.launches().is_empty());
 }
 
+#[tokio::test]
+async fn session_run_mounts_reject_host_isolation() {
+    let daemon = TestDaemon::new(LOCAL_UID).await;
+    let context = local_context();
+    let mut arguments = run_arguments(daemon._dir.path(), "host", None);
+    arguments
+        .as_object_mut()
+        .expect("run arguments are an object")
+        .insert(
+            "mounts".to_string(),
+            json!(["/host/config:/container/config"]),
+        );
+
+    let error = sm_daemon::mcp_tools::call_tool(&daemon.state, &context, "session_run", &arguments)
+        .await
+        .expect_err("host mounts are rejected");
+
+    assert!(
+        error
+            .to_string()
+            .contains("--mount is docker-only and cannot be used with --isolation host"),
+        "{error}"
+    );
+    assert!(daemon.driver.launches().is_empty());
+}
+
 async fn assert_run_tool_launch(tool_name: &str) {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let arguments = run_arguments(daemon._dir.path(), "docker", Some(IMAGE));
+    let mut arguments = run_arguments(daemon._dir.path(), "docker", Some(IMAGE));
+    let expected_mounts = vec![
+        MountSpec {
+            source: "/host/config".into(),
+            target: "/container/config".into(),
+            read_only: true,
+        },
+        MountSpec {
+            source: "/host/cache".into(),
+            target: "/container/cache".into(),
+            read_only: false,
+        },
+    ];
+    arguments
+        .as_object_mut()
+        .expect("run arguments are an object")
+        .insert(
+            "mounts".to_string(),
+            json!([
+                "/host/config:/container/config",
+                "/host/cache:/container/cache:rw"
+            ]),
+        );
 
     let response = sm_daemon::mcp_tools::call_tool(&daemon.state, &context, tool_name, &arguments)
         .await
@@ -70,7 +118,7 @@ async fn assert_run_tool_launch(tool_name: &str) {
         IsolationPolicy::Docker(Default::default())
     );
     assert_eq!(launch.image.as_deref(), Some(IMAGE));
-    assert!(launch.mounts.is_empty());
+    assert_eq!(launch.mounts, expected_mounts);
 }
 
 fn run_arguments(dir: &Path, isolation: &str, image: Option<&str>) -> Value {

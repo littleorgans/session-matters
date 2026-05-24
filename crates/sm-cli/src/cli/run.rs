@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use lilo_rm_core::{IsolationPolicy, SpawnTarget};
+use lilo_rm_core::{IsolationPolicy, MountSpec, SpawnTarget};
 use sm_core::{
     Label, Namespace, RpcRequest, RpcResponse, SmEndpoint, SpawnRequest,
     agent_config_uses_home_prefix, is_agent_config_path_like, normalize_agent_config_request,
@@ -13,12 +13,15 @@ use crate::cli::namespace_resolver::resolve_namespace_dir;
 use crate::cli::output::print_session_line;
 
 pub async fn run(args: RunArgs) -> Result<()> {
+    let isolation = args.isolation.unwrap_or_default();
+    reject_host_mounts(&isolation, &args.mounts)?;
     spawn_session(
         args.session,
         args.target,
         args.force,
-        args.isolation.unwrap_or_default(),
+        isolation,
         args.image,
+        args.mounts,
     )
     .await
 }
@@ -30,6 +33,7 @@ pub async fn create_session(args: SessionCreateArgs) -> Result<()> {
         false,
         IsolationPolicy::default(),
         None,
+        Vec::new(),
     )
     .await
 }
@@ -40,6 +44,7 @@ async fn spawn_session(
     force: bool,
     isolation: IsolationPolicy,
     image: Option<String>,
+    mounts: Vec<MountSpec>,
 ) -> Result<()> {
     let spawn_location = resolve_spawn_location(args.dir.as_ref(), args.namespace.clone())?;
     let agent_config = normalize_cli_agent_config(args.agent_config.as_deref())?;
@@ -71,7 +76,7 @@ async fn spawn_session(
                 isolation,
                 image,
                 env,
-                mounts: Vec::new(),
+                mounts,
                 shell_resume,
                 labels: args
                     .labels
@@ -95,6 +100,13 @@ async fn spawn_session(
             other.kind()
         ),
     }
+}
+
+fn reject_host_mounts(isolation: &IsolationPolicy, mounts: &[MountSpec]) -> Result<()> {
+    if isolation.is_host() && !mounts.is_empty() {
+        bail!("--mount is docker-only and cannot be used with --isolation host");
+    }
+    Ok(())
 }
 
 fn normalize_cli_agent_config(agent_config: Option<&str>) -> Result<Option<String>> {
