@@ -36,10 +36,8 @@ impl SmPaths {
         let dir = sm_home_dir(env)?;
         Ok(Self {
             pidfile: dir.join("sm.pid"),
-            database: non_empty_path(env.sm_db_path.as_ref())
-                .unwrap_or_else(|| dir.join("sm.db")),
-            log: non_empty_path(env.sm_log_path.as_ref())
-                .unwrap_or_else(|| dir.join("smd.log")),
+            database: non_empty_path(env.sm_db_path.as_ref()).unwrap_or_else(|| dir.join("sm.db")),
+            log: non_empty_path(env.sm_log_path.as_ref()).unwrap_or_else(|| dir.join("smd.log")),
             dir,
         })
     }
@@ -199,12 +197,9 @@ pub fn rtmd_socket_path() -> PathBuf {
 pub fn rtmd_socket_path_from(env: &SmPathsEnv) -> PathBuf {
     non_empty_path(env.rtm_socket_path.as_ref())
         .or_else(|| {
-            non_empty_path(env.xdg_runtime_dir.as_ref())
-                .map(|dir| dir.join("rtm").join("sock"))
+            non_empty_path(env.xdg_runtime_dir.as_ref()).map(|dir| dir.join("rtm").join("sock"))
         })
-        .or_else(|| {
-            non_empty_path(env.home.as_ref()).map(|home| home.join(".rtm").join("sock"))
-        })
+        .or_else(|| non_empty_path(env.home.as_ref()).map(|home| home.join(".rtm").join("sock")))
         .unwrap_or_else(|| PathBuf::from(".rtm").join("sock"))
 }
 
