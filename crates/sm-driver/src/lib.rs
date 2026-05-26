@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod conv;
 pub mod driver;
 pub mod rtmd;
