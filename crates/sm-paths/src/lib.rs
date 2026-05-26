@@ -4,6 +4,10 @@ use std::ffi::OsString;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+#[path = "../../test_support.rs"]
+mod test_support;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmPaths {
     pub dir: PathBuf,
@@ -47,8 +51,7 @@ impl SmEndpoint {
     pub fn from_env() -> Result<Self, SmPathsError> {
         let dir = sm_home_dir()?;
         Ok(env_path("SM_SOCKET_PATH")
-            .map(Self::UnixSocket)
-            .unwrap_or_else(|| Self::UnixSocket(dir.join("sock"))))
+            .map_or_else(|| Self::UnixSocket(dir.join("sock")), Self::UnixSocket))
     }
 
     pub fn unix_socket(path: impl Into<PathBuf>) -> Self {
@@ -119,6 +122,7 @@ fn non_empty_env(name: &str) -> Option<OsString> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::OrPanic as _;
     use std::sync::{Mutex, OnceLock};
 
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -132,7 +136,7 @@ mod tests {
                 ("SM_LOG_PATH", None),
             ],
             || {
-                let paths = SmPaths::from_env().expect("paths resolve");
+                let paths = SmPaths::from_env().or_panic("paths resolve");
                 assert_eq!(paths.dir, PathBuf::from("/tmp/sm-home"));
                 assert_eq!(paths.pidfile, PathBuf::from("/tmp/sm-home/sm.pid"));
                 assert_eq!(paths.database, PathBuf::from("/tmp/sm-home/sm.db"));
@@ -154,7 +158,7 @@ mod tests {
                 ("SM_LOG_PATH", Some("/tmp/custom.log")),
             ],
             || {
-                let paths = SmPaths::from_env().expect("paths resolve");
+                let paths = SmPaths::from_env().or_panic("paths resolve");
                 assert_eq!(paths.database, PathBuf::from("/tmp/custom.db"));
                 assert_eq!(paths.log, PathBuf::from("/tmp/custom.log"));
             },
@@ -169,7 +173,7 @@ mod tests {
                 ("SM_SOCKET_PATH", Some("/tmp/sm.sock")),
             ],
             || {
-                let endpoint = SmEndpoint::from_env().expect("endpoint resolves");
+                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
                 assert_eq!(endpoint.as_path(), Path::new("/tmp/sm.sock"));
                 assert_eq!(endpoint.to_string(), "/tmp/sm.sock");
                 assert!(format!("{endpoint:?}").starts_with("UnixSocket"));
@@ -186,7 +190,7 @@ mod tests {
                 ("HOME", Some("/tmp/home")),
             ],
             || {
-                let endpoint = SmEndpoint::from_env().expect("endpoint resolves");
+                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
                 assert_eq!(endpoint.as_path(), Path::new("/tmp/home/.sm/sock"));
             },
         );
@@ -203,8 +207,8 @@ mod tests {
                 ("HOME", Some("/tmp/home")),
             ],
             || {
-                let paths = SmPaths::from_env().expect("paths resolve");
-                let endpoint = SmEndpoint::from_env().expect("endpoint resolves");
+                let paths = SmPaths::from_env().or_panic("paths resolve");
+                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
                 assert_eq!(paths.dir, PathBuf::from("/tmp/home/.sm"));
                 assert_eq!(paths.database, PathBuf::from("/tmp/home/.sm/sm.db"));
                 assert_eq!(paths.log, PathBuf::from("/tmp/home/.sm/smd.log"));
@@ -257,11 +261,14 @@ mod tests {
         );
     }
 
+    // Rust 2024 marks process env mutation unsafe. The lock keeps these env
+    // changes scoped and serial for path resolution tests.
+    #[allow(unsafe_code)]
     fn with_env<T>(vars: &[(&str, Option<&str>)], test: impl FnOnce() -> T) -> T {
         let _guard = ENV_LOCK
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .expect("env lock is not poisoned");
+            .or_panic("env lock is not poisoned");
         let previous: Vec<_> = vars
             .iter()
             .map(|(name, _)| (*name, env::var_os(name)))

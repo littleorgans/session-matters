@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use sm_core::{NudgeRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::NudgeArgs;
-use crate::cli::selector_scope::scoped_selector;
+use crate::cli::selector_scope::required_scoped_selector;
 
 pub async fn run(args: NudgeArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
@@ -11,7 +11,7 @@ pub async fn run(args: NudgeArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Nudge {
             request: NudgeRequest {
-                to: scoped_selector(Some(&args.to), &args.scope)?.expect("selector is present"),
+                to: required_scoped_selector(&args.to, &args.scope)?,
                 content: args.content,
             },
         },

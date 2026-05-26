@@ -30,9 +30,7 @@ pub fn reconcile_lifecycles(
     for lifecycle in lifecycles {
         if let Some(path) = lifecycle_transcript_path(lifecycle) {
             state
-                .store
-                .lock()
-                .expect("store lock poisoned")
+                .store()?
                 .record_transcript_path(&lifecycle.session_id, path, Utc::now())
                 .context("failed to persist transcript path")?;
         }
@@ -40,9 +38,7 @@ pub fn reconcile_lifecycles(
             LifecycleState::Forking | LifecycleState::Running => {}
             LifecycleState::Exited(exit) => {
                 state
-                    .store
-                    .lock()
-                    .expect("store lock poisoned")
+                    .store()?
                     .mark_session_terminated(&lifecycle.session_id, exit.code, Utc::now())
                     .context("failed to mark session terminated")?;
             }
@@ -66,9 +62,7 @@ pub fn reconcile_lifecycles(
 
 fn mark_lost(state: &DaemonState, lifecycle: &Lifecycle, evidence: LostEvidence) -> Result<()> {
     state
-        .store
-        .lock()
-        .expect("store lock poisoned")
+        .store()?
         .mark_session_lost(&lifecycle.session_id, evidence, Utc::now())
         .context("failed to mark session lost")?;
     Ok(())

@@ -12,13 +12,10 @@ use crate::handler::DaemonState;
 use crate::identity_client::RequestContext;
 
 impl DaemonState {
-    pub(crate) async fn create_namespace(
-        &self,
-        request: NamespaceCreateRequest,
-    ) -> Result<RpcResponse> {
+    pub(crate) fn create_namespace(&self, request: NamespaceCreateRequest) -> Result<RpcResponse> {
         let namespace = Namespace::for_create(request.slug)?;
         let record = {
-            let store = self.store.lock().expect("store lock poisoned");
+            let store = self.store()?;
             let created = if store
                 .namespace_exists(&namespace)
                 .context("failed to check namespace")?
@@ -35,7 +32,9 @@ impl DaemonState {
                 .context("failed to list namespaces")?
                 .into_iter()
                 .find(|record| record.namespace == namespace)
-                .expect("created namespace is listed");
+                .with_context(|| {
+                    format!("created namespace is missing from catalog: {namespace}")
+                })?;
             (record, created)
         };
 
@@ -49,9 +48,7 @@ impl DaemonState {
 
     pub(crate) fn list_namespaces(&self, _request: NamespaceListRequest) -> Result<RpcResponse> {
         let namespaces = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
+            .store()?
             .list_namespaces()
             .context("failed to list namespaces")?;
 
@@ -60,12 +57,10 @@ impl DaemonState {
         })
     }
 
-    pub(crate) async fn get_namespace(&self, request: NamespaceGetRequest) -> Result<RpcResponse> {
+    pub(crate) fn get_namespace(&self, request: NamespaceGetRequest) -> Result<RpcResponse> {
         let namespace = Namespace::new(request.slug)?;
         let namespace = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
+            .store()?
             .list_namespaces()
             .context("failed to list namespaces")?
             .into_iter()
@@ -109,9 +104,7 @@ impl DaemonState {
         namespace: &Namespace,
     ) -> Result<Vec<sm_core::Session>> {
         let targets = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
+            .store()?
             .list_sessions_by_selector(&Selector::Namespace {
                 namespace: namespace.clone(),
             })
@@ -141,7 +134,7 @@ impl DaemonState {
     }
 
     fn remove_namespace_catalog(&self, namespace: &Namespace) -> Result<()> {
-        let store = self.store.lock().expect("store lock poisoned");
+        let store = self.store()?;
         let active = store
             .active_session_count_in_namespace(namespace)
             .context("failed to verify namespace sessions before catalog removal")?;
@@ -161,9 +154,7 @@ impl DaemonState {
     }
 
     fn namespace_exists(&self, namespace: &Namespace) -> Result<bool> {
-        self.store
-            .lock()
-            .expect("store lock poisoned")
+        self.store()?
             .namespace_exists(namespace)
             .context("failed to check namespace")
     }

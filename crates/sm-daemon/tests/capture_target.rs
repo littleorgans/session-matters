@@ -1,8 +1,9 @@
 mod common;
-
 use common::{LOCAL_UID, TestDaemon, local_context};
 use lilo_rm_core::{CaptureError, CaptureResponse, PaneSnapshot};
-use sm_core::{CaptureRequest, RpcRequest, RpcResponse, RuntimeKind, SpawnRequest};
+use sm_core::{
+    CaptureRequest, IsolationPolicy, RpcRequest, RpcResponse, RuntimeKind, SpawnRequest,
+};
 
 #[tokio::test]
 async fn spawn_validates_target_and_persists_tmux_pane() {
@@ -18,12 +19,12 @@ async fn spawn_validates_target_and_persists_tmux_pane() {
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "tmux:test:0.0".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -158,12 +159,12 @@ async fn spawn_with_target(daemon: &TestDaemon, target: &str) -> sm_daemon::hand
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "engineer".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: target.to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),

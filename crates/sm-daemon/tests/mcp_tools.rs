@@ -2,7 +2,8 @@ mod common;
 
 use std::path::Path;
 
-use common::{LOCAL_UID, TestDaemon, local_context};
+use common::shared_test_support::ErrOrPanic as _;
+use common::{LOCAL_UID, OrPanic as _, TestDaemon, local_context};
 use serde_json::{Value, json};
 use sm_core::{IsolationPolicy, MountSpec};
 
@@ -22,7 +23,7 @@ async fn session_run_isolation_and_image_reach_spawn_driver() {
 async fn agent_run_unknown_isolation_returns_structured_mcp_error() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let arguments = run_arguments(daemon._dir.path(), "kubernetes", None);
+    let arguments = run_arguments(daemon.dir.path(), "kubernetes", None);
     let line = json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -36,11 +37,11 @@ async fn agent_run_unknown_isolation_returns_structured_mcp_error() {
 
     let response = sm_daemon::mcp_bridge::handle_line(&daemon.state, &context, &line)
         .await
-        .expect("tools/call returns a response");
-    let response: Value = serde_json::from_str(&response).expect("response is JSON");
+        .or_panic("tools/call returns a response");
+    let response: Value = serde_json::from_str(&response).or_panic("response is JSON");
     let message = response["result"]["_meta"]["sm_tool_error"]["message"]
         .as_str()
-        .expect("structured MCP error includes a message");
+        .or_panic("structured MCP error includes a message");
 
     assert!(response["error"].is_null());
     assert_eq!(
@@ -58,10 +59,10 @@ async fn agent_run_unknown_isolation_returns_structured_mcp_error() {
 async fn session_run_mounts_reject_host_isolation() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let mut arguments = run_arguments(daemon._dir.path(), "host", None);
+    let mut arguments = run_arguments(daemon.dir.path(), "host", None);
     arguments
         .as_object_mut()
-        .expect("run arguments are an object")
+        .or_panic("run arguments are an object")
         .insert(
             "mounts".to_string(),
             json!(["/host/config:/container/config"]),
@@ -69,7 +70,7 @@ async fn session_run_mounts_reject_host_isolation() {
 
     let error = sm_daemon::mcp_tools::call_tool(&daemon.state, &context, "session_run", &arguments)
         .await
-        .expect_err("host mounts are rejected");
+        .err_or_panic("host mounts are rejected");
 
     assert!(
         error
@@ -83,7 +84,7 @@ async fn session_run_mounts_reject_host_isolation() {
 async fn assert_run_tool_launch(tool_name: &str) {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let mut arguments = run_arguments(daemon._dir.path(), "docker", Some(IMAGE));
+    let mut arguments = run_arguments(daemon.dir.path(), "docker", Some(IMAGE));
     let expected_mounts = vec![
         MountSpec {
             source: "/host/config".into(),
@@ -98,7 +99,7 @@ async fn assert_run_tool_launch(tool_name: &str) {
     ];
     arguments
         .as_object_mut()
-        .expect("run arguments are an object")
+        .or_panic("run arguments are an object")
         .insert(
             "mounts".to_string(),
             json!([
@@ -109,13 +110,13 @@ async fn assert_run_tool_launch(tool_name: &str) {
 
     let response = sm_daemon::mcp_tools::call_tool(&daemon.state, &context, tool_name, &arguments)
         .await
-        .expect("run tool succeeds");
+        .or_panic("run tool succeeds");
     assert!(response["structuredContent"]["session"]["id"].is_string());
 
-    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    let launch = daemon.driver.launches().pop().or_panic("driver saw launch");
     assert_eq!(
         launch.isolation,
-        IsolationPolicy::Docker(Default::default())
+        IsolationPolicy::Docker(lilo_rm_core::IsolationProfile::default())
     );
     assert_eq!(launch.image.as_deref(), Some(IMAGE));
     assert_eq!(launch.mounts, expected_mounts);
@@ -132,7 +133,7 @@ fn run_arguments(dir: &Path, isolation: &str, image: Option<&str>) -> Value {
     if let Some(image) = image {
         arguments
             .as_object_mut()
-            .expect("run arguments are an object")
+            .or_panic("run arguments are an object")
             .insert("image".to_string(), json!(image));
     }
 

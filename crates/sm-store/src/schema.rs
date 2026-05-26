@@ -1,4 +1,4 @@
-pub const SESSIONS_SCHEMA: &str = r#"
+pub const SESSIONS_SCHEMA: &str = r"
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY NOT NULL,
     runtime TEXT NOT NULL,
@@ -52,4 +52,4 @@ CREATE TABLE IF NOT EXISTS event_cursor (
     cursor BLOB NOT NULL,
     updated_at TEXT NOT NULL
 );
-"#;
+";

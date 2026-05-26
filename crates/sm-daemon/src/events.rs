@@ -37,9 +37,7 @@ impl Drop for RuntimeEventTask {
 
 async fn run_event_loop(state: Arc<DaemonState>, socket_path: PathBuf) -> Result<()> {
     let mut cursor = state
-        .store
-        .lock()
-        .expect("store lock poisoned")
+        .store()?
         .event_cursor()
         .context("failed to load runtime event cursor")?;
     let mut backoff = BACKOFF_INITIAL;
@@ -104,9 +102,7 @@ pub(crate) async fn handle_batch(
             cursor: next,
         } => {
             state
-                .store
-                .lock()
-                .expect("store lock poisoned")
+                .store()?
                 .apply_runtime_events_and_cursor(&events, next)
                 .context("failed to persist runtime events")?;
             *cursor = Some(next);
@@ -119,9 +115,7 @@ pub(crate) async fn handle_batch(
                 .context("failed to reconcile expired runtime cursor")?;
             crate::reconcile::reconcile_lifecycles(state, &payload.lifecycles)?;
             state
-                .store
-                .lock()
-                .expect("store lock poisoned")
+                .store()?
                 .apply_cursor(oldest)
                 .context("failed to persist expired runtime cursor")?;
             *cursor = Some(oldest);
@@ -137,6 +131,7 @@ fn next_backoff(current: Duration) -> Duration {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::OrPanic as _;
     use std::path::Path;
 
     use async_trait::async_trait;
@@ -193,7 +188,7 @@ mod tests {
             },
         )
         .await
-        .expect("batch applies");
+        .or_panic("batch applies");
 
         assert_eq!(outcome, BatchOutcome::Advanced);
         assert_eq!(cursor, Some(42));
@@ -212,7 +207,7 @@ mod tests {
     async fn handle_batch_reconciles_status_when_cursor_expires() {
         let state = test_state().await;
         let session_id = insert_session(&state, SessionState::Running);
-        let socket_dir = tempfile::tempdir().expect("socket dir creates");
+        let socket_dir = tempfile::tempdir().or_panic("socket dir creates");
         let socket_path = socket_dir.path().join("rtmd.sock");
         let server = spawn_status_server(
             &socket_path,
@@ -237,8 +232,8 @@ mod tests {
             EventBatch::CursorExpired { oldest: 9 },
         )
         .await
-        .expect("cursor expiry reconciles");
-        server.await.expect("status server completes");
+        .or_panic("cursor expiry reconciles");
+        server.await.or_panic("status server completes");
 
         assert_eq!(outcome, BatchOutcome::Reconciled);
         assert_eq!(cursor, Some(9));
@@ -252,12 +247,12 @@ mod tests {
     }
 
     async fn test_state() -> DaemonState {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let identity = IdentityClient::connect(&dir.path().join("audit.sqlite"), 42)
             .await
-            .expect("identity client connects");
+            .or_panic("identity client connects");
         DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
+            SqliteStore::open_in_memory().or_panic("store opens"),
             Arc::new(NoopDriver),
             Arc::new(identity),
         )
@@ -269,9 +264,9 @@ mod tests {
         state
             .store
             .lock()
-            .expect("store lock poisoned")
+            .or_panic("store lock poisoned")
             .insert_session(&session)
-            .expect("session inserts");
+            .or_panic("session inserts");
         session_id
     }
 
@@ -279,10 +274,10 @@ mod tests {
         state
             .store
             .lock()
-            .expect("store lock poisoned")
+            .or_panic("store lock poisoned")
             .get_session(&session_id)
-            .expect("session loads")
-            .expect("session exists")
+            .or_panic("session loads")
+            .or_panic("session exists")
             .state
     }
 
@@ -290,9 +285,9 @@ mod tests {
         state
             .store
             .lock()
-            .expect("store lock poisoned")
+            .or_panic("store lock poisoned")
             .event_cursor()
-            .expect("cursor loads")
+            .or_panic("cursor loads")
     }
 
     fn test_session(state: SessionState) -> Session {
@@ -323,20 +318,20 @@ mod tests {
         socket_path: &Path,
         lifecycles: Vec<Lifecycle>,
     ) -> tokio::task::JoinHandle<()> {
-        let listener = UnixListener::bind(socket_path).expect("listener binds");
+        let listener = UnixListener::bind(socket_path).or_panic("listener binds");
         tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.expect("client connects");
+            let (stream, _) = listener.accept().await.or_panic("client connects");
             let (reader, mut writer) = stream.into_split();
             let mut reader = BufReader::new(reader);
             let _: lilo_rm_core::RuntimeRpc = read_json_line(&mut reader)
                 .await
-                .expect("status request reads");
+                .or_panic("status request reads");
             write_json_line(
                 &mut writer,
                 &RuntimeResponse::Status(StatusPayload { lifecycles }),
             )
             .await
-            .expect("status response writes");
+            .or_panic("status response writes");
         })
     }
 

@@ -153,20 +153,21 @@ fn agent_env(config: AgentConfigToml) -> Vec<LaunchEnv> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ErrOrPanic as _, OrPanic as _};
 
     #[test]
     fn resolves_named_agent_config_from_home_agm() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let config_dir = dir.path().join(".agm/demo-agent");
-        fs::create_dir_all(&config_dir).expect("config dir creates");
+        fs::create_dir_all(&config_dir).or_panic("config dir creates");
         fs::write(
             config_dir.join("agent.toml"),
             "claude_config_dir = \"/tmp/claude\"\n[env]\nHELIOY_AGENT_NAME = \"demo\"\n",
         )
-        .expect("config writes");
+        .or_panic("config writes");
 
         let resolved =
-            resolve_agent_config_with_home("demo-agent", dir.path()).expect("config resolves");
+            resolve_agent_config_with_home("demo-agent", dir.path()).or_panic("config resolves");
 
         assert_eq!(resolved.requested, "demo-agent");
         assert_eq!(
@@ -186,30 +187,30 @@ mod tests {
 
     #[test]
     fn bare_toml_filename_resolves_as_home_agm_name() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let config_dir = dir.path().join(".agm/tools.toml");
-        fs::create_dir_all(&config_dir).expect("config dir creates");
+        fs::create_dir_all(&config_dir).or_panic("config dir creates");
         fs::write(
             config_dir.join("agent.toml"),
             "[env]\nHELIOY_AGENT_NAME = \"tools\"\n",
         )
-        .expect("config writes");
+        .or_panic("config writes");
 
         let resolved =
-            resolve_agent_config_with_home("tools.toml", dir.path()).expect("config resolves");
+            resolve_agent_config_with_home("tools.toml", dir.path()).or_panic("config resolves");
 
         assert_eq!(resolved.path, config_dir.join("agent.toml"));
     }
 
     #[test]
     fn resolves_explicit_agent_config_path() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let path = dir.path().join("agent.toml");
-        fs::write(&path, "[env]\nHELIOY_AGENT_NAME = \"explicit\"\n").expect("config writes");
+        fs::write(&path, "[env]\nHELIOY_AGENT_NAME = \"explicit\"\n").or_panic("config writes");
 
         let resolved =
-            resolve_agent_config_with_home(path.to_str().expect("path is utf8"), dir.path())
-                .expect("config resolves");
+            resolve_agent_config_with_home(path.to_str().or_panic("path is utf8"), dir.path())
+                .or_panic("config resolves");
 
         assert_eq!(resolved.requested, path.to_string_lossy());
         assert_eq!(
@@ -226,7 +227,7 @@ mod tests {
         let resolved = resolve_inline_config(
             "claude_config_dir = \"/a\"\n[env]\nCLAUDE_CONFIG_DIR = \"/b\"\n",
         )
-        .expect("config resolves");
+        .or_panic("config resolves");
 
         assert_eq!(
             resolved.env,
@@ -240,7 +241,7 @@ mod tests {
     #[test]
     fn unknown_top_level_agent_config_key_is_rejected() {
         let error =
-            resolve_inline_config("clade_config_dir = \"/x\"\n").expect_err("unknown key fails");
+            resolve_inline_config("clade_config_dir = \"/x\"\n").err_or_panic("unknown key fails");
         let message = format!("{error:#}");
 
         assert!(message.contains("unknown field `clade_config_dir`"));
@@ -248,7 +249,7 @@ mod tests {
 
     #[test]
     fn non_string_agent_config_env_value_names_key() {
-        let error = resolve_inline_config("[env]\nKEY = 42\n").expect_err("non-string env fails");
+        let error = resolve_inline_config("[env]\nKEY = 42\n").err_or_panic("non-string env fails");
         let message = format!("{error:#}");
 
         assert!(message.contains("agent config env"));
@@ -257,19 +258,19 @@ mod tests {
 
     #[test]
     fn missing_agent_config_is_structured_error() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let error = resolve_agent_config_with_home("missing-agent", dir.path())
-            .expect_err("missing config fails");
+            .err_or_panic("missing config fails");
 
         assert!(error.to_string().contains("agent config not found"));
         assert!(error.to_string().contains("missing-agent"));
     }
 
     fn resolve_inline_config(content: &str) -> Result<ResolvedAgentConfig> {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let path = dir.path().join("agent.toml");
-        fs::write(&path, content).expect("config writes");
+        fs::write(&path, content).or_panic("config writes");
 
-        resolve_agent_config_with_home(path.to_str().expect("path is utf8"), dir.path())
+        resolve_agent_config_with_home(path.to_str().or_panic("path is utf8"), dir.path())
     }
 }

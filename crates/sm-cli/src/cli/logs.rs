@@ -28,8 +28,7 @@ pub async fn run(args: LogsArgs) -> Result<()> {
             std::io::stdout().flush().ok();
             if args.follow {
                 let offset = std::fs::metadata(&response.transcript_path)
-                    .map(|metadata| metadata.len())
-                    .unwrap_or(response.content.len() as u64);
+                    .map_or(response.content.len() as u64, |metadata| metadata.len());
                 follow_transcript(&response.transcript_path, offset)?;
             }
             Ok(())

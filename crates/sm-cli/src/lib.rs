@@ -4,6 +4,10 @@ pub mod tool_contracts;
 pub mod tool_docs;
 pub mod tool_examples;
 
+#[cfg(test)]
+#[path = "../../test_support.rs"]
+mod test_support;
+
 use clap::Parser;
 
 use cli::cli_def::{Cli, Command};

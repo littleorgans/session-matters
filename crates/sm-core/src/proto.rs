@@ -407,6 +407,7 @@ impl RpcResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::OrPanic as _;
 
     #[test]
     fn spawn_request_round_trips_as_tagged_json() {
@@ -419,7 +420,7 @@ mod tests {
                 namespace: None,
                 target: "headless".to_string(),
                 agent_config: None,
-                isolation: IsolationPolicy::Docker(Default::default()),
+                isolation: IsolationPolicy::Docker(lilo_rm_core::IsolationProfile::default()),
                 image: Some("runtime-matters-claude:local".to_string()),
                 env: Vec::new(),
                 mounts: vec![MountSpec {
@@ -433,8 +434,8 @@ mod tests {
             }),
         };
 
-        let json = serde_json::to_string(&request).expect("serializes request");
-        let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
+        let json = serde_json::to_string(&request).or_panic("serializes request");
+        let decoded: RpcRequest = serde_json::from_str(&json).or_panic("decodes request");
 
         assert_eq!(decoded, request);
     }
@@ -450,7 +451,7 @@ mod tests {
             }
         }"#;
 
-        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes legacy request");
+        let decoded: RpcRequest = serde_json::from_str(json).or_panic("decodes legacy request");
         let RpcRequest::Spawn { request } = decoded else {
             panic!("expected spawn request");
         };
@@ -476,13 +477,16 @@ mod tests {
             }
         }"#;
 
-        let decoded: RpcRequest = serde_json::from_str(json).expect("decodes new request");
+        let decoded: RpcRequest = serde_json::from_str(json).or_panic("decodes new request");
         let RpcRequest::Spawn { request } = decoded else {
             panic!("expected spawn request");
         };
         assert_eq!(request.workspace, "");
         assert_eq!(request.dir.as_deref(), Some("/tmp/project"));
-        assert_eq!(request.namespace.unwrap().as_str(), "alpha");
+        assert_eq!(
+            request.namespace.or_panic("expected value").as_str(),
+            "alpha"
+        );
         assert_eq!(request.target, "headless");
         assert!(!request.force);
     }
@@ -492,15 +496,17 @@ mod tests {
         let request = RpcRequest::Delete {
             request: DeleteRequest {
                 selector: Selector::Id {
-                    id: "019e32e3-0000-7000-8000-000000000000".parse().unwrap(),
+                    id: "019e32e3-0000-7000-8000-000000000000"
+                        .parse()
+                        .or_panic("expected value"),
                 },
                 signal: "SIGTERM".to_string(),
                 grace_secs: 5,
             },
         };
 
-        let json = serde_json::to_string(&request).expect("serializes request");
-        let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
+        let json = serde_json::to_string(&request).or_panic("serializes request");
+        let decoded: RpcRequest = serde_json::from_str(&json).or_panic("decodes request");
 
         assert_eq!(decoded, request);
     }
@@ -511,14 +517,16 @@ mod tests {
             request: MailSendRequest {
                 from: Some("019e32e3-0000-7000-8000-000000000000".to_string()),
                 to: Selector::Id {
-                    id: "019e32e3-0000-7000-8000-000000000001".parse().unwrap(),
+                    id: "019e32e3-0000-7000-8000-000000000001"
+                        .parse()
+                        .or_panic("expected value"),
                 },
                 content: "review the spec".to_string(),
             },
         };
 
-        let json = serde_json::to_string(&request).expect("serializes request");
-        let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
+        let json = serde_json::to_string(&request).or_panic("serializes request");
+        let decoded: RpcRequest = serde_json::from_str(&json).or_panic("decodes request");
 
         assert_eq!(decoded, request);
     }
@@ -528,14 +536,16 @@ mod tests {
         let request = RpcRequest::Nudge {
             request: NudgeRequest {
                 to: Selector::Id {
-                    id: "019e32e3-0000-7000-8000-000000000001".parse().unwrap(),
+                    id: "019e32e3-0000-7000-8000-000000000001"
+                        .parse()
+                        .or_panic("expected value"),
                 },
                 content: "ping".to_string(),
             },
         };
 
-        let json = serde_json::to_string(&request).expect("serializes request");
-        let decoded: RpcRequest = serde_json::from_str(&json).expect("decodes request");
+        let json = serde_json::to_string(&request).or_panic("serializes request");
+        let decoded: RpcRequest = serde_json::from_str(&json).or_panic("decodes request");
 
         assert_eq!(decoded, request);
     }

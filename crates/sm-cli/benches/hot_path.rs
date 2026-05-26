@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 #[path = "../tests/common/mod.rs"]
 mod common;
+use common::OrPanic as _;
 
 const MAIL_CHECK_BUDGET: Duration = Duration::from_millis(50);
 const RPC_BUDGET: Duration = Duration::from_millis(5);
@@ -16,7 +17,7 @@ fn hot_path_benches(c: &mut Criterion) {
     let runtime_dir = fake_runtime_dir();
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_dir.path());
     let session_id = spawn_bench_agent(&daemon);
-    let runtime = tokio::runtime::Runtime::new().expect("tokio runtime starts");
+    let runtime = tokio::runtime::Runtime::new().or_panic("tokio runtime starts");
 
     assert_budget("sm mail check cold-start", MAIL_CHECK_BUDGET, || {
         run_mail_check(&daemon, &session_id);
@@ -57,13 +58,13 @@ fn run_mail_check(daemon: &common::DaemonFixture, session_id: &Uuid) -> usize {
         .command()
         .args(["mail", "check", "--selector", &session_id.to_string()])
         .output()
-        .expect("sm mail check runs");
+        .or_panic("sm mail check runs");
     assert!(
         output.status.success(),
         "sm mail check failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    let stdout = String::from_utf8(output.stdout).or_panic("stdout is utf8");
     assert_eq!(stdout.trim(), "0 unread");
     0
 }
@@ -81,7 +82,7 @@ fn run_rpc_round_trip(
     let endpoint = sm_core::SmEndpoint::unix_socket(daemon.socket_path());
     let response = runtime
         .block_on(sm_daemon::send_request(&endpoint, &request))
-        .expect("daemon RPC succeeds");
+        .or_panic("daemon RPC succeeds");
     match response {
         RpcResponse::MailChecked { response } => response.unread,
         other => panic!("unexpected daemon response: {other:?}"),
@@ -95,33 +96,33 @@ fn spawn_bench_agent(daemon: &common::DaemonFixture) -> Uuid {
             "run", "codex", "--role", "bench", "--dir", "bench", "--detach",
         ])
         .output()
-        .expect("sm run starts");
+        .or_panic("sm run starts");
     assert!(
         output.status.success(),
         "sm run failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    let stdout = String::from_utf8(output.stdout).or_panic("stdout is utf8");
     let id = stdout
         .split_whitespace()
         .next()
-        .expect("session id is printed");
-    Uuid::parse_str(id).expect("session id is a uuid")
+        .or_panic("session id is printed");
+    Uuid::parse_str(id).or_panic("session id is a uuid")
 }
 
 fn fake_runtime_dir() -> tempfile::TempDir {
-    let dir = tempfile::tempdir().expect("fake runtime dir creates");
+    let dir = tempfile::tempdir().or_panic("fake runtime dir creates");
     let runtime = dir.path().join("codex");
     fs::write(
         &runtime,
         "#!/bin/sh\ntrap 'exit 0' TERM INT\nwhile true; do sleep 1; done\n",
     )
-    .expect("fake runtime writes");
+    .or_panic("fake runtime writes");
     let mut permissions = fs::metadata(&runtime)
-        .expect("fake runtime metadata")
+        .or_panic("fake runtime metadata")
         .permissions();
     permissions.set_mode(0o755);
-    fs::set_permissions(&runtime, permissions).expect("fake runtime executable");
+    fs::set_permissions(&runtime, permissions).or_panic("fake runtime executable");
     dir
 }
 

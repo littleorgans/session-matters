@@ -70,7 +70,7 @@ async fn namespace_list(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -110,7 +110,7 @@ async fn namespace_record_by_slug(
             Ok(namespace)
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -171,7 +171,7 @@ async fn agent_run(
             Ok(tool_success(text, &json!({ "session": response.session })))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -200,7 +200,7 @@ async fn agent_list(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -237,7 +237,7 @@ async fn agent_get(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -251,7 +251,7 @@ async fn agent_capture(
     let session_id = state
         .resolve_selector(&selector, "capture")?
         .pop()
-        .expect("id selector matched one session")
+        .ok_or_else(|| anyhow!("capture selector matched no sessions: {selector}"))?
         .id;
     let response = state
         .handle_direct(
@@ -273,7 +273,7 @@ async fn agent_capture(
             &json!({ "session": response.session, "capture": response.capture }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -309,7 +309,7 @@ async fn agent_delete(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -334,7 +334,7 @@ async fn agent_label(
             &json!({ "sessions": response.sessions, "errors": response.errors }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -361,7 +361,7 @@ async fn mail_send(
             &json!({ "mail": response.mail, "errors": response.errors }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -393,7 +393,7 @@ async fn mail_read(
             ))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -460,7 +460,7 @@ async fn nudge(state: &DaemonState, context: &RequestContext, arguments: &Value)
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -489,7 +489,7 @@ async fn logs(state: &DaemonState, context: &RequestContext, arguments: &Value) 
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -519,7 +519,7 @@ async fn wait(state: &DaemonState, context: &RequestContext, arguments: &Value) 
             &json!({ "matched": response.matched, "sessions": response.sessions }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -547,7 +547,7 @@ async fn doctor(
             }),
         )),
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -564,7 +564,7 @@ async fn mail_count_tool(
             Ok(unread_tool_response(response.unread, &response.counts))
         }
         RpcResponse::Error { message } => Err(anyhow!(message)),
-        other => Err(unexpected_response(other)),
+        other => Err(unexpected_response(&other)),
     }
 }
 
@@ -595,10 +595,8 @@ fn scoped_required_selector(
     arguments: &Value,
     selector: Selector,
 ) -> Result<Selector> {
-    Ok(
-        scoped_optional_selector(state, context, arguments, Some(selector))?
-            .expect("required selector remains present"),
-    )
+    scoped_optional_selector(state, context, arguments, Some(selector))?
+        .ok_or_else(|| anyhow!("required selector was removed by namespace scoping"))
 }
 
 fn read_namespace_scope(
@@ -614,9 +612,7 @@ fn read_namespace_scope(
     }
     if let Some(id) = context.mcp_caller_session_id {
         let session = state
-            .store
-            .lock()
-            .expect("store lock is not poisoned")
+            .store()?
             .get_session(&id)
             .context("failed to load MCP caller session")?;
         if let Some(session) = session {
@@ -692,7 +688,7 @@ fn optional_labels(arguments: &Value) -> Result<Vec<Label>> {
     Ok(labels)
 }
 
-fn unexpected_response(response: RpcResponse) -> anyhow::Error {
+fn unexpected_response(response: &RpcResponse) -> anyhow::Error {
     anyhow!(
         "unexpected daemon response: {} (please report)",
         response.kind()

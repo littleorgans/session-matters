@@ -70,7 +70,7 @@ pub(crate) fn lifecycle_state_label(state: &LifecycleState) -> String {
     }
 }
 
-pub(crate) fn kill_outcome_label(outcome: &KillOutcome) -> String {
+pub(crate) fn kill_outcome_label(outcome: KillOutcome) -> String {
     match outcome {
         KillOutcome::Signalled => "signalled".to_string(),
         KillOutcome::AlreadyExited => "already_exited".to_string(),
@@ -99,9 +99,9 @@ mod tests {
 
     #[test]
     fn kill_outcome_label_covers_known_variants() {
-        assert_eq!(kill_outcome_label(&KillOutcome::Signalled), "signalled");
+        assert_eq!(kill_outcome_label(KillOutcome::Signalled), "signalled");
         assert_eq!(
-            kill_outcome_label(&KillOutcome::AlreadyExited),
+            kill_outcome_label(KillOutcome::AlreadyExited),
             "already_exited"
         );
     }

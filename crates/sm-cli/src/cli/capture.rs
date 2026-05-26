@@ -50,7 +50,6 @@ fn capture_exit_code(error: &CaptureError) -> i32 {
     match error {
         CaptureError::NotATmuxTarget => 2,
         CaptureError::PaneUnavailable | CaptureError::SessionMissing => 3,
-        CaptureError::TmuxNotAvailable | CaptureError::CapturePaneFailed { .. } => 4,
         _ => 4,
     }
 }

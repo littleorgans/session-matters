@@ -106,13 +106,14 @@ fn integer_out_of_range(field: &'static str, value: i64) -> MailRowError {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::OrPanic as _;
     use chrono::Utc;
 
     use super::*;
 
     #[test]
     fn mail_round_trip_marks_read() {
-        let mut store = SqliteStore::open_in_memory().expect("store opens");
+        let mut store = SqliteStore::open_in_memory().or_panic("store opens");
         let now = Utc::now();
         let mail = Mail {
             id: Uuid::now_v7(),
@@ -123,31 +124,31 @@ mod tests {
             read_at: None,
         };
 
-        store.insert_mail(&mail).expect("mail inserts");
+        store.insert_mail(&mail).or_panic("mail inserts");
 
         assert_eq!(
             store
                 .count_unread_mail(&mail.recipient_id)
-                .expect("unread count"),
+                .or_panic("unread count"),
             1
         );
         assert_eq!(
             store
                 .read_unread_mail(&mail.recipient_id, Utc::now(), false)
-                .expect("mail reads"),
+                .or_panic("mail reads"),
             vec![mail.clone()]
         );
         assert_eq!(
             store
                 .count_unread_mail(&mail.recipient_id)
-                .expect("unread count"),
+                .or_panic("unread count"),
             0
         );
     }
 
     #[test]
     fn peek_keeps_mail_unread() {
-        let mut store = SqliteStore::open_in_memory().expect("store opens");
+        let mut store = SqliteStore::open_in_memory().or_panic("store opens");
         let mail = Mail {
             id: Uuid::now_v7(),
             sender_id: Uuid::now_v7(),
@@ -157,23 +158,23 @@ mod tests {
             read_at: None,
         };
 
-        store.insert_mail(&mail).expect("mail inserts");
+        store.insert_mail(&mail).or_panic("mail inserts");
         let read = store
             .read_unread_mail(&mail.recipient_id, Utc::now(), true)
-            .expect("mail peeks");
+            .or_panic("mail peeks");
 
         assert_eq!(read, vec![mail.clone()]);
         assert_eq!(
             store
                 .count_unread_mail(&mail.recipient_id)
-                .expect("unread count"),
+                .or_panic("unread count"),
             1
         );
     }
 
     #[test]
     fn unread_count_stays_fast_on_populated_mail_table() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
+        let store = SqliteStore::open_in_memory().or_panic("store opens");
         let recipient_id = Uuid::now_v7();
         for index in 0..1_000 {
             store
@@ -185,13 +186,13 @@ mod tests {
                     sent_at: Utc::now(),
                     read_at: None,
                 })
-                .expect("mail inserts");
+                .or_panic("mail inserts");
         }
 
         let started = std::time::Instant::now();
         let unread = store
             .count_unread_mail(&recipient_id)
-            .expect("unread count");
+            .or_panic("unread count");
 
         assert_eq!(unread, 1_000);
         assert!(started.elapsed() < std::time::Duration::from_millis(100));

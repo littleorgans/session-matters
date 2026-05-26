@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use std::process::{Command, Output};
 
@@ -7,7 +8,7 @@ fn config_help_lists_set_context() {
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["config", "--help"])
         .output()
-        .expect("sm config --help executes");
+        .or_panic("sm config --help executes");
 
     assert_success("sm config --help", &output);
     assert!(stdout(&output).contains("set-context"));
@@ -22,7 +23,7 @@ fn set_context_writes_sm_home_binding_after_daemon_lookup() {
         .command()
         .args(["config", "set-context", "alpha"])
         .output()
-        .expect("sm config set-context executes");
+        .or_panic("sm config set-context executes");
 
     assert_success("sm config set-context alpha", &output);
     assert_eq!(binding_contents(daemon.dir.path()), "alpha\n");
@@ -36,7 +37,7 @@ fn set_context_accepts_default_namespace() {
         .command()
         .args(["config", "set-context", "default"])
         .output()
-        .expect("sm config set-context default executes");
+        .or_panic("sm config set-context default executes");
 
     assert_success("sm config set-context default", &output);
     assert_eq!(binding_contents(daemon.dir.path()), "default\n");
@@ -50,7 +51,7 @@ fn set_context_rejects_unknown_namespace_without_write() {
         .command()
         .args(["config", "set-context", "missing"])
         .output()
-        .expect("sm config set-context missing executes");
+        .or_panic("sm config set-context missing executes");
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("unknown namespace: missing"));
@@ -61,7 +62,7 @@ fn set_context_rejects_unknown_namespace_without_write() {
 fn set_context_uses_home_fallback_when_sm_home_is_unset() {
     let daemon = common::DaemonFixture::start();
     create_namespace(&daemon, "fallback");
-    let home = tempfile::tempdir().expect("home tempdir");
+    let home = tempfile::tempdir().or_panic("home tempdir");
 
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["config", "set-context", "fallback"])
@@ -69,7 +70,7 @@ fn set_context_uses_home_fallback_when_sm_home_is_unset() {
         .env("HOME", home.path())
         .env("SM_SOCKET_PATH", daemon.socket_path())
         .output()
-        .expect("sm config set-context fallback executes");
+        .or_panic("sm config set-context fallback executes");
 
     assert_success("sm config set-context fallback", &output);
     assert_eq!(binding_contents(&home.path().join(".sm")), "fallback\n");
@@ -85,20 +86,20 @@ fn set_context_overwrites_binding_atomically() {
         .command()
         .args(["config", "set-context", "alpha"])
         .output()
-        .expect("sm config set-context alpha executes");
+        .or_panic("sm config set-context alpha executes");
     assert_success("sm config set-context alpha", &alpha);
 
     let beta = daemon
         .command()
         .args(["config", "set-context", "beta"])
         .output()
-        .expect("sm config set-context beta executes");
+        .or_panic("sm config set-context beta executes");
 
     assert_success("sm config set-context beta", &beta);
     assert_eq!(binding_contents(daemon.dir.path()), "beta\n");
     let temp_writes = std::fs::read_dir(daemon.dir.path())
-        .expect("sm home can be listed")
-        .filter_map(|entry| entry.ok())
+        .or_panic("sm home can be listed")
+        .filter_map(Result::ok)
         .filter(|entry| entry.file_name().to_string_lossy().contains(".namespace."))
         .count();
     assert_eq!(temp_writes, 0);
@@ -106,14 +107,14 @@ fn set_context_overwrites_binding_atomically() {
 
 #[test]
 fn set_context_daemon_unreachable_does_not_write() {
-    let sm_home = tempfile::tempdir().expect("sm home tempdir");
+    let sm_home = tempfile::tempdir().or_panic("sm home tempdir");
 
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["config", "set-context", "default"])
         .env("SM_HOME", sm_home.path())
         .env("HOME", sm_home.path())
         .output()
-        .expect("sm config set-context default executes");
+        .or_panic("sm config set-context default executes");
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("failed to connect"));
@@ -125,12 +126,12 @@ fn create_namespace(daemon: &common::DaemonFixture, name: &str) {
         .command()
         .args(["create", "namespace", name])
         .output()
-        .expect("sm create namespace executes");
+        .or_panic("sm create namespace executes");
     assert_success("sm create namespace", &output);
 }
 
 fn binding_contents(dir: &std::path::Path) -> String {
-    std::fs::read_to_string(dir.join("namespace")).expect("binding file reads")
+    std::fs::read_to_string(dir.join("namespace")).or_panic("binding file reads")
 }
 
 fn assert_success(command: &str, output: &Output) {

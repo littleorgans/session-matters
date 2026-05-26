@@ -23,6 +23,7 @@ impl RequestContext {
         }
     }
 
+    #[must_use]
     pub fn with_mcp_caller_session_id(mut self, id: Uuid) -> Self {
         self.mcp_caller_session_id = Some(id);
         self

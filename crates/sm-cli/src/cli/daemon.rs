@@ -81,13 +81,13 @@ async fn stop(paths: &SmPaths, endpoint: &SmEndpoint) -> Result<()> {
     if let Some(pid) = current.pid
         && process_alive(pid)
     {
-        let _ = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
+        signal_process(pid, Signal::SIGTERM);
         wait_for_stop(Some(pid), Duration::from_millis(500));
     }
     if let Some(pid) = current.pid
         && process_alive(pid)
     {
-        let _ = kill(Pid::from_raw(pid as i32), Signal::SIGKILL);
+        signal_process(pid, Signal::SIGKILL);
         wait_for_stop(Some(pid), Duration::from_millis(500));
     }
     if let Some(pid) = current.pid
@@ -128,7 +128,17 @@ fn read_pid(paths: &SmPaths) -> Option<u32> {
 }
 
 fn process_alive(pid: u32) -> bool {
-    kill(Pid::from_raw(pid as i32), None).is_ok()
+    pid_from_u32(pid).is_some_and(|pid| kill(pid, None).is_ok())
+}
+
+fn signal_process(pid: u32, signal: Signal) {
+    if let Some(pid) = pid_from_u32(pid) {
+        let _ = kill(pid, signal);
+    }
+}
+
+fn pid_from_u32(pid: u32) -> Option<Pid> {
+    i32::try_from(pid).ok().map(Pid::from_raw)
 }
 
 fn remove_stale_files(paths: &SmPaths, endpoint: &SmEndpoint) {

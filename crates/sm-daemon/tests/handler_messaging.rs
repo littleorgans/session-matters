@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use common::{
     LOCAL_UID, TestDaemon, local_context, mail_count, spawn_test_session,
@@ -6,8 +7,8 @@ use common::{
 };
 use lilo_im_core::{Action, AuditDecision, Principal};
 use sm_core::{
-    DeleteRequest, Label, MailReadRequest, MailSendRequest, NudgeRequest, RpcRequest, RpcResponse,
-    RuntimeKind, Selector, SpawnRequest,
+    DeleteRequest, IsolationPolicy, Label, MailReadRequest, MailSendRequest, NudgeRequest,
+    RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::RequestContext;
@@ -292,7 +293,7 @@ async fn successful_mutations_write_allow_audit_rows() {
     let rows =
         lilo_im_store::query_audit(&daemon.audit_path, lilo_im_store::AuditFilters::default())
             .await
-            .expect("audit query succeeds");
+            .or_panic("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
@@ -320,12 +321,12 @@ async fn denied_mutation_is_audited_without_mutating_store() {
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "general".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -345,7 +346,7 @@ async fn denied_mutation_is_audited_without_mutating_store() {
     let rows =
         lilo_im_store::query_audit(&daemon.audit_path, lilo_im_store::AuditFilters::default())
             .await
-            .expect("audit query succeeds");
+            .or_panic("audit query succeeds");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].action, Action::Spawn);
     assert_eq!(
@@ -358,9 +359,9 @@ async fn denied_mutation_is_audited_without_mutating_store() {
         .state
         .store
         .lock()
-        .expect("store lock poisoned")
+        .or_panic("store lock poisoned")
         .list_sessions(None)
-        .expect("session list succeeds");
+        .or_panic("session list succeeds");
     assert!(sessions.is_empty());
 }
 

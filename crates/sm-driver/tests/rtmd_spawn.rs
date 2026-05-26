@@ -1,5 +1,8 @@
+mod common;
+
 use std::path::PathBuf;
 
+use common::OrPanic as _;
 use lilo_rm_core::{
     IsolationPolicy, LaunchEnv, Lifecycle, LifecycleState, LostEvidence, MountSpec, RuntimeEvent,
     RuntimeKind, RuntimeResponse, RuntimeRpc, ShellResume, SpawnRequest, SpawnedPayload,
@@ -23,16 +26,16 @@ async fn rtmd_spawn_forwards_force_disabled() {
 
 async fn rtmd_spawn_forwards_env_shell_resume_and_force(force: bool) {
     let session_id = Uuid::now_v7();
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = tempfile::tempdir().or_panic("tempdir");
     let socket_path = tempdir.path().join("rtmd.sock");
-    let listener = UnixListener::bind(&socket_path).expect("bind test socket");
+    let listener = UnixListener::bind(&socket_path).or_panic("bind test socket");
     let driver = RtmdDriver::new(socket_path);
     let shell_resume = ShellResume {
         argv: vec!["/bin/zsh".to_string()],
         env: vec![LaunchEnv::new("TERM", "xterm-256color")],
         cwd: PathBuf::from("/tmp/session"),
     };
-    let isolation = IsolationPolicy::Docker(Default::default());
+    let isolation = IsolationPolicy::Docker(lilo_rm_core::IsolationProfile::default());
     let image = Some("runtime-matters-claude:local".to_string());
     let mounts = vec![MountSpec {
         source: "/host/config".into(),
@@ -47,10 +50,10 @@ async fn rtmd_spawn_forwards_env_shell_resume_and_force(force: bool) {
         let mounts = mounts.clone();
         async move {
             let _tempdir = tempdir;
-            let (stream, _) = listener.accept().await.expect("accept client");
+            let (stream, _) = listener.accept().await.or_panic("accept client");
             let (read_half, mut write_half) = stream.into_split();
             let mut reader = BufReader::new(read_half);
-            let rpc: RuntimeRpc = read_json_line(&mut reader).await.expect("read rpc");
+            let rpc: RuntimeRpc = read_json_line(&mut reader).await.or_panic("read rpc");
             let RuntimeRpc::Spawn { request } = rpc else {
                 panic!("expected spawn rpc");
             };
@@ -60,9 +63,12 @@ async fn rtmd_spawn_forwards_env_shell_resume_and_force(force: bool) {
             assert_eq!(request.mounts, mounts);
             assert_eq!(request.shell_resume, Some(shell_resume));
             assert_eq!(request.force, force);
-            write_json_line(&mut write_half, &RuntimeResponse::Spawned(spawned(request)))
-                .await
-                .expect("write response");
+            write_json_line(
+                &mut write_half,
+                &RuntimeResponse::Spawned(spawned(&request)),
+            )
+            .await
+            .or_panic("write response");
         }
     });
 
@@ -82,11 +88,11 @@ async fn rtmd_spawn_forwards_env_shell_resume_and_force(force: bool) {
             },
         )
         .await
-        .expect("spawn delegates to rtmd");
-    server.await.expect("server task");
+        .or_panic("spawn delegates to rtmd");
+    server.await.or_panic("server task");
 }
 
-fn spawned(request: SpawnRequest) -> SpawnedPayload {
+fn spawned(request: &SpawnRequest) -> SpawnedPayload {
     let lifecycle = Lifecycle {
         session_id: request.session_id,
         runtime: RuntimeKind::Claude,
