@@ -18,8 +18,11 @@ runtime process exists, and it is the join key across identity-matters,
 runtime-matters, and transport-matters.
 
 A namespace is an operator created slug that groups sessions. `default`
-always exists. A `.sm/namespace` marker scopes CLI and MCP reads by
-directory walk; `--namespace` and `-A` override marker discovery.
+always exists. Namespace precedence is `--namespace` flag, then
+`SM_NAMESPACE` env, then the user binding at `paths.namespace_binding()`
+(default `~/.sm/namespace`, written by `sm config set-context`), then
+`default`. `-A` selects all namespaces. Workspace `.sm/namespace`
+markers are explicitly ignored.
 
 A selector is how callers point at sessions: `all`, `id:<uuid>`,
 `role:<name>`, `namespace:<slug>`, `dir:<path>`, `label:<key>=<value>`, and

@@ -2,7 +2,7 @@
 
 This map is for agents onboarding into `session-matters`.
 
-Basis: current fmm MCP index, 110 indexed files, 17,463 LOC. Source split from fmm: 85 source files, 11,463 LOC; 25 test files, 6,000 LOC. Package names and crate dependency names were checked with Cargo metadata because fmm indexes source, not package manifests.
+Basis: current fmm MCP index, 110 indexed files, ~17,866 LOC. Source files under `crates/*/src` total ~11,505 LOC; integration tests under `crates/*/tests` total ~6,361 LOC. Package names and crate dependency names were checked with Cargo metadata because fmm indexes source, not package manifests.
 
 ## Architecture Diagram
 
@@ -12,7 +12,7 @@ flowchart LR
     CLI["sm-cli<br/>sm binary"]
     Lib["sm-cli lib<br/>command dispatch"]
     Mcp["sm-cli mcp<br/>JSON-RPC server"]
-    Socket["smd socket<br/>~/.sm/socket"]
+    Socket["smd socket<br/>~/.sm/sock"]
     Daemon["sm-daemon<br/>smd"]
     Handler["handler.rs<br/>RpcRequest dispatch"]
     State["DaemonState<br/>daemon facade"]
@@ -131,7 +131,7 @@ flowchart TD
 
 ```text
 sm CLI
-  -> RpcRequest tagged JSON over UnixSocket (~/.sm/socket)
+  -> RpcRequest tagged JSON over UnixSocket (~/.sm/sock)
     -> smd accept loop in sm-daemon::server::run_daemon
       -> peer credential extraction via lilo_im_core::peer_creds
       -> RequestContext { principal, mcp_caller_session_id }
@@ -184,7 +184,7 @@ Important symbols:
 | `Mail`, `MailStatus`, `Channel` | `crates/sm-core/src/mail.rs` | 12 to 65 | Durable mail row. `Channel::Mail` vs `Channel::Nudge` selects delivery semantics. |
 | `Label`, `LabelMutation` | `crates/sm-core/src/label.rs` | 8 to 45 | `Set { key, value }` and `Remove { key }`. `parse_label_token` is the shared validator. |
 | `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcError` | `crates/sm-core/src/mcp.rs` | 7 to 67 | Wire envelope for the embedded MCP server. `MCP_PROTOCOL_VERSION` is the advertised handshake value. |
-| `SmPaths`, `SmEndpoint`, `rtmd_socket_path` | `crates/sm-paths/src/lib.rs` | 12 to 106 | Path resolution. Honors `SM_HOME`, `SM_DATABASE`, `SM_LOG`, `SM_SOCKET`, `RTMD_SOCKET_PATH`, `XDG_RUNTIME_DIR`. |
+| `SmPaths`, `SmEndpoint`, `rtmd_socket_path` | `crates/sm-paths/src/lib.rs` | 14 to 106 | Path resolution. Honors `SM_HOME`, `SM_DB_PATH`, `SM_LOG_PATH`, `SM_SOCKET_PATH`, `RTM_SOCKET_PATH`, `XDG_RUNTIME_DIR`, `HOME`. |
 | `RuntimeKind` | `crates/sm-core/src/runtime.rs` | 10 to 13 | Local mirror of `lilo_rm_core::RuntimeKind` with serde-stable wire names. |
 
 Changing these types usually means updating snapshot tests in `crates/sm-cli/tests/runtime_contract_snapshot_test.rs` and `crates/sm-cli/tests/mcp_schema_snapshot_test.rs`, plus the wire round-trip tests at the bottom of `crates/sm-core/src/proto.rs`.
@@ -328,7 +328,7 @@ Command modules under `crates/sm-cli/src/cli`:
 | `mail.rs` | All mail subcommands. `send`, `read`, `check`, `stop-check` plus `unread_count` helper. |
 | `delete.rs`, `get.rs`, `label.rs`, `logs.rs`, `capture.rs`, `nudge.rs`, `wait.rs` | One file per verb. They build `RpcRequest`, send it through `crate::cli::output::send_daemon_request`, and pretty-print the response. |
 | `daemon.rs` | `sm daemon start/stop/status`. Spawns `smd` for `start`, sends `RpcRequest::Shutdown` for `stop`, reads the pidfile and probes the socket for `status`. |
-| `config.rs` | `sm config set-context` writes `${SM_HOME}/.namespace`. |
+| `config.rs` | `sm config set-context` writes `paths.dir.join("namespace")` (default `~/.sm/namespace`) via `SmPaths::namespace_binding`. |
 | `doctor.rs` | Calls `RpcRequest::Doctor` and renders findings. |
 | `output.rs` | Shared sender and a small set of printers (`print_session_line`, `print_mail`, JSON or human). |
 | `generated_help.rs` | Generated at build time from `sm-core` tool contracts. Provides the help strings used across the command modules. |
@@ -362,7 +362,7 @@ Order applied by `crates/sm-cli/src/cli/namespace_resolver.rs:resolve_namespace`
 
 1. Explicit `--namespace` flag.
 2. `SM_NAMESPACE` environment variable.
-3. User binding at `${SM_HOME}/.namespace` (written by `sm config set-context`).
+3. User binding at `paths.namespace_binding()` (default `~/.sm/namespace`, written by `sm config set-context`).
 4. `Namespace::default()` (`"default"`).
 
 `-A` (`all_namespaces`) is handled by `crate::cli::selector_scope` and causes selectors to ignore namespace scoping. The legacy directory-walked `.sm/namespace` marker is documented as deferred to the scheduler project and explicitly ignored by both the CLI and `crate::cli::run::resolve_spawn_location`.
