@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod agent_config;
 pub mod error;
 pub mod label;
