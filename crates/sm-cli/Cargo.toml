@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
 
 [package.metadata.dist]
 dist = true
@@ -44,3 +47,6 @@ tempfile.workspace = true
 [[bench]]
 name = "hot_path"
 harness = false
+
+[lints]
+workspace = true
