@@ -31,3 +31,6 @@ attention.
 
 `sm doctor` is the first command when something feels wrong. It reports
 daemon health, LOST sessions, and runtime-matters reachability.
+
+See [PROJECT.md](./PROJECT.md) for design intent and contracts, and
+[MAP.md](./MAP.md) for code structure, diagrams, and onboarding routes.
