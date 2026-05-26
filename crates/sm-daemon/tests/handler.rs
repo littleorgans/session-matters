@@ -296,7 +296,13 @@ struct HomeEnvGuard {
 impl Drop for HomeEnvGuard {
     fn drop(&mut self) {
         match self.original.take() {
+            // SAFETY: HomeEnvGuard is only constructed by `set_home_for_test`,
+            // which is invoked from #[tokio::test] bodies that do not spawn
+            // other threads touching HOME; the guard restores the original
+            // value before any subsequent test reads it.
             Some(value) => unsafe { std::env::set_var("HOME", value) },
+            // SAFETY: see above; HOME was unset originally, so removing on
+            // drop returns the process env to its pre-test state.
             None => unsafe { std::env::remove_var("HOME") },
         }
     }
@@ -307,6 +313,9 @@ fn set_home_for_test(home: &Path) -> HomeEnvGuard {
     let guard = HomeEnvGuard {
         original: std::env::var_os("HOME"),
     };
+    // SAFETY: invoked from #[tokio::test] bodies; no other thread mutates
+    // HOME concurrently and `HomeEnvGuard::drop` restores the original
+    // value before the test returns.
     unsafe {
         std::env::set_var("HOME", home.as_os_str());
     }
