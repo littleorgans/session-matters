@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), forbid(unsafe_code))]
+
 pub mod cli;
 pub mod mcp;
 pub mod tool_contracts;

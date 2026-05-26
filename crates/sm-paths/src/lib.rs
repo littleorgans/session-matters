@@ -1,12 +1,23 @@
+#![forbid(unsafe_code)]
+
+//! Filesystem path policy and daemon endpoint modeling for session-matters.
+//!
+//! Process environment is captured into [`SmPathsEnv`] so resolvers can be
+//! exercised without mutating the live process env. The `*_from_env` wrappers
+//! preserve the existing callsite ergonomics.
+
 use std::env;
-use std::error::Error;
 use std::ffi::OsString;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-#[cfg(test)]
-#[path = "../../test_support.rs"]
-mod test_support;
+pub const SM_HOME: &str = "SM_HOME";
+pub const SM_DB_PATH: &str = "SM_DB_PATH";
+pub const SM_LOG_PATH: &str = "SM_LOG_PATH";
+pub const SM_SOCKET_PATH: &str = "SM_SOCKET_PATH";
+pub const RTM_SOCKET_PATH: &str = "RTM_SOCKET_PATH";
+pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
+pub const HOME: &str = "HOME";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmPaths {
@@ -18,19 +29,25 @@ pub struct SmPaths {
 
 impl SmPaths {
     pub fn from_env() -> Result<Self, SmPathsError> {
-        let dir = sm_home_dir()?;
+        Self::resolve(&SmPathsEnv::from_process())
+    }
+
+    pub fn resolve(env: &SmPathsEnv) -> Result<Self, SmPathsError> {
+        let dir = sm_home_dir(env)?;
         Ok(Self {
             pidfile: dir.join("sm.pid"),
-            database: env_path("SM_DB_PATH").unwrap_or_else(|| dir.join("sm.db")),
-            log: env_path("SM_LOG_PATH").unwrap_or_else(|| dir.join("smd.log")),
+            database: non_empty_path(env.sm_db_path.as_ref()).unwrap_or_else(|| dir.join("sm.db")),
+            log: non_empty_path(env.sm_log_path.as_ref()).unwrap_or_else(|| dir.join("smd.log")),
             dir,
         })
     }
 
+    #[must_use]
     pub fn namespace_binding(&self) -> PathBuf {
         self.dir.join("namespace")
     }
 
+    #[must_use]
     pub fn new(dir: PathBuf) -> Self {
         Self {
             pidfile: dir.join("sm.pid"),
@@ -49,8 +66,12 @@ pub enum SmEndpoint {
 
 impl SmEndpoint {
     pub fn from_env() -> Result<Self, SmPathsError> {
-        let dir = sm_home_dir()?;
-        Ok(env_path("SM_SOCKET_PATH")
+        Self::resolve(&SmPathsEnv::from_process())
+    }
+
+    pub fn resolve(env: &SmPathsEnv) -> Result<Self, SmPathsError> {
+        let dir = sm_home_dir(env)?;
+        Ok(non_empty_path(env.sm_socket_path.as_ref())
             .map_or_else(|| Self::UnixSocket(dir.join("sock")), Self::UnixSocket))
     }
 
@@ -58,12 +79,14 @@ impl SmEndpoint {
         Self::UnixSocket(path.into())
     }
 
+    #[must_use]
     pub fn as_path(&self) -> &Path {
         match self {
             Self::UnixSocket(path) => path,
         }
     }
 
+    #[must_use]
     pub fn exists(&self) -> bool {
         self.as_path().exists()
     }
@@ -83,209 +106,226 @@ impl fmt::Display for SmEndpoint {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SmPathsError {
-    MissingHome,
+/// Captured view of the environment variables that drive sm-paths resolution.
+///
+/// `from_process()` snapshots the live process env; the builder methods let
+/// tests and callers inject overrides without mutating real env vars.
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct SmPathsEnv {
+    sm_home: Option<OsString>,
+    sm_db_path: Option<OsString>,
+    sm_log_path: Option<OsString>,
+    sm_socket_path: Option<OsString>,
+    rtm_socket_path: Option<OsString>,
+    xdg_runtime_dir: Option<OsString>,
+    home: Option<OsString>,
 }
 
-impl fmt::Display for SmPathsError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingHome => write!(formatter, "home directory is not available"),
+impl SmPathsEnv {
+    pub fn from_process() -> Self {
+        Self {
+            sm_home: env::var_os(SM_HOME),
+            sm_db_path: env::var_os(SM_DB_PATH),
+            sm_log_path: env::var_os(SM_LOG_PATH),
+            sm_socket_path: env::var_os(SM_SOCKET_PATH),
+            rtm_socket_path: env::var_os(RTM_SOCKET_PATH),
+            xdg_runtime_dir: env::var_os(XDG_RUNTIME_DIR),
+            home: env::var_os(HOME),
         }
+    }
+
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn sm_home(mut self, value: impl Into<OsString>) -> Self {
+        self.sm_home = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn sm_db_path(mut self, value: impl Into<OsString>) -> Self {
+        self.sm_db_path = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn sm_log_path(mut self, value: impl Into<OsString>) -> Self {
+        self.sm_log_path = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn sm_socket_path(mut self, value: impl Into<OsString>) -> Self {
+        self.sm_socket_path = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn rtm_socket_path(mut self, value: impl Into<OsString>) -> Self {
+        self.rtm_socket_path = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn xdg_runtime_dir(mut self, value: impl Into<OsString>) -> Self {
+        self.xdg_runtime_dir = Some(value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn home(mut self, value: impl Into<OsString>) -> Self {
+        self.home = Some(value.into());
+        self
     }
 }
 
-impl Error for SmPathsError {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum SmPathsError {
+    #[error("home directory is not available")]
+    MissingHome,
+}
 
+#[must_use]
 pub fn rtmd_socket_path() -> PathBuf {
-    env_path("RTM_SOCKET_PATH")
-        .or_else(|| env_path("XDG_RUNTIME_DIR").map(|dir| dir.join("rtm").join("sock")))
-        .or_else(|| env_path("HOME").map(|home| home.join(".rtm").join("sock")))
+    rtmd_socket_path_from(&SmPathsEnv::from_process())
+}
+
+#[must_use]
+pub fn rtmd_socket_path_from(env: &SmPathsEnv) -> PathBuf {
+    non_empty_path(env.rtm_socket_path.as_ref())
+        .or_else(|| {
+            non_empty_path(env.xdg_runtime_dir.as_ref()).map(|dir| dir.join("rtm").join("sock"))
+        })
+        .or_else(|| non_empty_path(env.home.as_ref()).map(|home| home.join(".rtm").join("sock")))
         .unwrap_or_else(|| PathBuf::from(".rtm").join("sock"))
 }
 
-fn sm_home_dir() -> Result<PathBuf, SmPathsError> {
-    env_path("SM_HOME")
-        .or_else(|| env_path("HOME").map(|home| home.join(".sm")))
+fn sm_home_dir(env: &SmPathsEnv) -> Result<PathBuf, SmPathsError> {
+    non_empty_path(env.sm_home.as_ref())
+        .or_else(|| non_empty_path(env.home.as_ref()).map(|home| home.join(".sm")))
         .ok_or(SmPathsError::MissingHome)
 }
 
-fn env_path(name: &str) -> Option<PathBuf> {
-    non_empty_env(name).map(PathBuf::from)
-}
-
-fn non_empty_env(name: &str) -> Option<OsString> {
-    env::var_os(name).filter(|value| !value.is_empty())
+fn non_empty_path(value: Option<&OsString>) -> Option<PathBuf> {
+    value.filter(|value| !value.is_empty()).map(PathBuf::from)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::OrPanic as _;
-    use std::sync::{Mutex, OnceLock};
-
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
     fn sm_paths_preserve_home_defaults() {
-        with_env(
-            &[
-                ("SM_HOME", Some("/tmp/sm-home")),
-                ("SM_DB_PATH", None),
-                ("SM_LOG_PATH", None),
-            ],
-            || {
-                let paths = SmPaths::from_env().or_panic("paths resolve");
-                assert_eq!(paths.dir, PathBuf::from("/tmp/sm-home"));
-                assert_eq!(paths.pidfile, PathBuf::from("/tmp/sm-home/sm.pid"));
-                assert_eq!(paths.database, PathBuf::from("/tmp/sm-home/sm.db"));
-                assert_eq!(paths.log, PathBuf::from("/tmp/sm-home/smd.log"));
-                assert_eq!(
-                    paths.namespace_binding(),
-                    PathBuf::from("/tmp/sm-home/namespace")
-                );
-            },
+        let env = SmPathsEnv::new().sm_home("/tmp/sm-home");
+        let paths = SmPaths::resolve(&env).expect("paths resolve");
+        assert_eq!(paths.dir, PathBuf::from("/tmp/sm-home"));
+        assert_eq!(paths.pidfile, PathBuf::from("/tmp/sm-home/sm.pid"));
+        assert_eq!(paths.database, PathBuf::from("/tmp/sm-home/sm.db"));
+        assert_eq!(paths.log, PathBuf::from("/tmp/sm-home/smd.log"));
+        assert_eq!(
+            paths.namespace_binding(),
+            PathBuf::from("/tmp/sm-home/namespace")
         );
     }
 
     #[test]
     fn sm_paths_use_database_and_log_overrides() {
-        with_env(
-            &[
-                ("SM_HOME", Some("/tmp/sm-home")),
-                ("SM_DB_PATH", Some("/tmp/custom.db")),
-                ("SM_LOG_PATH", Some("/tmp/custom.log")),
-            ],
-            || {
-                let paths = SmPaths::from_env().or_panic("paths resolve");
-                assert_eq!(paths.database, PathBuf::from("/tmp/custom.db"));
-                assert_eq!(paths.log, PathBuf::from("/tmp/custom.log"));
-            },
-        );
+        let env = SmPathsEnv::new()
+            .sm_home("/tmp/sm-home")
+            .sm_db_path("/tmp/custom.db")
+            .sm_log_path("/tmp/custom.log");
+        let paths = SmPaths::resolve(&env).expect("paths resolve");
+        assert_eq!(paths.database, PathBuf::from("/tmp/custom.db"));
+        assert_eq!(paths.log, PathBuf::from("/tmp/custom.log"));
     }
 
     #[test]
     fn sm_endpoint_uses_socket_override() {
-        with_env(
-            &[
-                ("SM_HOME", Some("/tmp/sm-home")),
-                ("SM_SOCKET_PATH", Some("/tmp/sm.sock")),
-            ],
-            || {
-                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
-                assert_eq!(endpoint.as_path(), Path::new("/tmp/sm.sock"));
-                assert_eq!(endpoint.to_string(), "/tmp/sm.sock");
-                assert!(format!("{endpoint:?}").starts_with("UnixSocket"));
-            },
-        );
+        let env = SmPathsEnv::new()
+            .sm_home("/tmp/sm-home")
+            .sm_socket_path("/tmp/sm.sock");
+        let endpoint = SmEndpoint::resolve(&env).expect("endpoint resolves");
+        assert_eq!(endpoint.as_path(), Path::new("/tmp/sm.sock"));
+        assert_eq!(endpoint.to_string(), "/tmp/sm.sock");
+        assert!(format!("{endpoint:?}").starts_with("UnixSocket"));
     }
 
     #[test]
     fn sm_endpoint_uses_home_socket_default() {
-        with_env(
-            &[
-                ("SM_HOME", None),
-                ("SM_SOCKET_PATH", None),
-                ("HOME", Some("/tmp/home")),
-            ],
-            || {
-                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
-                assert_eq!(endpoint.as_path(), Path::new("/tmp/home/.sm/sock"));
-            },
-        );
+        let env = SmPathsEnv::new().home("/tmp/home");
+        let endpoint = SmEndpoint::resolve(&env).expect("endpoint resolves");
+        assert_eq!(endpoint.as_path(), Path::new("/tmp/home/.sm/sock"));
     }
 
     #[test]
     fn empty_env_values_are_ignored() {
-        with_env(
-            &[
-                ("SM_HOME", Some("")),
-                ("SM_SOCKET_PATH", Some("")),
-                ("SM_DB_PATH", Some("")),
-                ("SM_LOG_PATH", Some("")),
-                ("HOME", Some("/tmp/home")),
-            ],
-            || {
-                let paths = SmPaths::from_env().or_panic("paths resolve");
-                let endpoint = SmEndpoint::from_env().or_panic("endpoint resolves");
-                assert_eq!(paths.dir, PathBuf::from("/tmp/home/.sm"));
-                assert_eq!(paths.database, PathBuf::from("/tmp/home/.sm/sm.db"));
-                assert_eq!(paths.log, PathBuf::from("/tmp/home/.sm/smd.log"));
-                assert_eq!(endpoint.as_path(), Path::new("/tmp/home/.sm/sock"));
-            },
-        );
+        let env = SmPathsEnv::new()
+            .sm_home("")
+            .sm_socket_path("")
+            .sm_db_path("")
+            .sm_log_path("")
+            .home("/tmp/home");
+        let paths = SmPaths::resolve(&env).expect("paths resolve");
+        let endpoint = SmEndpoint::resolve(&env).expect("endpoint resolves");
+        assert_eq!(paths.dir, PathBuf::from("/tmp/home/.sm"));
+        assert_eq!(paths.database, PathBuf::from("/tmp/home/.sm/sm.db"));
+        assert_eq!(paths.log, PathBuf::from("/tmp/home/.sm/smd.log"));
+        assert_eq!(endpoint.as_path(), Path::new("/tmp/home/.sm/sock"));
     }
 
     #[test]
     fn missing_home_errors() {
-        with_env(&[("SM_HOME", None), ("HOME", None)], || {
-            assert_eq!(SmPaths::from_env(), Err(SmPathsError::MissingHome));
-            assert_eq!(SmEndpoint::from_env(), Err(SmPathsError::MissingHome));
-        });
+        let env = SmPathsEnv::new();
+        assert_eq!(SmPaths::resolve(&env), Err(SmPathsError::MissingHome));
+        assert_eq!(SmEndpoint::resolve(&env), Err(SmPathsError::MissingHome));
     }
 
     #[test]
     fn rtmd_socket_path_prefers_explicit_env() {
-        with_env(
-            &[
-                ("RTM_SOCKET_PATH", Some("/tmp/rtm.sock")),
-                ("XDG_RUNTIME_DIR", Some("/run/user/501")),
-                ("HOME", Some("/tmp/home")),
-            ],
-            || assert_eq!(rtmd_socket_path(), PathBuf::from("/tmp/rtm.sock")),
-        );
+        let env = SmPathsEnv::new()
+            .rtm_socket_path("/tmp/rtm.sock")
+            .xdg_runtime_dir("/run/user/501")
+            .home("/tmp/home");
+        assert_eq!(rtmd_socket_path_from(&env), PathBuf::from("/tmp/rtm.sock"));
     }
 
     #[test]
     fn rtmd_socket_path_uses_xdg_runtime_dir_before_home() {
-        with_env(
-            &[
-                ("RTM_SOCKET_PATH", None),
-                ("XDG_RUNTIME_DIR", Some("/run/user/501")),
-                ("HOME", Some("/tmp/home")),
-            ],
-            || assert_eq!(rtmd_socket_path(), PathBuf::from("/run/user/501/rtm/sock")),
+        let env = SmPathsEnv::new()
+            .xdg_runtime_dir("/run/user/501")
+            .home("/tmp/home");
+        assert_eq!(
+            rtmd_socket_path_from(&env),
+            PathBuf::from("/run/user/501/rtm/sock")
         );
     }
 
     #[test]
     fn rtmd_socket_path_falls_back_to_home() {
-        with_env(
-            &[
-                ("RTM_SOCKET_PATH", None),
-                ("XDG_RUNTIME_DIR", None),
-                ("HOME", Some("/tmp/home")),
-            ],
-            || assert_eq!(rtmd_socket_path(), PathBuf::from("/tmp/home/.rtm/sock")),
+        let env = SmPathsEnv::new().home("/tmp/home");
+        assert_eq!(
+            rtmd_socket_path_from(&env),
+            PathBuf::from("/tmp/home/.rtm/sock")
         );
     }
 
-    // Rust 2024 marks process env mutation unsafe. The lock keeps these env
-    // changes scoped and serial for path resolution tests.
-    #[allow(unsafe_code)]
-    fn with_env<T>(vars: &[(&str, Option<&str>)], test: impl FnOnce() -> T) -> T {
-        let _guard = ENV_LOCK
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .or_panic("env lock is not poisoned");
-        let previous: Vec<_> = vars
-            .iter()
-            .map(|(name, _)| (*name, env::var_os(name)))
-            .collect();
-        for (name, value) in vars {
-            match value {
-                Some(value) => unsafe { env::set_var(name, value) },
-                None => unsafe { env::remove_var(name) },
-            }
-        }
-        let result = test();
-        for (name, value) in previous {
-            match value {
-                Some(value) => unsafe { env::set_var(name, value) },
-                None => unsafe { env::remove_var(name) },
-            }
-        }
-        result
+    #[test]
+    fn rtmd_socket_path_falls_back_to_relative_when_unset() {
+        let env = SmPathsEnv::new();
+        assert_eq!(
+            rtmd_socket_path_from(&env),
+            PathBuf::from(".rtm").join("sock")
+        );
+    }
+
+    #[test]
+    fn sm_paths_error_displays_humanly() {
+        assert_eq!(
+            SmPathsError::MissingHome.to_string(),
+            "home directory is not available"
+        );
     }
 }

@@ -255,6 +255,9 @@ mod tests {
         let original_sm_home = std::env::var_os("SM_HOME");
         let original_sm_namespace = std::env::var_os("SM_NAMESPACE");
 
+        // SAFETY: ENV_LOCK serializes namespace tests, so no other thread reads
+        // or writes SM_HOME / SM_NAMESPACE concurrently; originals are restored
+        // before the guard drops.
         unsafe {
             std::env::set_var("SM_HOME", sm_home);
             std::env::remove_var("SM_NAMESPACE");
@@ -268,7 +271,10 @@ mod tests {
     #[allow(unsafe_code)]
     fn restore_env(name: &str, value: Option<std::ffi::OsString>) {
         match value {
+            // SAFETY: called from inside `with_isolated_namespace_env` while
+            // ENV_LOCK is held; no other thread can race on this variable.
             Some(value) => unsafe { std::env::set_var(name, value) },
+            // SAFETY: see above; ENV_LOCK held for the entire restore window.
             None => unsafe { std::env::remove_var(name) },
         }
     }

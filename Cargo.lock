@@ -1220,6 +1220,9 @@ dependencies = [
 [[package]]
 name = "sm-paths"
 version = "0.2.8"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "sm-store"
