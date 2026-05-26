@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod agent_config;
 pub mod events;
 pub mod handler;
