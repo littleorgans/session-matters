@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::Args;
 use sm_core::{Namespace, NamespaceScope, Selector};
 
@@ -36,19 +36,27 @@ pub fn scoped_selector(raw: Option<&str>, scope: &NamespaceScopeArgs) -> Result<
     )?))
 }
 
+pub fn required_scoped_selector(raw: &str, scope: &NamespaceScopeArgs) -> Result<Selector> {
+    let Some(selector) = scoped_selector(Some(raw), scope)? else {
+        bail!("selector is required");
+    };
+    Ok(selector)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::OrPanic as _;
 
     #[test]
     fn all_namespaces_leaves_selector_unscoped() {
         let scope = NamespaceScopeArgs {
-            namespace: Some(Namespace::new("alpha").unwrap()),
+            namespace: Some(Namespace::new("alpha").or_panic("expected value")),
             all_namespaces: true,
         };
         let selector = scoped_selector(Some("role:engineer"), &scope)
-            .expect("selector scopes")
-            .expect("selector exists");
+            .or_panic("selector scopes")
+            .or_panic("selector exists");
         assert_eq!(
             selector,
             Selector::Role {

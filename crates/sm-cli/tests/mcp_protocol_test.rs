@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use std::path::Path;
 use std::process::Stdio;
@@ -69,7 +70,7 @@ fn initialize_and_tools_list_follow_mcp_shape() {
     assert!(
         capture["inputSchema"]["required"]
             .as_array()
-            .expect("required is array")
+            .or_panic("required is array")
             .contains(&json!("id"))
     );
     assert_eq!(capture["inputSchema"]["properties"]["id"]["format"], "uuid");
@@ -83,18 +84,31 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
-    let empty = call_tool(&mut mcp, 2, "agent_list", json!({}));
+    assert_empty_agent_list(&mut mcp);
+    assert_agent_run_requires_dir(&mut mcp, &daemon);
+    let id = spawn_mcp_agent(&mut mcp, &daemon);
+    assert_agent_get(&mut mcp, &daemon, &id);
+    assert_capture_tools(&mut mcp, &id);
+    assert_wait_and_doctor(&mut mcp, &id);
+    assert_agent_delete(&mut mcp, &id);
+    assert_delete_flow_audit(&daemon).await;
+}
+
+fn assert_empty_agent_list(mcp: &mut common::McpFixture) {
+    let empty = call_tool(mcp, 2, "agent_list", json!({}));
     assert!(empty["error"].is_null());
     assert_eq!(
         empty["result"]["structuredContent"]["sessions"]
             .as_array()
-            .expect("sessions is array")
+            .or_panic("sessions is array")
             .len(),
         0
     );
+}
 
+fn assert_agent_run_requires_dir(mcp: &mut common::McpFixture, daemon: &DaemonFixture) {
     let alias_only = call_tool(
-        &mut mcp,
+        mcp,
         3,
         "agent_run",
         json!({
@@ -107,9 +121,11 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         alias_only["result"]["_meta"]["sm_tool_error"]["message"],
         "missing required argument `dir`"
     );
+}
 
+fn spawn_mcp_agent(mcp: &mut common::McpFixture, daemon: &DaemonFixture) -> String {
     let spawned = call_tool(
-        &mut mcp,
+        mcp,
         4,
         "agent_run",
         json!({
@@ -119,20 +135,24 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         }),
     );
     assert!(spawned["error"].is_null());
-    let id = spawned["result"]["structuredContent"]["session"]["id"]
+    spawned["result"]["structuredContent"]["session"]["id"]
         .as_str()
-        .expect("spawn returns session id")
-        .to_string();
+        .or_panic("spawn returns session id")
+        .to_string()
+}
 
-    let found = call_tool(&mut mcp, 5, "agent_get", json!({ "id": id }));
+fn assert_agent_get(mcp: &mut common::McpFixture, daemon: &DaemonFixture, id: &str) {
+    let found = call_tool(mcp, 5, "agent_get", json!({ "id": id }));
     assert!(found["error"].is_null());
     assert_eq!(
         found["result"]["structuredContent"]["session"]["workspace"],
         daemon.dir.path().display().to_string()
     );
+}
 
+fn assert_capture_tools(mcp: &mut common::McpFixture, id: &str) {
     let capture = call_tool(
-        &mut mcp,
+        mcp,
         11,
         "session_capture",
         json!({ "id": id, "scrollback_lines": 20 }),
@@ -143,12 +163,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         "failed"
     );
 
-    let broad_capture = call_tool(
-        &mut mcp,
-        11,
-        "session_capture",
-        json!({ "selector": "all" }),
-    );
+    let broad_capture = call_tool(mcp, 11, "session_capture", json!({ "selector": "all" }));
     assert!(broad_capture["error"].is_null());
     assert_eq!(
         broad_capture["result"]["_meta"]["sm_tool_error"]["is_error"],
@@ -157,12 +172,14 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(
         broad_capture["result"]["_meta"]["sm_tool_error"]["message"]
             .as_str()
-            .expect("error message is string")
+            .or_panic("error message is string")
             .contains("missing required argument `id`")
     );
+}
 
+fn assert_wait_and_doctor(mcp: &mut common::McpFixture, id: &str) {
     let waited = call_tool(
-        &mut mcp,
+        mcp,
         7,
         "wait",
         json!({ "selector": format!("id:{id}"), "for": "running", "timeout_secs": 0 }),
@@ -170,7 +187,7 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(waited["error"].is_null());
     assert_eq!(waited["result"]["structuredContent"]["matched"], true);
 
-    let doctor = call_tool(&mut mcp, 8, "doctor", json!({}));
+    let doctor = call_tool(mcp, 8, "doctor", json!({}));
     assert!(doctor["error"].is_null());
     assert_eq!(
         doctor["result"]["structuredContent"]["runtime"],
@@ -180,9 +197,11 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
         doctor["result"]["structuredContent"]["runtime_matters"]["status"],
         "ok"
     );
+}
 
+fn assert_agent_delete(mcp: &mut common::McpFixture, id: &str) {
     let deleted = call_tool(
-        &mut mcp,
+        mcp,
         9,
         "agent_delete",
         json!({ "selector": format!("id:{id}"), "signal": "SIGTERM", "grace_secs": 1 }),
@@ -195,14 +214,16 @@ async fn tools_call_can_run_list_get_and_delete_agent() {
     assert!(
         deleted["result"]["structuredContent"]["errors"]
             .as_array()
-            .expect("errors is array")
+            .or_panic("errors is array")
             .is_empty()
     );
+}
 
+async fn assert_delete_flow_audit(daemon: &DaemonFixture) {
     let rows =
         lilo_im_store::query_audit(daemon.audit_path(), lilo_im_store::AuditFilters::default())
             .await
-            .expect("audit query succeeds");
+            .or_panic("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
@@ -216,9 +237,9 @@ async fn session_run_agent_config_path_is_canonicalized_against_request_dir() {
     let runtime_path = common::fake_runtime_path("codex");
     let daemon = DaemonFixture::start_with_runtime_path(runtime_path.path());
     let workspace = daemon.dir.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("workspace dir");
+    std::fs::create_dir_all(&workspace).or_panic("workspace dir");
     let config = workspace.join("agent.toml");
-    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"mcp\"\n").expect("agent config");
+    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"mcp\"\n").or_panic("agent config");
     let mut mcp = daemon.spawn_mcp();
     mcp.send(&json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
 
@@ -239,7 +260,7 @@ async fn session_run_agent_config_path_is_canonicalized_against_request_dir() {
         spawned["result"]["structuredContent"]["session"]["agent_config"],
         Value::String(
             std::fs::canonicalize(&config)
-                .expect("canonical agent config")
+                .or_panic("canonical agent config")
                 .display()
                 .to_string()
         )
@@ -331,7 +352,7 @@ async fn tools_call_can_select_and_label_agents() {
     assert_eq!(
         selected["result"]["structuredContent"]["sessions"]
             .as_array()
-            .expect("sessions is array")
+            .or_panic("sessions is array")
             .len(),
         2
     );
@@ -375,8 +396,8 @@ async fn session_tools_share_agent_handlers_and_namespace_read_scope() {
     assert_session_ids(&bypass, &[&caller, &alpha_peer, &beta_peer]);
 
     let marked_cwd = daemon.dir.path().join("marked-cwd");
-    std::fs::create_dir_all(marked_cwd.join(".sm")).expect("marker dir creates");
-    std::fs::write(marked_cwd.join(".sm").join("namespace"), "beta").expect("marker writes");
+    std::fs::create_dir_all(marked_cwd.join(".sm")).or_panic("marker dir creates");
+    std::fs::write(marked_cwd.join(".sm").join("namespace"), "beta").or_panic("marker writes");
     let mut caller_mcp = daemon.spawn_mcp_for_session(&caller, &marked_cwd);
     caller_mcp.send(&json!({"jsonrpc": "2.0", "id": 9, "method": "initialize", "params": {}}));
 
@@ -486,14 +507,14 @@ async fn tools_call_can_send_read_check_mail_and_nudge() {
     assert!(
         nudged["result"]["structuredContent"]["errors"]
             .as_array()
-            .expect("nudge errors is array")
+            .or_panic("nudge errors is array")
             .is_empty()
     );
 
     let rows =
         lilo_im_store::query_audit(daemon.audit_path(), lilo_im_store::AuditFilters::default())
             .await
-            .expect("audit query succeeds");
+            .or_panic("audit query succeeds");
     let actions = rows.iter().map(|row| row.action).collect::<Vec<_>>();
     assert_eq!(
         actions,
@@ -517,14 +538,14 @@ fn generated_schema_matches_contract_registry() {
 }
 
 fn call_tool(mcp: &mut common::McpFixture, id: u64, name: &str, arguments: Value) -> Value {
+    let mut params = serde_json::Map::new();
+    params.insert("name".to_string(), Value::String(name.to_string()));
+    params.insert("arguments".to_string(), arguments);
     mcp.send(&json!({
         "jsonrpc": "2.0",
         "id": id,
         "method": "tools/call",
-        "params": {
-            "name": name,
-            "arguments": arguments
-        }
+        "params": params
     }))
 }
 
@@ -553,7 +574,7 @@ fn spawn_agent_in_namespace(
     assert!(spawned["error"].is_null());
     spawned["result"]["structuredContent"]["session"]["id"]
         .as_str()
-        .expect("spawn returns session id")
+        .or_panic("spawn returns session id")
         .to_string()
 }
 
@@ -564,37 +585,35 @@ fn spawn_agent_with_labels(
     workspace: &Path,
     labels: Value,
 ) -> String {
-    let spawned = call_tool(
-        mcp,
-        id,
-        "agent_run",
-        json!({
-            "runtime": "codex",
-            "role": role,
-            "dir": workspace.display().to_string(),
-            "labels": labels
-        }),
+    let mut arguments = serde_json::Map::new();
+    arguments.insert("runtime".to_string(), Value::String("codex".to_string()));
+    arguments.insert("role".to_string(), Value::String(role.to_string()));
+    arguments.insert(
+        "dir".to_string(),
+        Value::String(workspace.display().to_string()),
     );
+    arguments.insert("labels".to_string(), labels);
+    let spawned = call_tool(mcp, id, "agent_run", Value::Object(arguments));
     assert!(spawned["error"].is_null());
     spawned["result"]["structuredContent"]["session"]["id"]
         .as_str()
-        .expect("spawn returns session id")
+        .or_panic("spawn returns session id")
         .to_string()
 }
 
 fn tool_names(tools: &Value) -> Vec<&str> {
     tools
         .as_array()
-        .expect("tools is array")
+        .or_panic("tools is array")
         .iter()
-        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .map(|tool| tool["name"].as_str().or_panic("tool name"))
         .collect()
 }
 
 fn find_tool<'a>(tools: &'a Value, name: &str) -> &'a Value {
     tools
         .as_array()
-        .expect("tools is array")
+        .or_panic("tools is array")
         .iter()
         .find(|tool| tool["name"] == name)
         .unwrap_or_else(|| panic!("missing tool {name}"))
@@ -607,19 +626,19 @@ fn create_namespace(daemon: &DaemonFixture, name: &str) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .expect("namespace create runs");
+        .or_panic("namespace create runs");
     assert!(status.success());
 }
 
 fn assert_deprecation_hint(tools: &Value, deprecated: &str, replacement: &str) {
     let description = tools
         .as_array()
-        .expect("tools is array")
+        .or_panic("tools is array")
         .iter()
         .find(|tool| tool["name"] == deprecated)
-        .expect("deprecated tool exists")["description"]
+        .or_panic("deprecated tool exists")["description"]
         .as_str()
-        .expect("description is string");
+        .or_panic("description is string");
     assert!(description.contains("Deprecated compatibility alias"));
     assert!(description.contains(replacement));
 }
@@ -628,12 +647,12 @@ fn assert_session_ids(response: &Value, expected: &[&str]) {
     assert!(response["error"].is_null());
     let mut actual = response["result"]["structuredContent"]["sessions"]
         .as_array()
-        .expect("sessions is array")
+        .or_panic("sessions is array")
         .iter()
         .map(|session| {
             session["id"]
                 .as_str()
-                .expect("session id is string")
+                .or_panic("session id is string")
                 .to_string()
         })
         .collect::<Vec<_>>();
@@ -650,12 +669,12 @@ fn assert_nudged_ids(response: &Value, expected: &[&str]) {
     assert!(response["error"].is_null());
     let mut actual = response["result"]["structuredContent"]["nudges"]
         .as_array()
-        .expect("nudges is array")
+        .or_panic("nudges is array")
         .iter()
         .map(|nudge| {
             nudge["to"]
                 .as_str()
-                .expect("nudge target is string")
+                .or_panic("nudge target is string")
                 .to_string()
         })
         .collect::<Vec<_>>();

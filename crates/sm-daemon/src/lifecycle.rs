@@ -50,7 +50,7 @@ pub async fn refresh_exits(state: &DaemonState) -> Result<()> {
 pub fn persist_child_exit(state: &DaemonState, child_exit: ChildExit) -> Result<Option<Session>> {
     let id = Uuid::parse_str(&child_exit.session_id).context("invalid session id")?;
     let now = Utc::now();
-    let store = state.store.lock().expect("store lock poisoned");
+    let store = state.store()?;
     if let Some(transcript_path) = child_exit.transcript_path {
         store
             .record_transcript_path(&id, &transcript_path, now)

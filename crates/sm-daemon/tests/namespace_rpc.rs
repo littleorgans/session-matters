@@ -1,9 +1,11 @@
 mod common;
+use common::OrPanic as _;
 
 use common::{LOCAL_UID, TestDaemon, local_context};
 use sm_core::{
-    Namespace, NamespaceCreateRequest, NamespaceDeleteRequest, NamespaceGetRequest,
-    NamespaceListRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, SpawnRequest,
+    IsolationPolicy, Namespace, NamespaceCreateRequest, NamespaceDeleteRequest,
+    NamespaceGetRequest, NamespaceListRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
+    SpawnRequest,
 };
 use sm_daemon::identity_client::RequestContext;
 
@@ -63,7 +65,7 @@ async fn namespace_create_get_and_list_are_idempotent() {
     assert_eq!(
         response
             .namespace
-            .expect("namespace exists")
+            .or_panic("namespace exists")
             .namespace
             .as_str(),
         "alpha"
@@ -126,8 +128,8 @@ async fn spawn_uses_strict_create_before_spawn_policy() {
             context.clone(),
             RpcRequest::Spawn {
                 request: Box::new(spawn_request(
-                    daemon._dir.path().display().to_string(),
-                    Namespace::new("alpha").expect("namespace validates"),
+                    daemon.dir.path().display().to_string(),
+                    Namespace::new("alpha").or_panic("namespace validates"),
                 )),
             },
         )
@@ -155,8 +157,8 @@ async fn spawn_uses_strict_create_before_spawn_policy() {
             context,
             RpcRequest::Spawn {
                 request: Box::new(spawn_request(
-                    daemon._dir.path().display().to_string(),
-                    Namespace::new("alpha").expect("namespace validates"),
+                    daemon.dir.path().display().to_string(),
+                    Namespace::new("alpha").or_panic("namespace validates"),
                 )),
             },
         )
@@ -179,8 +181,8 @@ async fn namespace_delete_terminates_and_removes_namespace_sessions() {
             context.clone(),
             RpcRequest::Spawn {
                 request: Box::new(spawn_request(
-                    daemon._dir.path().display().to_string(),
-                    Namespace::new("alpha").expect("namespace validates"),
+                    daemon.dir.path().display().to_string(),
+                    Namespace::new("alpha").or_panic("namespace validates"),
                 )),
             },
         )
@@ -196,7 +198,7 @@ async fn namespace_delete_terminates_and_removes_namespace_sessions() {
             context.clone(),
             RpcRequest::NamespaceDelete {
                 request: NamespaceDeleteRequest {
-                    namespace: Namespace::new("alpha").expect("namespace validates"),
+                    namespace: Namespace::new("alpha").or_panic("namespace validates"),
                 },
             },
         )
@@ -215,7 +217,7 @@ async fn namespace_delete_terminates_and_removes_namespace_sessions() {
             RpcRequest::List {
                 request: sm_core::ListRequest {
                     selector: Some(Selector::Namespace {
-                        namespace: Namespace::new("alpha").expect("namespace validates"),
+                        namespace: Namespace::new("alpha").or_panic("namespace validates"),
                     }),
                 },
             },
@@ -242,7 +244,7 @@ async fn namespace_delete_rejects_default_and_unknown_namespaces() {
                 context.clone(),
                 RpcRequest::NamespaceDelete {
                     request: NamespaceDeleteRequest {
-                        namespace: Namespace::new(namespace).expect("namespace validates"),
+                        namespace: Namespace::new(namespace).or_panic("namespace validates"),
                     },
                 },
             )
@@ -280,7 +282,7 @@ fn spawn_request(dir: String, namespace: Namespace) -> SpawnRequest {
         namespace: Some(namespace),
         target: "headless".to_string(),
         agent_config: None,
-        isolation: Default::default(),
+        isolation: IsolationPolicy::default(),
         image: None,
         env: Vec::new(),
         mounts: Vec::new(),

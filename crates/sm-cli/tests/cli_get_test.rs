@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use std::path::Path;
 
@@ -10,7 +11,7 @@ fn get_session_help_exposes_only_session_read_arguments() {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(["get", resource, "--help"])
             .output()
-            .expect("sm get session help executes");
+            .or_panic("sm get session help executes");
 
         assert_success("sm get session help", &output);
         let stdout = stdout(&output);
@@ -30,7 +31,7 @@ fn get_namespace_help_exposes_only_namespace_read_arguments() {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(["get", resource, "--help"])
             .output()
-            .expect("sm get namespace help executes");
+            .or_panic("sm get namespace help executes");
 
         assert_success("sm get namespace help", &output);
         let stdout = stdout(&output);
@@ -46,7 +47,7 @@ fn create_help_lists_namespace_and_session_resources() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["create", "--help"])
         .output()
-        .expect("sm create help executes");
+        .or_panic("sm create help executes");
 
     assert_success("sm create --help", &output);
     let stdout = stdout(&output);
@@ -59,7 +60,7 @@ fn create_session_help_exposes_only_declarative_arguments() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["create", "session", "--help"])
         .output()
-        .expect("sm create session help executes");
+        .or_panic("sm create session help executes");
 
     assert_success("sm create session --help", &output);
     let stdout = stdout(&output);
@@ -81,7 +82,7 @@ fn run_help_exposes_force_as_imperative_argument() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["run", "--help"])
         .output()
-        .expect("sm run --help executes");
+        .or_panic("sm run --help executes");
 
     assert_success("sm run --help", &output);
     let stdout = stdout(&output);
@@ -94,7 +95,7 @@ fn create_session_persists_headless_record_without_foreground_attach() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
     let project = daemon.dir.path().join("project");
-    std::fs::create_dir_all(&project).expect("project dir");
+    std::fs::create_dir_all(&project).or_panic("project dir");
 
     let created = daemon
         .command()
@@ -110,7 +111,7 @@ fn create_session_persists_headless_record_without_foreground_attach() {
             "area=create",
         ])
         .output()
-        .expect("sm create session executes");
+        .or_panic("sm create session executes");
     assert_success("sm create session", &created);
     let id = first_field(&created.stdout);
 
@@ -118,9 +119,9 @@ fn create_session_persists_headless_record_without_foreground_attach() {
         .command()
         .args(["get", "session", &id, "--json"])
         .output()
-        .expect("sm get session <id> --json executes");
+        .or_panic("sm get session <id> --json executes");
     assert_success("sm get session <id> --json", &single);
-    let session: Value = serde_json::from_slice(&single.stdout).expect("session JSON parses");
+    let session: Value = serde_json::from_slice(&single.stdout).or_panic("session JSON parses");
     let canonical_project = canonical_display(&project);
     assert_eq!(session["id"], id);
     assert_eq!(session["runtime"], "claude");
@@ -139,7 +140,7 @@ fn create_session_and_run_persist_compatible_records_for_shared_inputs() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
     let project = daemon.dir.path().join("project");
-    std::fs::create_dir_all(&project).expect("project dir");
+    std::fs::create_dir_all(&project).or_panic("project dir");
 
     let run = daemon
         .command()
@@ -155,7 +156,7 @@ fn create_session_and_run_persist_compatible_records_for_shared_inputs() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert_success("sm run", &run);
 
     let created = daemon
@@ -172,7 +173,7 @@ fn create_session_and_run_persist_compatible_records_for_shared_inputs() {
             "area=shared",
         ])
         .output()
-        .expect("sm create session executes");
+        .or_panic("sm create session executes");
     assert_success("sm create session", &created);
 
     let run_session = get_session_json(&daemon, &first_field(&run.stdout));
@@ -191,11 +192,11 @@ fn run_agent_config_paths_are_canonicalized_from_caller_context() {
     let caller = daemon.dir.path().join("caller");
     let workspace = daemon.dir.path().join("workspace");
     let home = daemon.dir.path().join("caller-home");
-    std::fs::create_dir_all(&caller).expect("caller dir");
-    std::fs::create_dir_all(&workspace).expect("workspace dir");
-    std::fs::create_dir_all(&home).expect("home dir");
+    std::fs::create_dir_all(&caller).or_panic("caller dir");
+    std::fs::create_dir_all(&workspace).or_panic("workspace dir");
+    std::fs::create_dir_all(&home).or_panic("home dir");
     let config = caller.join("agent.toml");
-    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"cli\"\n").expect("agent config");
+    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"cli\"\n").or_panic("agent config");
 
     let run = daemon
         .command()
@@ -213,7 +214,7 @@ fn run_agent_config_paths_are_canonicalized_from_caller_context() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert_success("sm run", &run);
 
     let session = get_session_json(&daemon, &first_field(&run.stdout));
@@ -235,7 +236,7 @@ fn run_agent_config_paths_are_canonicalized_from_caller_context() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert!(!missing.status.success());
     assert!(stderr(&missing).contains(&home.join("missing.toml").display().to_string()));
 }
@@ -245,7 +246,7 @@ fn run_missing_named_agent_config_surfaces_resolved_path() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
     let workspace = daemon.dir.path().join("workspace");
-    std::fs::create_dir_all(&workspace).expect("workspace dir");
+    std::fs::create_dir_all(&workspace).or_panic("workspace dir");
 
     let run = daemon
         .command()
@@ -260,7 +261,7 @@ fn run_missing_named_agent_config_surfaces_resolved_path() {
             "does-not-exist",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
 
     assert!(!run.status.success());
     let stderr = stderr(&run);
@@ -292,7 +293,7 @@ fn removed_get_forms_are_rejected_by_clap() {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(args)
             .output()
-            .expect("sm get rejected form executes");
+            .or_panic("sm get rejected form executes");
 
         assert!(!output.status.success());
     }
@@ -317,7 +318,7 @@ fn session_resources_list_and_get_by_id() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert_success("sm run", &run);
     let id = first_field(&run.stdout);
 
@@ -325,7 +326,7 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "session"])
         .output()
-        .expect("sm get session executes");
+        .or_panic("sm get session executes");
     assert_success("sm get session", &singular_list);
     assert_table_contains(&singular_list.stdout, &id);
 
@@ -333,7 +334,7 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "sessions"])
         .output()
-        .expect("sm get sessions executes");
+        .or_panic("sm get sessions executes");
     assert_success("sm get sessions", &plural_list);
     assert_table_contains(&plural_list.stdout, &id);
 
@@ -341,7 +342,7 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "session", "--selector", "all"])
         .output()
-        .expect("sm get session --selector all executes");
+        .or_panic("sm get session --selector all executes");
     assert_success("sm get session --selector all", &selected_list);
     assert_table_contains(&selected_list.stdout, &id);
 
@@ -349,7 +350,7 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "session", "--show-labels"])
         .output()
-        .expect("sm get session --show-labels executes");
+        .or_panic("sm get session --show-labels executes");
     assert_success("sm get session --show-labels", &labeled_list);
     let labeled_stdout = stdout(&labeled_list);
     assert!(labeled_stdout.starts_with("ID RUNTIME ROLE NAMESPACE DIR STATE PID TMUX LABELS"));
@@ -359,16 +360,16 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "session", "--json"])
         .output()
-        .expect("sm get session --json executes");
+        .or_panic("sm get session --json executes");
     assert_success("sm get session --json", &json_list);
-    let sessions: Value = serde_json::from_slice(&json_list.stdout).expect("list JSON parses");
+    let sessions: Value = serde_json::from_slice(&json_list.stdout).or_panic("list JSON parses");
     assert!(sessions.as_array().is_some_and(|items| !items.is_empty()));
 
     let single = daemon
         .command()
         .args(["get", "session", &id])
         .output()
-        .expect("sm get session <id> executes");
+        .or_panic("sm get session <id> executes");
     assert_success("sm get session <id>", &single);
     let single_stdout = String::from_utf8_lossy(&single.stdout);
     assert!(single_stdout.contains(&id));
@@ -379,7 +380,7 @@ fn session_resources_list_and_get_by_id() {
         .command()
         .args(["get", "session", &id, "--show-labels"])
         .output()
-        .expect("sm get session <id> --show-labels executes");
+        .or_panic("sm get session <id> --show-labels executes");
     assert_success("sm get session <id> --show-labels", &labeled_single);
     let labeled_single_stdout = stdout(&labeled_single);
     assert!(labeled_single_stdout.contains(&id));
@@ -403,7 +404,7 @@ fn capture_takes_exact_session_id() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert_success("sm run", &run);
     let id = first_field(&run.stdout);
 
@@ -411,9 +412,9 @@ fn capture_takes_exact_session_id() {
         .command()
         .args(["capture", &id, "--json", "--scrollback-lines", "20"])
         .output()
-        .expect("sm capture <id> --json executes");
+        .or_panic("sm capture <id> --json executes");
     assert_success("sm capture <id> --json", &capture);
-    let body: Value = serde_json::from_slice(&capture.stdout).expect("capture JSON parses");
+    let body: Value = serde_json::from_slice(&capture.stdout).or_panic("capture JSON parses");
     assert_eq!(body["session"]["id"], id);
     assert_eq!(body["capture"]["status"], "failed");
 
@@ -443,7 +444,7 @@ fn run_persists_canonical_dir_from_cli_resolution() {
     let runtime_path = common::fake_runtime_path("claude");
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
     let project = daemon.dir.path().join("project");
-    std::fs::create_dir_all(&project).expect("project dir");
+    std::fs::create_dir_all(&project).or_panic("project dir");
 
     let run = daemon
         .command()
@@ -452,7 +453,7 @@ fn run_persists_canonical_dir_from_cli_resolution() {
             "run", "claude", "--role", "engineer", "--dir", ".", "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
     assert_success("sm run --dir", &run);
     let id = first_field(&run.stdout);
 
@@ -460,9 +461,9 @@ fn run_persists_canonical_dir_from_cli_resolution() {
         .command()
         .args(["get", "session", &id, "--json"])
         .output()
-        .expect("sm get session <id> --json executes");
+        .or_panic("sm get session <id> --json executes");
     assert_success("sm get session <id> --json", &single);
-    let session: Value = serde_json::from_slice(&single.stdout).expect("session JSON parses");
+    let session: Value = serde_json::from_slice(&single.stdout).or_panic("session JSON parses");
     let canonical_project = canonical_display(&project);
     assert_eq!(session["dir"], canonical_project);
     assert_eq!(session["workspace"], canonical_project);
@@ -486,7 +487,7 @@ fn workspace_arg_is_rejected_by_clap() {
             &daemon.dir.path().display().to_string(),
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
 
     assert!(!run.status.success());
     let stderr = String::from_utf8_lossy(&run.stderr);
@@ -513,7 +514,7 @@ fn unknown_namespace_error_is_surfaced_from_daemon() {
             "--detach",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
 
     assert!(!run.status.success());
     let stderr = String::from_utf8_lossy(&run.stderr);
@@ -525,9 +526,9 @@ fn get_session_json(daemon: &common::DaemonFixture, id: &str) -> Value {
         .command()
         .args(["get", "session", id, "--json"])
         .output()
-        .expect("sm get session <id> --json executes");
+        .or_panic("sm get session <id> --json executes");
     assert_success("sm get session <id> --json", &output);
-    serde_json::from_slice(&output.stdout).expect("session JSON parses")
+    serde_json::from_slice(&output.stdout).or_panic("session JSON parses")
 }
 
 fn assert_success(command: &str, output: &std::process::Output) {
@@ -557,14 +558,14 @@ fn first_field(stdout: &[u8]) -> String {
     String::from_utf8_lossy(stdout)
         .split_whitespace()
         .next()
-        .expect("stdout has first field")
+        .or_panic("stdout has first field")
         .to_string()
 }
 
 fn canonical_display(path: &Path) -> Value {
     Value::String(
         std::fs::canonicalize(path)
-            .expect("canonical path")
+            .or_panic("canonical path")
             .display()
             .to_string(),
     )

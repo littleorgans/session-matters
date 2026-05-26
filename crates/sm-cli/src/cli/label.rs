@@ -5,7 +5,7 @@ use sm_core::{LabelMutation, LabelRequest, RpcRequest, RpcResponse, SmEndpoint};
 
 use crate::cli::cli_def::LabelArgs;
 use crate::cli::output::print_session_line;
-use crate::cli::selector_scope::scoped_selector;
+use crate::cli::selector_scope::required_scoped_selector;
 
 pub async fn run(args: LabelArgs) -> Result<()> {
     let endpoint = SmEndpoint::from_env()?;
@@ -13,8 +13,7 @@ pub async fn run(args: LabelArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Label {
             request: LabelRequest {
-                selector: scoped_selector(Some(&args.selector), &args.scope)?
-                    .expect("selector is present"),
+                selector: required_scoped_selector(&args.selector, &args.scope)?,
                 mutation: LabelMutation::from_str(&args.mutation)?,
             },
         },

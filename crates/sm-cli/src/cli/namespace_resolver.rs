@@ -137,12 +137,13 @@ fn canonical_dir(dir: &Path) -> Result<PathBuf, NamespaceResolutionError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ErrOrPanic as _, OrPanic as _};
 
     #[test]
     fn falls_back_to_default_when_no_config_found() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
 
         let resolved =
             resolve_with_paths(&start, None, Some(SmPaths::new(root.path().join(".sm"))));
@@ -153,9 +154,9 @@ mod tests {
 
     #[test]
     fn reads_user_namespace_binding() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let project = root.path().join("project");
-        std::fs::create_dir_all(&project).expect("project dir");
+        std::fs::create_dir_all(&project).or_panic("project dir");
         let paths = SmPaths::new(root.path().join("sm-home"));
         write_binding(&paths, "alpha");
 
@@ -167,9 +168,9 @@ mod tests {
 
     #[test]
     fn env_namespace_overrides_user_binding() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
         let paths = SmPaths::new(root.path().join("sm-home"));
         write_binding(&paths, "bound");
 
@@ -181,19 +182,19 @@ mod tests {
 
     #[test]
     fn explicit_namespace_overrides_env_and_user_binding() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
         let paths = SmPaths::new(root.path().join("sm-home"));
         write_binding(&paths, "bound");
 
         let resolved = resolve_namespace_dir_with_paths(
             &start,
-            Some(Namespace::new("explicit").expect("namespace")),
+            Some(Namespace::new("explicit").or_panic("namespace")),
             Some(OsString::from("env-ns")),
             Ok(paths),
         )
-        .expect("resolves");
+        .or_panic("resolves");
 
         assert_eq!(resolved.namespace.as_str(), "explicit");
         assert_eq!(resolved.canonical_dir, canonical(&start));
@@ -201,9 +202,9 @@ mod tests {
 
     #[test]
     fn workspace_marker_at_start_dir_is_ignored() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
         write_workspace_marker(&start, "marker");
 
         let resolved =
@@ -215,10 +216,10 @@ mod tests {
 
     #[test]
     fn workspace_marker_at_ancestor_is_ignored() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let project = root.path().join("project");
         let nested = project.join("src/bin");
-        std::fs::create_dir_all(&nested).expect("nested dirs");
+        std::fs::create_dir_all(&nested).or_panic("nested dirs");
         write_workspace_marker(&project, "ancestor");
 
         let resolved =
@@ -230,11 +231,11 @@ mod tests {
 
     #[test]
     fn symlink_return_dir_is_canonical() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let real = root.path().join("real");
         let link = root.path().join("link");
         let start = link.join("child");
-        std::fs::create_dir_all(real.join("child")).expect("real child");
+        std::fs::create_dir_all(real.join("child")).or_panic("real child");
         symlink_dir(&real, &link);
 
         let resolved =
@@ -249,9 +250,9 @@ mod tests {
 
     #[test]
     fn invalid_env_namespace_fails_loudly() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
 
         let error = resolve_error(
             &start,
@@ -265,9 +266,9 @@ mod tests {
 
     #[test]
     fn invalid_binding_content_fails_loudly() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
         let paths = SmPaths::new(root.path().join("sm-home"));
         write_binding(&paths, "Alpha");
 
@@ -283,9 +284,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn unreadable_binding_fails_loudly() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
         let paths = SmPaths::new(root.path().join("sm-home"));
         let binding = write_binding(&paths, "alpha");
         remove_read_permissions(&binding);
@@ -301,13 +302,13 @@ mod tests {
 
     #[test]
     fn missing_or_invalid_home_warns_and_falls_back_to_default() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let start = root.path().join("project");
-        std::fs::create_dir_all(&start).expect("start dir");
+        std::fs::create_dir_all(&start).or_panic("start dir");
 
         let resolved =
             resolve_namespace_dir_with_paths(&start, None, None, Err(SmPathsError::MissingHome))
-                .expect("resolves without home");
+                .or_panic("resolves without home");
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
@@ -328,7 +329,7 @@ mod tests {
             env_namespace.map(OsString::from),
             paths.ok_or(SmPathsError::MissingHome),
         )
-        .expect("namespace resolves")
+        .or_panic("namespace resolves")
     }
 
     fn resolve_error(
@@ -342,35 +343,36 @@ mod tests {
             env_namespace.map(OsString::from),
             paths.ok_or(SmPathsError::MissingHome),
         )
-        .expect_err("namespace fails")
+        .err_or_panic("namespace fails")
     }
 
     fn write_binding(paths: &SmPaths, value: &str) -> PathBuf {
         let binding = paths.namespace_binding();
-        std::fs::create_dir_all(binding.parent().expect("binding parent")).expect("binding dir");
-        std::fs::write(&binding, value).expect("binding write");
+        std::fs::create_dir_all(binding.parent().or_panic("binding parent"))
+            .or_panic("binding dir");
+        std::fs::write(&binding, value).or_panic("binding write");
         binding
     }
 
     fn write_workspace_marker(dir: &Path, value: &str) -> PathBuf {
         let marker = dir.join(".sm").join("namespace");
-        std::fs::create_dir_all(marker.parent().expect("marker parent")).expect("marker dir");
-        std::fs::write(&marker, value).expect("marker write");
+        std::fs::create_dir_all(marker.parent().or_panic("marker parent")).or_panic("marker dir");
+        std::fs::write(&marker, value).or_panic("marker write");
         marker
     }
 
     fn canonical(path: &Path) -> PathBuf {
-        std::fs::canonicalize(path).expect("canonical path")
+        std::fs::canonicalize(path).or_panic("canonical path")
     }
 
     #[cfg(unix)]
     fn symlink_dir(original: &Path, link: &Path) {
-        std::os::unix::fs::symlink(original, link).expect("symlink dir");
+        std::os::unix::fs::symlink(original, link).or_panic("symlink dir");
     }
 
     #[cfg(windows)]
     fn symlink_dir(original: &Path, link: &Path) {
-        std::os::windows::fs::symlink_dir(original, link).expect("symlink dir");
+        std::os::windows::fs::symlink_dir(original, link).or_panic("symlink dir");
     }
 
     #[cfg(unix)]
@@ -378,10 +380,10 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let mut permissions = std::fs::metadata(path)
-            .expect("binding metadata")
+            .or_panic("binding metadata")
             .permissions();
         permissions.set_mode(0o000);
-        std::fs::set_permissions(path, permissions).expect("remove read permissions");
+        std::fs::set_permissions(path, permissions).or_panic("remove read permissions");
     }
 
     #[cfg(unix)]
@@ -389,9 +391,9 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let mut permissions = std::fs::metadata(path)
-            .expect("binding metadata")
+            .or_panic("binding metadata")
             .permissions();
         permissions.set_mode(0o600);
-        std::fs::set_permissions(path, permissions).expect("restore read permissions");
+        std::fs::set_permissions(path, permissions).or_panic("restore read permissions");
     }
 }

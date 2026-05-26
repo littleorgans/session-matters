@@ -12,6 +12,10 @@ pub mod session;
 pub mod tool_contracts;
 pub mod types;
 
+#[cfg(test)]
+#[path = "../../test_support.rs"]
+mod test_support;
+
 pub use agent_config::{
     agent_config_uses_home_prefix, is_agent_config_path_like, normalize_agent_config_request,
 };

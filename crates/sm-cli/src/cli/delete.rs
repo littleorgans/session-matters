@@ -7,7 +7,7 @@ use sm_core::{
 
 use crate::cli::cli_def::{DeleteArgs, DeleteNamespaceArgs, DeleteResource, DeleteSessionArgs};
 use crate::cli::output::print_session_line;
-use crate::cli::selector_scope::scoped_selector;
+use crate::cli::selector_scope::required_scoped_selector;
 
 pub async fn run(args: DeleteArgs) -> Result<()> {
     match args.resource {
@@ -22,8 +22,7 @@ async fn delete_session(args: DeleteSessionArgs) -> Result<()> {
         &endpoint,
         &RpcRequest::Delete {
             request: DeleteRequest {
-                selector: scoped_selector(Some(&args.selector), &args.scope)?
-                    .expect("selector is present"),
+                selector: required_scoped_selector(&args.selector, &args.scope)?,
                 signal: args.signal,
                 grace_secs: args.grace,
             },

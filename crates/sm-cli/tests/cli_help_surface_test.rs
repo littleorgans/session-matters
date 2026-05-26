@@ -1,3 +1,6 @@
+mod common;
+
+use common::OrPanic as _;
 use std::process::{Command, Output};
 
 #[test]
@@ -267,7 +270,7 @@ fn link_command_is_not_a_visible_surface() {
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["link", "--help"])
         .output()
-        .expect("sm link --help executes");
+        .or_panic("sm link --help executes");
     assert!(
         !output.status.success(),
         "sm link --help unexpectedly succeeded\nstdout:\n{}\nstderr:\n{}",

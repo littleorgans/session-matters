@@ -1,10 +1,13 @@
+mod common;
+use common::OrPanic as _;
+
 #[test]
 fn delete_session_help_exposes_session_flags() {
     for noun in ["session", "sessions"] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(["delete", noun, "--help"])
             .output()
-            .expect("sm delete session help executes");
+            .or_panic("sm delete session help executes");
 
         assert_success(&format!("sm delete {noun} --help"), &output);
         let stdout = stdout(&output);
@@ -25,7 +28,7 @@ fn delete_session_rejects_selector_flag_near_miss() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
         .args(["delete", "session", "--selector", "namespace:default"])
         .output()
-        .expect("sm delete session near miss executes");
+        .or_panic("sm delete session near miss executes");
 
     assert!(!output.status.success());
     let stderr = stderr(&output);
@@ -39,7 +42,7 @@ fn delete_rejects_agent_nouns() {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_sm"))
             .args(["delete", noun, "all"])
             .output()
-            .expect("sm delete agent executes");
+            .or_panic("sm delete agent executes");
 
         assert!(!output.status.success());
         assert!(stderr(&output).contains("unrecognized subcommand"));

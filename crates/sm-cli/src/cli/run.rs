@@ -162,6 +162,7 @@ fn resolve_spawn_location(
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::OrPanic as _;
     use std::sync::{Mutex, OnceLock};
 
     use super::*;
@@ -170,84 +171,87 @@ mod tests {
 
     #[test]
     fn explicit_namespace_uses_dir_as_canonical_spawn_dir() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let project = root.path().join("project");
-        std::fs::create_dir_all(&project).expect("project dir");
-        let namespace = Namespace::new("alpha").expect("namespace");
+        std::fs::create_dir_all(&project).or_panic("project dir");
+        let namespace = Namespace::new("alpha").or_panic("namespace");
 
         let resolved =
-            resolve_spawn_location(Some(&project), Some(namespace.clone())).expect("resolves");
+            resolve_spawn_location(Some(&project), Some(namespace.clone())).or_panic("resolves");
 
         assert_eq!(resolved.namespace, namespace);
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(project).expect("canonical project")
+            std::fs::canonicalize(project).or_panic("canonical project")
         );
     }
 
     #[test]
     fn marker_from_dir_is_ignored_and_dir_is_canonicalized() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let project = root.path().join("project");
         let child = project.join("child");
-        std::fs::create_dir_all(project.join(".sm")).expect("marker parent");
-        std::fs::create_dir_all(&child).expect("child dir");
-        std::fs::write(project.join(".sm").join("namespace"), "marker").expect("marker");
+        std::fs::create_dir_all(project.join(".sm")).or_panic("marker parent");
+        std::fs::create_dir_all(&child).or_panic("child dir");
+        std::fs::write(project.join(".sm").join("namespace"), "marker").or_panic("marker");
 
         let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
-            resolve_spawn_location(Some(&child), None).expect("resolves dir")
+            resolve_spawn_location(Some(&child), None).or_panic("resolves dir")
         });
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(child).expect("canonical child")
+            std::fs::canonicalize(child).or_panic("canonical child")
         );
     }
 
     #[test]
     fn marker_from_cwd_is_ignored_and_cwd_is_canonicalized() {
-        let root = tempfile::tempdir().expect("tempdir");
+        let root = tempfile::tempdir().or_panic("tempdir");
         let project = root.path().join("project");
         let child = project.join("child");
-        std::fs::create_dir_all(project.join(".sm")).expect("marker parent");
-        std::fs::create_dir_all(&child).expect("child dir");
-        std::fs::write(project.join(".sm").join("namespace"), "cwd-marker").expect("marker");
-        let saved = std::env::current_dir().expect("cwd");
+        std::fs::create_dir_all(project.join(".sm")).or_panic("marker parent");
+        std::fs::create_dir_all(&child).or_panic("child dir");
+        std::fs::write(project.join(".sm").join("namespace"), "cwd-marker").or_panic("marker");
+        let saved = std::env::current_dir().or_panic("cwd");
         let resolved = with_isolated_namespace_env(root.path().join("sm-home"), || {
-            std::env::set_current_dir(&child).expect("chdir");
-            let resolved = resolve_spawn_location(None, None).expect("resolves cwd");
-            std::env::set_current_dir(saved).expect("restore cwd");
+            std::env::set_current_dir(&child).or_panic("chdir");
+            let resolved = resolve_spawn_location(None, None).or_panic("resolves cwd");
+            std::env::set_current_dir(saved).or_panic("restore cwd");
             resolved
         });
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(child).expect("canonical child")
+            std::fs::canonicalize(child).or_panic("canonical child")
         );
     }
 
     #[test]
     fn falls_back_to_default_namespace() {
-        let project = tempfile::tempdir().expect("tempdir");
+        let project = tempfile::tempdir().or_panic("tempdir");
 
         let resolved = with_isolated_namespace_env(project.path().join("sm-home"), || {
             let project = project.path().to_path_buf();
-            resolve_spawn_location(Some(&project), None).expect("resolves default")
+            resolve_spawn_location(Some(&project), None).or_panic("resolves default")
         });
 
         assert_eq!(resolved.namespace, Namespace::default());
         assert_eq!(
             PathBuf::from(resolved.dir),
-            std::fs::canonicalize(project.path()).expect("canonical project")
+            std::fs::canonicalize(project.path()).or_panic("canonical project")
         );
     }
 
+    // Rust 2024 marks process env mutation unsafe. The lock keeps these env
+    // changes scoped and serial for namespace resolution tests.
+    #[allow(unsafe_code)]
     fn with_isolated_namespace_env<T>(sm_home: PathBuf, test: impl FnOnce() -> T) -> T {
         let _guard = ENV_LOCK
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .expect("env lock");
+            .or_panic("env lock");
         let original_sm_home = std::env::var_os("SM_HOME");
         let original_sm_namespace = std::env::var_os("SM_NAMESPACE");
 
@@ -261,6 +265,7 @@ mod tests {
         result
     }
 
+    #[allow(unsafe_code)]
     fn restore_env(name: &str, value: Option<std::ffi::OsString>) {
         match value {
             Some(value) => unsafe { std::env::set_var(name, value) },

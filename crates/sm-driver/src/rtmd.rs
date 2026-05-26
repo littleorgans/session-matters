@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -51,10 +51,7 @@ impl SpawnDriver for RtmdDriver {
         launch: &SpawnLaunch,
     ) -> Result<SpawnedProcess, DriverError> {
         let session_id = parse_session_id(session_id)?;
-        self.terminal_sessions
-            .lock()
-            .expect("terminal sessions lock poisoned")
-            .remove(&session_id);
+        self.locked_terminal_sessions().remove(&session_id);
         let payload = self
             .client
             .spawn(SpawnRequest {
@@ -116,10 +113,7 @@ impl SpawnDriver for RtmdDriver {
 
     async fn reap_exited(&self) -> Result<Vec<ChildExit>, DriverError> {
         let payload = self.client.status(StatusFilter::empty()).await?;
-        let mut terminal_sessions = self
-            .terminal_sessions
-            .lock()
-            .expect("terminal sessions lock poisoned");
+        let mut terminal_sessions = self.locked_terminal_sessions();
         let mut exits = Vec::new();
         for lifecycle in payload.lifecycles {
             if let Some(exit) = terminal_child_exit(&lifecycle)?
@@ -176,15 +170,12 @@ impl SpawnDriver for RtmdDriver {
             }
             _ => {
                 return Err(DriverError::UnknownRuntimeVariant {
-                    variant: kill_outcome_label(&outcome),
+                    variant: kill_outcome_label(outcome),
                 });
             }
         };
         if exit.is_some() {
-            self.terminal_sessions
-                .lock()
-                .expect("terminal sessions lock poisoned")
-                .insert(session_id);
+            self.locked_terminal_sessions().insert(session_id);
         }
         Ok(exit)
     }
@@ -198,13 +189,19 @@ impl SpawnDriver for RtmdDriver {
                 content: content.to_string(),
             })
             .await?;
-        Ok(nudge_result(response.outcome))
+        Ok(nudge_result(&response.outcome))
     }
 
     fn terminate_all(&self) {}
 }
 
 impl RtmdDriver {
+    fn locked_terminal_sessions(&self) -> MutexGuard<'_, HashSet<Uuid>> {
+        self.terminal_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     async fn wait_for_terminal(
         &self,
         session_id: Uuid,
@@ -252,7 +249,7 @@ fn runtime_pid(lifecycle: &Lifecycle) -> Result<u32, DriverError> {
         .ok_or_else(|| DriverError::MissingRuntimePid(lifecycle.session_id.to_string()))
 }
 
-fn nudge_result(outcome: NudgeOutcome) -> NudgeResult {
+fn nudge_result(outcome: &NudgeOutcome) -> NudgeResult {
     match outcome {
         NudgeOutcome::Delivered => NudgeResult {
             delivered: true,
@@ -312,15 +309,15 @@ fn status_session(session_id: Uuid) -> StatusFilter {
 
 fn spawn_error(error: ClientError) -> DriverError {
     match error {
-        ClientError::SpawnConflict(payload) => spawn_conflict(*payload),
+        ClientError::SpawnConflict(payload) => spawn_conflict(payload.as_ref()),
         other => DriverError::Client(other),
     }
 }
 
-fn spawn_conflict(payload: SpawnConflictPayload) -> DriverError {
+fn spawn_conflict(payload: &SpawnConflictPayload) -> DriverError {
     DriverError::SpawnConflict {
         kind: payload.kind,
-        message: format_spawn_conflict(&payload),
+        message: format_spawn_conflict(payload),
     }
 }
 
@@ -341,8 +338,7 @@ fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
             let pane = lifecycle
                 .tmux_pane
                 .as_ref()
-                .map(|address| address.to_string())
-                .unwrap_or_else(|| "<unknown>".to_string());
+                .map_or_else(|| "<unknown>".to_string(), ToString::to_string);
             format!("tmux pane {pane} is already running {runtime} session {session_id}{pid}")
         }
         SpawnConflictKind::SessionId => {
@@ -354,6 +350,7 @@ fn format_spawn_conflict(payload: &SpawnConflictPayload) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::OrPanic as _;
     use lilo_rm_core::{IsolationPolicy, TmuxAddress};
 
     fn lifecycle(tmux_pane: Option<TmuxAddress>) -> Lifecycle {
@@ -374,7 +371,7 @@ mod tests {
     fn tmux_pane_conflict_renders_human_message() {
         let payload = SpawnConflictPayload {
             kind: SpawnConflictKind::TmuxPaneOccupancy,
-            lifecycle: lifecycle(Some("1:3.1".parse().expect("pane parses"))),
+            lifecycle: lifecycle(Some("1:3.1".parse().or_panic("pane parses"))),
         };
         let message = format_spawn_conflict(&payload);
         assert_eq!(

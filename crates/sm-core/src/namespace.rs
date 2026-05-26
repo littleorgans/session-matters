@@ -122,7 +122,9 @@ fn validate_namespace_slug(value: &str) -> Result<(), NamespaceError> {
         });
     }
     let mut chars = value.chars();
-    let first = chars.next().expect("namespace is not empty");
+    let Some(first) = chars.next() else {
+        return Err(NamespaceError::Empty);
+    };
     if !first.is_ascii_lowercase() {
         return Err(NamespaceError::MustStartWithLetter);
     }
@@ -137,24 +139,28 @@ fn validate_namespace_slug(value: &str) -> Result<(), NamespaceError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::{ErrOrPanic as _, OrPanic as _};
     use std::str::FromStr;
 
     use super::*;
 
     #[test]
     fn namespace_accepts_valid_usable_slugs() {
-        let namespace = Namespace::new("alpha-1").unwrap();
+        let namespace = Namespace::new("alpha-1").or_panic("expected value");
 
         assert_eq!(namespace.as_str(), "alpha-1");
         assert_eq!(namespace.to_string(), "alpha-1");
         assert_eq!(namespace.clone().into_string(), "alpha-1");
-        assert_eq!(Namespace::from_str("alpha-1").unwrap(), namespace);
+        assert_eq!(
+            Namespace::from_str("alpha-1").or_panic("expected value"),
+            namespace
+        );
     }
 
     #[test]
     fn namespace_accepts_default_as_usable_value() {
         assert_eq!(
-            Namespace::new(DEFAULT_NAMESPACE).unwrap(),
+            Namespace::new(DEFAULT_NAMESPACE).or_panic("expected value"),
             Namespace::default()
         );
     }
@@ -162,7 +168,7 @@ mod tests {
     #[test]
     fn namespace_for_create_rejects_reserved_default_name() {
         assert_eq!(
-            Namespace::for_create(DEFAULT_NAMESPACE).unwrap_err(),
+            Namespace::for_create(DEFAULT_NAMESPACE).err_or_panic("expected error"),
             NamespaceError::ReservedName {
                 name: DEFAULT_NAMESPACE
             }
@@ -172,13 +178,13 @@ mod tests {
     #[test]
     fn namespace_rejects_reserved_sm_prefix_for_use_and_create() {
         assert_eq!(
-            Namespace::new("sm-system").unwrap_err(),
+            Namespace::new("sm-system").err_or_panic("expected error"),
             NamespaceError::ReservedPrefix {
                 prefix: RESERVED_NAMESPACE_PREFIX
             }
         );
         assert_eq!(
-            Namespace::for_create("sm-system").unwrap_err(),
+            Namespace::for_create("sm-system").err_or_panic("expected error"),
             NamespaceError::ReservedPrefix {
                 prefix: RESERVED_NAMESPACE_PREFIX
             }
@@ -207,24 +213,27 @@ mod tests {
         ];
 
         for (value, expected) in cases {
-            assert_eq!(Namespace::new(value).unwrap_err(), expected);
+            assert_eq!(
+                Namespace::new(value).err_or_panic("expected error"),
+                expected
+            );
         }
     }
 
     #[test]
     fn namespace_rejects_uppercase_after_first_character() {
         assert_eq!(
-            Namespace::new("alphaBeta").unwrap_err(),
+            Namespace::new("alphaBeta").err_or_panic("expected error"),
             NamespaceError::InvalidCharacter { character: 'B' }
         );
     }
 
     #[test]
     fn namespace_round_trips_as_json_string() {
-        let namespace = Namespace::new("alpha-1").unwrap();
+        let namespace = Namespace::new("alpha-1").or_panic("expected value");
 
-        let json = serde_json::to_string(&namespace).unwrap();
-        let decoded: Namespace = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&namespace).or_panic("expected value");
+        let decoded: Namespace = serde_json::from_str(&json).or_panic("expected value");
 
         assert_eq!(json, "\"alpha-1\"");
         assert_eq!(decoded, namespace);
@@ -232,7 +241,7 @@ mod tests {
 
     #[test]
     fn namespace_deserialization_validates_slug() {
-        let error = serde_json::from_str::<Namespace>("\"Alpha\"").unwrap_err();
+        let error = serde_json::from_str::<Namespace>("\"Alpha\"").err_or_panic("expected error");
 
         assert!(error.to_string().contains("must start"));
     }

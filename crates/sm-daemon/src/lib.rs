@@ -12,6 +12,11 @@ pub mod reconcile;
 pub mod server;
 pub mod socket;
 mod spawn_request;
+mod store_lock;
+
+#[cfg(test)]
+#[path = "../../test_support.rs"]
+mod test_support;
 
 pub use server::run_daemon;
 pub use socket::send_request;

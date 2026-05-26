@@ -2,7 +2,7 @@ use std::fs;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use lilo_im_core::Action;
+use lilo_im_core::{Action, ResourceSpec};
 use lilo_rm_client::{ClientError, RuntimeClient};
 use lilo_rm_core::RUNTIME_PROTOCOL_VERSION;
 use sm_core::{
@@ -31,14 +31,14 @@ impl DaemonState {
             .transcript_path
             .clone()
             .with_context(|| format!("no transcript available for session {}", session.id))?;
-        let content = read_transcript(&transcript_path, request.max_bytes)
+        let transcript = read_transcript(&transcript_path, request.max_bytes)
             .with_context(|| format!("failed to read transcript {}", transcript_path.display()))?;
 
         Ok(RpcResponse::Logs {
             response: LogsResponse {
                 session,
                 transcript_path,
-                content,
+                content: transcript,
             },
         })
     }
@@ -49,7 +49,7 @@ impl DaemonState {
         _request: DoctorRequest,
     ) -> Result<RpcResponse> {
         self.identity
-            .authorize(&context.principal, Action::Doctor, &Default::default())
+            .authorize(&context.principal, Action::Doctor, &ResourceSpec::default())
             .await?;
         let fresh_findings = if self.rtmd_socket_path.is_some() {
             crate::reconcile::reconcile_once(self)
@@ -60,9 +60,7 @@ impl DaemonState {
         };
         let runtime_matters = self.runtime_doctor().await;
         let sessions = self
-            .store
-            .lock()
-            .expect("store lock poisoned")
+            .store()?
             .list_sessions_by_selector(&Selector::All)
             .context("failed to list sessions")?;
         let mut findings = sessions
@@ -98,9 +96,7 @@ impl DaemonState {
         let deadline = Instant::now() + Duration::from_secs(request.timeout_secs);
         loop {
             let sessions = self
-                .store
-                .lock()
-                .expect("store lock poisoned")
+                .store()?
                 .list_sessions_by_selector(&request.selector)
                 .context("failed to list sessions")?;
             if wait_condition_met(&request.condition, &sessions) {
@@ -120,7 +116,10 @@ impl DaemonState {
             "{label} selector matched {} sessions; expected exactly one",
             sessions.len()
         );
-        Ok(sessions.into_iter().next().expect("one session"))
+        sessions
+            .into_iter()
+            .next()
+            .with_context(|| format!("{label} selector matched no sessions; expected exactly one"))
     }
 
     async fn runtime_doctor(&self) -> RuntimeDoctorReport {
@@ -158,10 +157,11 @@ impl DaemonState {
 
 fn read_transcript(path: &std::path::Path, max_bytes: Option<u64>) -> Result<String> {
     let mut bytes = fs::read(path)?;
+    let max_bytes = max_bytes.and_then(|value| usize::try_from(value).ok());
     if let Some(max_bytes) = max_bytes
-        && bytes.len() > max_bytes as usize
+        && bytes.len() > max_bytes
     {
-        bytes = bytes.split_off(bytes.len() - max_bytes as usize);
+        bytes = bytes.split_off(bytes.len() - max_bytes);
     }
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
@@ -194,11 +194,13 @@ fn lost_session_evidence(
     findings
         .iter()
         .find(|finding| finding.session_id == session.id.to_string())
-        .map(|finding| finding.evidence.clone())
-        .unwrap_or_else(|| match session.state {
-            SessionState::Lost { evidence } => format!("session is LOST: {evidence}"),
-            _ => format!("session is not LOST: {}", session.state),
-        })
+        .map_or_else(
+            || match session.state {
+                SessionState::Lost { evidence } => format!("session is LOST: {evidence}"),
+                _ => format!("session is not LOST: {}", session.state),
+            },
+            |finding| finding.evidence.clone(),
+        )
 }
 
 fn runtime_doctor_status(doctor: &lilo_rm_core::DoctorResponse) -> String {

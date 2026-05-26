@@ -113,14 +113,14 @@ sm mcp
 
 "#;
 
-const README_FOOTER: &str = r#"## Development
+const README_FOOTER: &str = r"## Development
 
 ```bash
 just check
 just build
 just test
 ```
-"#;
+";
 
 pub fn render_server_instructions(
     skill: Option<&SkillConfig>,
@@ -223,8 +223,9 @@ fn append_selector_grammar_section(out: &mut String, shared: &SharedContent) {
 fn append_examples(out: &mut String) {
     out.push_str("\n## Examples\n\n");
     for example in tool_examples::examples() {
-        let rendered =
-            serde_json::to_string_pretty(&example.arguments).expect("example arguments serialize");
+        let rendered = serde_json::to_string_pretty(&example.arguments).unwrap_or_else(|error| {
+            panic!("example arguments serialize: {error}");
+        });
         let _ = writeln!(
             out,
             "### `{}`\n\n```json\n{}\n```\n",

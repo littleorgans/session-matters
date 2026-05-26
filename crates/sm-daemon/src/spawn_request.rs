@@ -28,7 +28,7 @@ pub(crate) fn normalize_spawn_request(
         return Err(anyhow!("namespace not found: {namespace}"));
     }
 
-    request.workspace = dir.clone();
+    request.workspace.clone_from(&dir);
     let dir = PathBuf::from(dir);
     Ok(SpawnLocation { namespace, dir })
 }

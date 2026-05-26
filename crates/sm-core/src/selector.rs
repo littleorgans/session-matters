@@ -231,6 +231,7 @@ fn parse_label_values(value: &str) -> SmResult<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::{ErrOrPanic as _, OrPanic as _};
     use std::str::FromStr;
 
     use super::*;
@@ -239,35 +240,38 @@ mod tests {
     fn selector_parser_covers_closed_grammar() {
         let id = Uuid::now_v7();
 
-        assert_eq!(Selector::from_str("all").unwrap(), Selector::All);
         assert_eq!(
-            Selector::from_str(&format!("id:{id}")).unwrap(),
+            Selector::from_str("all").or_panic("expected value"),
+            Selector::All
+        );
+        assert_eq!(
+            Selector::from_str(&format!("id:{id}")).or_panic("expected value"),
             Selector::Id { id }
         );
         assert_eq!(
-            Selector::from_str(&id.to_string()).unwrap(),
+            Selector::from_str(&id.to_string()).or_panic("expected value"),
             Selector::Id { id }
         );
         assert_eq!(
-            Selector::from_str("role:engineer").unwrap(),
+            Selector::from_str("role:engineer").or_panic("expected value"),
             Selector::Role {
                 name: "engineer".to_string()
             }
         );
         assert_eq!(
-            Selector::from_str("namespace:alpha").unwrap(),
+            Selector::from_str("namespace:alpha").or_panic("expected value"),
             Selector::Namespace {
-                namespace: Namespace::new("alpha").unwrap()
+                namespace: Namespace::new("alpha").or_panic("expected value")
             }
         );
         assert_eq!(
-            Selector::from_str("dir:/tmp/project").unwrap(),
+            Selector::from_str("dir:/tmp/project").or_panic("expected value"),
             Selector::Dir {
                 path: PathBuf::from("/tmp/project")
             }
         );
         assert_eq!(
-            Selector::from_str("label:area=auth").unwrap(),
+            Selector::from_str("label:area=auth").or_panic("expected value"),
             Selector::Label {
                 key: "area".to_string(),
                 op: LabelOp::Eq {
@@ -276,7 +280,7 @@ mod tests {
             }
         );
         assert_eq!(
-            Selector::from_str("label:area in (auth, ui)").unwrap(),
+            Selector::from_str("label:area in (auth, ui)").or_panic("expected value"),
             Selector::Label {
                 key: "area".to_string(),
                 op: LabelOp::In {
@@ -296,7 +300,7 @@ mod tests {
                 name: "engineer".to_string(),
             },
             Selector::Namespace {
-                namespace: Namespace::new("alpha").unwrap(),
+                namespace: Namespace::new("alpha").or_panic("expected value"),
             },
             Selector::Dir {
                 path: PathBuf::from("/tmp/project"),
@@ -316,7 +320,7 @@ mod tests {
         ];
         for selector in cases {
             let rendered = selector.to_string();
-            let parsed = Selector::from_str(&rendered).unwrap();
+            let parsed = Selector::from_str(&rendered).or_panic("expected value");
             assert_eq!(parsed, selector, "round-trip failed for {rendered}");
         }
 
@@ -353,24 +357,29 @@ mod tests {
     #[test]
     fn selector_rejects_legacy_workspace_and_invalid_new_selectors() {
         let workspace = Selector::from_str("workspace:test")
-            .unwrap_err()
+            .err_or_panic("expected error")
             .to_string();
         assert!(workspace.contains("unsupported selector"));
         assert!(workspace.contains("namespace:<slug>"));
 
-        let namespace = Selector::from_str("namespace:SM").unwrap_err().to_string();
+        let namespace = Selector::from_str("namespace:SM")
+            .err_or_panic("expected error")
+            .to_string();
         assert!(namespace.contains("invalid namespace selector"));
 
-        let dir = Selector::from_str("dir:").unwrap_err().to_string();
+        let dir = Selector::from_str("dir:")
+            .err_or_panic("expected error")
+            .to_string();
         assert_eq!(dir, "dir selector is empty");
     }
 
     #[test]
     fn namespace_scope_composes_unscoped_selectors() {
-        let alpha = Namespace::new("alpha").unwrap();
+        let alpha = Namespace::new("alpha").or_panic("expected value");
 
         assert_eq!(
-            Selector::scoped_to_namespace(None, alpha.clone(), NamespaceScope::Default).unwrap(),
+            Selector::scoped_to_namespace(None, alpha.clone(), NamespaceScope::Default)
+                .or_panic("expected value"),
             Selector::Namespace {
                 namespace: alpha.clone()
             }
@@ -381,7 +390,7 @@ mod tests {
                 alpha.clone(),
                 NamespaceScope::Default,
             )
-            .unwrap(),
+            .or_panic("expected value"),
             Selector::Namespace {
                 namespace: alpha.clone()
             }
@@ -394,7 +403,7 @@ mod tests {
                 alpha.clone(),
                 NamespaceScope::Default,
             )
-            .unwrap(),
+            .or_panic("expected value"),
             Selector::And {
                 selectors: vec![
                     Selector::Namespace { namespace: alpha },
@@ -408,8 +417,8 @@ mod tests {
 
     #[test]
     fn namespace_scope_preserves_namespace_selectors_at_any_depth() {
-        let alpha = Namespace::new("alpha").unwrap();
-        let beta = Namespace::new("beta").unwrap();
+        let alpha = Namespace::new("alpha").or_panic("expected value");
+        let beta = Namespace::new("beta").or_panic("expected value");
 
         let bare = Selector::Namespace {
             namespace: beta.clone(),
@@ -420,7 +429,7 @@ mod tests {
                 alpha.clone(),
                 NamespaceScope::Default,
             )
-            .unwrap(),
+            .or_panic("expected value"),
             bare
         );
 
@@ -440,7 +449,7 @@ mod tests {
                 alpha.clone(),
                 NamespaceScope::Default,
             )
-            .unwrap(),
+            .or_panic("expected value"),
             role_then_namespace
         );
 
@@ -460,7 +469,7 @@ mod tests {
                 alpha.clone(),
                 NamespaceScope::Default,
             )
-            .unwrap(),
+            .or_panic("expected value"),
             namespace_then_role
         );
 
@@ -471,14 +480,14 @@ mod tests {
         };
         assert_eq!(
             Selector::scoped_to_namespace(Some(nested.clone()), alpha, NamespaceScope::Default)
-                .unwrap(),
+                .or_panic("expected value"),
             nested
         );
     }
 
     #[test]
     fn explicit_namespace_scope_accepts_matching_namespace_selector() {
-        let alpha = Namespace::new("alpha").unwrap();
+        let alpha = Namespace::new("alpha").or_panic("expected value");
         let selector = Selector::And {
             selectors: vec![
                 Selector::Namespace {
@@ -492,21 +501,21 @@ mod tests {
 
         assert_eq!(
             Selector::scoped_to_namespace(Some(selector.clone()), alpha, NamespaceScope::Explicit,)
-                .unwrap(),
+                .or_panic("expected value"),
             selector
         );
     }
 
     #[test]
     fn explicit_namespace_scope_rejects_mismatched_namespace_selector() {
-        let alpha = Namespace::new("alpha").unwrap();
-        let beta = Namespace::new("beta").unwrap();
+        let alpha = Namespace::new("alpha").or_panic("expected value");
+        let beta = Namespace::new("beta").or_panic("expected value");
         let error = Selector::scoped_to_namespace(
             Some(Selector::Namespace { namespace: beta }),
             alpha,
             NamespaceScope::Explicit,
         )
-        .unwrap_err()
+        .err_or_panic("expected error")
         .to_string();
 
         assert!(error.contains("namespace conflict"));

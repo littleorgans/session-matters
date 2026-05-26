@@ -11,7 +11,8 @@ use lilo_rm_core::{
     WatcherCounts, read_json_line, version_info, write_json_line,
 };
 use sm_core::{
-    Label, MailCheckRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session, SpawnRequest,
+    IsolationPolicy, Label, MailCheckRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
+    Session, SpawnRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
@@ -24,6 +25,10 @@ use tokio::io::BufReader;
 use tokio::net::UnixListener;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
+
+#[path = "../../../test_support.rs"]
+pub mod shared_test_support;
+pub use shared_test_support::OrPanic;
 
 pub const LOCAL_UID: u32 = 42;
 
@@ -63,41 +68,41 @@ impl MockDriver {
     pub fn launches(&self) -> Vec<SpawnLaunch> {
         self.launches
             .lock()
-            .expect("launches lock poisoned")
+            .or_panic("launches lock poisoned")
             .clone()
     }
 
     pub fn set_probe_verified(&self, verified: bool) {
-        *self.probe_verified.lock().expect("probe lock poisoned") = verified;
+        *self.probe_verified.lock().or_panic("probe lock poisoned") = verified;
     }
 
     pub fn set_spawn_stdout_path(&self, path: PathBuf) {
         *self
             .spawn_stdout_path
             .lock()
-            .expect("spawn stdout path lock poisoned") = Some(path);
+            .or_panic("spawn stdout path lock poisoned") = Some(path);
     }
 
     pub fn set_spawn_tmux_pane(&self, pane: &str) {
         *self
             .spawn_tmux_pane
             .lock()
-            .expect("spawn tmux pane lock poisoned") = Some(pane.to_string());
+            .or_panic("spawn tmux pane lock poisoned") = Some(pane.to_string());
     }
 
     pub fn set_capture(&self, response: lilo_rm_core::CaptureResponse) {
-        *self.capture.lock().expect("capture lock poisoned") = Some(response);
+        *self.capture.lock().or_panic("capture lock poisoned") = Some(response);
     }
 
     pub fn set_nudge(&self, result: NudgeResult) {
-        *self.nudge.lock().expect("nudge lock poisoned") = result;
+        *self.nudge.lock().or_panic("nudge lock poisoned") = result;
     }
 
     pub fn set_terminate_exit(&self, exit: Option<ChildExit>) {
         *self
             .terminate_exit
             .lock()
-            .expect("terminate exit lock poisoned") = exit;
+            .or_panic("terminate exit lock poisoned") = exit;
     }
 }
 
@@ -110,7 +115,7 @@ impl SpawnDriver for MockDriver {
     ) -> Result<SpawnedProcess, DriverError> {
         self.launches
             .lock()
-            .expect("launches lock poisoned")
+            .or_panic("launches lock poisoned")
             .push(launch.clone());
         Ok(SpawnedProcess {
             runtime_pid: 42,
@@ -118,13 +123,13 @@ impl SpawnDriver for MockDriver {
             stdout_path: self
                 .spawn_stdout_path
                 .lock()
-                .expect("spawn stdout path lock poisoned")
+                .or_panic("spawn stdout path lock poisoned")
                 .clone(),
             stderr_path: None,
             tmux_pane: self
                 .spawn_tmux_pane
                 .lock()
-                .expect("spawn tmux pane lock poisoned")
+                .or_panic("spawn tmux pane lock poisoned")
                 .clone(),
         })
     }
@@ -150,7 +155,7 @@ impl SpawnDriver for MockDriver {
         let response = self
             .capture
             .lock()
-            .expect("capture lock poisoned")
+            .or_panic("capture lock poisoned")
             .clone()
             .unwrap_or(lilo_rm_core::CaptureResponse::Failed(
                 lilo_rm_core::CaptureError::NotATmuxTarget,
@@ -162,7 +167,7 @@ impl SpawnDriver for MockDriver {
         Ok(self
             .exits
             .lock()
-            .expect("exits lock poisoned")
+            .or_panic("exits lock poisoned")
             .drain(..)
             .collect())
     }
@@ -172,7 +177,7 @@ impl SpawnDriver for MockDriver {
         _session_id: &str,
         _runtime_pid: u32,
     ) -> Result<DriverProbe, DriverError> {
-        let verified = *self.probe_verified.lock().expect("probe lock poisoned");
+        let verified = *self.probe_verified.lock().or_panic("probe lock poisoned");
         Ok(DriverProbe {
             verified,
             evidence: if verified {
@@ -193,7 +198,7 @@ impl SpawnDriver for MockDriver {
         Ok(self
             .terminate_exit
             .lock()
-            .expect("terminate exit lock poisoned")
+            .or_panic("terminate exit lock poisoned")
             .clone()
             .map(|exit| ChildExit {
                 session_id: session_id.to_string(),
@@ -202,7 +207,7 @@ impl SpawnDriver for MockDriver {
     }
 
     async fn nudge(&self, _session_id: &str, _content: &str) -> Result<NudgeResult, DriverError> {
-        Ok(self.nudge.lock().expect("nudge lock poisoned").clone())
+        Ok(self.nudge.lock().or_panic("nudge lock poisoned").clone())
     }
 
     fn terminate_all(&self) {}
@@ -212,19 +217,19 @@ pub struct TestDaemon {
     pub state: DaemonState,
     pub driver: Arc<MockDriver>,
     pub audit_path: PathBuf,
-    pub _dir: tempfile::TempDir,
+    pub dir: tempfile::TempDir,
 }
 
 impl TestDaemon {
     pub async fn new(local_uid: u32) -> Self {
-        let dir = tempfile::tempdir().expect("tempdir creates");
+        let dir = tempfile::tempdir().or_panic("tempdir creates");
         let audit_path = dir.path().join("audit.sqlite");
         let identity = IdentityClient::connect(&audit_path, local_uid)
             .await
-            .expect("identity client connects");
+            .or_panic("identity client connects");
         let driver = Arc::new(MockDriver::new());
         let state = DaemonState::new(
-            SqliteStore::open_in_memory().expect("store opens"),
+            SqliteStore::open_in_memory().or_panic("store opens"),
             driver.clone(),
             Arc::new(identity),
         );
@@ -232,7 +237,7 @@ impl TestDaemon {
             state,
             driver,
             audit_path,
-            _dir: dir,
+            dir,
         }
     }
 }
@@ -259,12 +264,12 @@ pub async fn spawn_test_session_with_labels(
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: role.to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -298,10 +303,10 @@ pub async fn mail_count(state: &DaemonState, context: RequestContext, session_id
     response.unread
 }
 
-pub async fn mock_rtmd_doctor(doctor: lilo_rm_core::DoctorResponse) -> (PathBuf, JoinHandle<()>) {
-    let tempdir = tempfile::tempdir().expect("tempdir creates");
+pub fn mock_rtmd_doctor(doctor: lilo_rm_core::DoctorResponse) -> (PathBuf, JoinHandle<()>) {
+    let tempdir = tempfile::tempdir().or_panic("tempdir creates");
     let socket_path = tempdir.path().join("rtmd.sock");
-    let listener = UnixListener::bind(&socket_path).expect("rtmd test socket binds");
+    let listener = UnixListener::bind(&socket_path).or_panic("rtmd test socket binds");
     let server = tokio::spawn(async move {
         let _tempdir = tempdir;
         respond_to_rtmd_status(&listener).await;
@@ -312,7 +317,7 @@ pub async fn mock_rtmd_doctor(doctor: lilo_rm_core::DoctorResponse) -> (PathBuf,
             &RuntimeResponse::Doctor(DoctorPayload { doctor }),
         )
         .await
-        .expect("write rtmd doctor response");
+        .or_panic("write rtmd doctor response");
     });
     (socket_path, server)
 }
@@ -329,14 +334,14 @@ async fn respond_to_rtmd_status(listener: &UnixListener) {
         }),
     )
     .await
-    .expect("write rtmd status response");
+    .or_panic("write rtmd status response");
 }
 
 async fn read_rtmd_rpc(listener: &UnixListener) -> (RuntimeRpc, tokio::net::unix::OwnedWriteHalf) {
-    let (stream, _) = listener.accept().await.expect("accept rtmd client");
+    let (stream, _) = listener.accept().await.or_panic("accept rtmd client");
     let (read_half, write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
-    let rpc = read_json_line(&mut reader).await.expect("read rtmd rpc");
+    let rpc = read_json_line(&mut reader).await.or_panic("read rtmd rpc");
     (rpc, write_half)
 }
 

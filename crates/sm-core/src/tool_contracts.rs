@@ -313,8 +313,9 @@ impl ToolParamContract {
     pub fn schema_value(&self, shared: &SharedContent) -> Value {
         let mut schema = self.shape.schema_object();
         let description = if self.selector {
-            let selector_help = render_selector_grammar_block(shared)
-                .expect("shared.selector_grammar exists for selector MCP params");
+            let Some(selector_help) = render_selector_grammar_block(shared) else {
+                panic!("shared.selector_grammar exists for selector MCP params");
+            };
             format!("{}\n\n{selector_help}", self.mcp_description)
         } else {
             self.mcp_description.clone()
@@ -491,6 +492,7 @@ pub fn rust_const_name(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ErrOrPanic as _, OrPanic as _};
 
     #[test]
     fn bundled_registry_preserves_committed_tool_order() {
@@ -548,7 +550,7 @@ mcp_description = "second tool"
 cli_about = "second tool"
 "#,
         )
-        .expect_err("duplicate alias should fail");
+        .err_or_panic("duplicate alias should fail");
 
         assert!(error.contains("duplicate MCP tool name second"));
     }
@@ -556,7 +558,7 @@ cli_about = "second tool"
     #[test]
     fn parse_error_points_to_tool_source_layout() {
         let error =
-            ToolContractRegistry::from_toml_str("[tools").expect_err("invalid TOML should fail");
+            ToolContractRegistry::from_toml_str("[tools").err_or_panic("invalid TOML should fail");
 
         assert!(error.contains("failed to parse tools/*.toml"));
     }
@@ -576,7 +578,7 @@ mcp_description = "second tool"
 cli_about = "second tool"
 "#,
         )
-        .expect_err("duplicate generated constant should fail");
+        .err_or_panic("duplicate generated constant should fail");
 
         assert!(error.contains("duplicate CLI help constant FOO_BAR_ABOUT"));
     }
@@ -597,13 +599,13 @@ cli_about = "second tool"
 render_cli_help = false
 "#,
         )
-        .expect("non-rendered CLI help does not collide");
+        .or_panic("non-rendered CLI help does not collide");
 
         let skipped = registry
             .tools()
             .iter()
             .find(|tool| tool.name == "foo-bar")
-            .expect("second tool is present");
+            .or_panic("second tool is present");
         assert!(!skipped.artifacts.render_cli_help);
     }
 }

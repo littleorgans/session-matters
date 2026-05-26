@@ -22,7 +22,19 @@ pub async fn handle_line(
             error: Some(json_rpc_error(-32700, format!("Parse error: {error}"))),
         },
     };
-    Some(serde_json::to_string(&response).expect("JSON-RPC response serializes"))
+    Some(serialize_response(&response))
+}
+
+fn serialize_response(response: &JsonRpcResponse) -> String {
+    match serde_json::to_string(response) {
+        Ok(line) => line,
+        Err(error) => json!({
+            "jsonrpc": "2.0",
+            "id": response.id.clone(),
+            "error": json_rpc_error(-32603, format!("failed to serialize response: {error}"))
+        })
+        .to_string(),
+    }
 }
 
 async fn handle_request(

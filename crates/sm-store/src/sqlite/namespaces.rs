@@ -143,34 +143,35 @@ impl SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::OrPanic as _;
     use sm_core::{DEFAULT_NAMESPACE, RuntimeKind, Session, SessionState};
 
     #[test]
     fn seeds_default_namespace_and_session_location() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
+        let store = SqliteStore::open_in_memory().or_panic("store opens");
         let default_namespace = Namespace::default();
         let session = test_session("/tmp/project");
 
         assert!(
             store
                 .namespace_exists(&default_namespace)
-                .expect("namespace exists")
+                .or_panic("namespace exists")
         );
         assert_eq!(
             store
                 .list_namespaces()
-                .expect("namespaces list")
+                .or_panic("namespaces list")
                 .into_iter()
                 .map(|record| record.namespace)
                 .collect::<Vec<_>>(),
             vec![default_namespace.clone()]
         );
 
-        store.insert_session(&session).expect("session inserts");
+        store.insert_session(&session).or_panic("session inserts");
         assert_eq!(
             store
                 .get_session_namespace(&session.id)
-                .expect("session namespace loads"),
+                .or_panic("session namespace loads"),
             Some(SessionNamespace {
                 namespace: default_namespace,
                 dir: PathBuf::from("/tmp/project"),
@@ -180,25 +181,25 @@ mod tests {
 
     #[test]
     fn creates_and_lists_namespaces() {
-        let store = SqliteStore::open_in_memory().expect("store opens");
-        let namespace = Namespace::for_create("alpha").expect("namespace validates");
+        let store = SqliteStore::open_in_memory().or_panic("store opens");
+        let namespace = Namespace::for_create("alpha").or_panic("namespace validates");
         let created_at = Utc::now();
 
         assert!(
             !store
                 .namespace_exists(&namespace)
-                .expect("namespace checks")
+                .or_panic("namespace checks")
         );
         store
             .create_namespace(&namespace, created_at)
-            .expect("namespace creates");
+            .or_panic("namespace creates");
         assert!(
             store
                 .namespace_exists(&namespace)
-                .expect("namespace checks")
+                .or_panic("namespace checks")
         );
 
-        let records = store.list_namespaces().expect("namespaces list");
+        let records = store.list_namespaces().or_panic("namespaces list");
         assert_eq!(
             records
                 .iter()

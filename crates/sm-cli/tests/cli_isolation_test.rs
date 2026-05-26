@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use std::process::Command;
 
@@ -48,7 +49,7 @@ fn run_accepts_docker_isolation_and_preserves_host_default() {
     common::write_fake_command(runtime_path.path(), "docker", FAKE_DOCKER_SCRIPT);
     let daemon = common::DaemonFixture::start_with_runtime_path(runtime_path.path());
     let project = daemon.dir.path().join("project");
-    std::fs::create_dir_all(&project).expect("project dir");
+    std::fs::create_dir_all(&project).or_panic("project dir");
     let project_arg = project.display().to_string();
 
     for (command, extra_args) in [
@@ -64,7 +65,7 @@ fn run_accepts_docker_isolation_and_preserves_host_default() {
             .args(extra_args)
             .args(["--detach"])
             .output()
-            .expect("sm run executes");
+            .or_panic("sm run executes");
 
         assert!(
             output.status.success(),
@@ -77,7 +78,7 @@ fn run_accepts_docker_isolation_and_preserves_host_default() {
 
 #[test]
 fn run_rejects_unknown_isolation_at_clap() {
-    let project = tempfile::tempdir().expect("project dir");
+    let project = tempfile::tempdir().or_panic("project dir");
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args([
             "run",
@@ -90,7 +91,7 @@ fn run_rejects_unknown_isolation_at_clap() {
             &project.path().display().to_string(),
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -100,7 +101,7 @@ fn run_rejects_unknown_isolation_at_clap() {
 
 #[test]
 fn run_rejects_mount_with_host_isolation_before_daemon() {
-    let project = tempfile::tempdir().expect("project dir");
+    let project = tempfile::tempdir().or_panic("project dir");
     let output = Command::new(env!("CARGO_BIN_EXE_sm"))
         .args([
             "run",
@@ -113,7 +114,7 @@ fn run_rejects_mount_with_host_isolation_before_daemon() {
             "/host/config:/container/config",
         ])
         .output()
-        .expect("sm run executes");
+        .or_panic("sm run executes");
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);

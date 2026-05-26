@@ -1,3 +1,6 @@
+mod common;
+
+use common::OrPanic as _;
 use lilo_rm_core::{
     NudgeFailureReason, NudgeOutcome, NudgePayload, NudgeRequest, NudgeResponse, RuntimeResponse,
     RuntimeRpc, read_json_line, write_json_line,
@@ -11,16 +14,16 @@ use uuid::Uuid;
 #[tokio::test]
 async fn rtmd_nudge_maps_delivered_outcome() {
     let session_id = Uuid::now_v7();
-    let (driver, server) = mock_rtmd_nudge(session_id, NudgeOutcome::Delivered).await;
+    let (driver, server) = mock_rtmd_nudge(session_id, NudgeOutcome::Delivered);
 
     let result = driver
         .nudge(&session_id.to_string(), "hello")
         .await
-        .expect("nudge delegates to rtmd");
+        .or_panic("nudge delegates to rtmd");
 
     assert!(result.delivered);
     assert_eq!(result.message, "delivered");
-    server.await.expect("server task");
+    server.await.or_panic("server task");
 }
 
 #[tokio::test]
@@ -29,30 +32,29 @@ async fn rtmd_nudge_maps_tmux_pane_dead_outcome() {
     let (driver, server) = mock_rtmd_nudge(
         session_id,
         NudgeOutcome::Failed(NudgeFailureReason::TmuxPaneDead),
-    )
-    .await;
+    );
 
     let result = driver
         .nudge(&session_id.to_string(), "hello")
         .await
-        .expect("failed nudge outcome remains a response");
+        .or_panic("failed nudge outcome remains a response");
 
     assert!(!result.delivered);
     assert_eq!(result.message, "tmux pane is no longer available");
-    server.await.expect("server task");
+    server.await.or_panic("server task");
 }
 
-async fn mock_rtmd_nudge(session_id: Uuid, outcome: NudgeOutcome) -> (RtmdDriver, JoinHandle<()>) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+fn mock_rtmd_nudge(session_id: Uuid, outcome: NudgeOutcome) -> (RtmdDriver, JoinHandle<()>) {
+    let tempdir = tempfile::tempdir().or_panic("tempdir");
     let socket_path = tempdir.path().join("rtmd.sock");
-    let listener = UnixListener::bind(&socket_path).expect("bind test socket");
+    let listener = UnixListener::bind(&socket_path).or_panic("bind test socket");
     let driver = RtmdDriver::new(socket_path);
     let server = tokio::spawn(async move {
         let _tempdir = tempdir;
-        let (stream, _) = listener.accept().await.expect("accept client");
+        let (stream, _) = listener.accept().await.or_panic("accept client");
         let (read_half, mut write_half) = stream.into_split();
         let mut reader = BufReader::new(read_half);
-        let rpc: RuntimeRpc = read_json_line(&mut reader).await.expect("read rpc");
+        let rpc: RuntimeRpc = read_json_line(&mut reader).await.or_panic("read rpc");
         assert_eq!(
             rpc,
             RuntimeRpc::Nudge {
@@ -72,7 +74,7 @@ async fn mock_rtmd_nudge(session_id: Uuid, outcome: NudgeOutcome) -> (RtmdDriver
             }),
         )
         .await
-        .expect("write response");
+        .or_panic("write response");
     });
     (driver, server)
 }

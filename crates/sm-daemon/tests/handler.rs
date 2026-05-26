@@ -1,4 +1,5 @@
 mod common;
+use common::OrPanic as _;
 
 use std::ffi::OsString;
 use std::path::Path;
@@ -99,12 +100,12 @@ async fn label_empty_selector_uses_session_noun() {
 async fn agent_config_env_reaches_spawn_driver() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let config = daemon._dir.path().join("agent.toml");
+    let config = daemon.dir.path().join("agent.toml");
     std::fs::write(
         &config,
         "claude_config_dir = \"/tmp/demo-claude\"\n[env]\nHELIOY_AGENT_NAME = \"demo\"\n",
     )
-    .expect("agent config writes");
+    .or_panic("agent config writes");
 
     let spawned = daemon
         .state
@@ -114,12 +115,12 @@ async fn agent_config_env_reaches_spawn_driver() {
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: Some(config.display().to_string()),
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -138,7 +139,7 @@ async fn agent_config_env_reaches_spawn_driver() {
         response.session.agent_config,
         Some(config.display().to_string())
     );
-    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    let launch = daemon.driver.launches().pop().or_panic("driver saw launch");
     assert!(
         launch
             .env
@@ -162,11 +163,12 @@ async fn agent_config_env_reaches_spawn_driver() {
 async fn named_agent_config_persists_resolved_path() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let home = tempfile::tempdir().expect("home tempdir creates");
+    let home = tempfile::tempdir().or_panic("home tempdir creates");
     let config_dir = home.path().join(".agm").join("demo-agent");
-    std::fs::create_dir_all(&config_dir).expect("agent config dir creates");
+    std::fs::create_dir_all(&config_dir).or_panic("agent config dir creates");
     let config = config_dir.join("agent.toml");
-    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"demo\"\n").expect("agent config writes");
+    std::fs::write(&config, "[env]\nHELIOY_AGENT_NAME = \"demo\"\n")
+        .or_panic("agent config writes");
     let _home = set_home_for_test(home.path());
 
     let spawned = daemon
@@ -177,12 +179,12 @@ async fn named_agent_config_persists_resolved_path() {
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: Some("demo-agent".to_string()),
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: vec![launch_env("HOME", "/Users/tester")],
                     mounts: Vec::new(),
@@ -229,9 +231,9 @@ async fn spawn_launch_fields_reach_spawn_driver() {
     let shell_resume = lilo_rm_core::ShellResume {
         argv: vec!["/bin/zsh".to_string()],
         env: vec![launch_env("TERM", "xterm-256color")],
-        cwd: daemon._dir.path().to_path_buf(),
+        cwd: daemon.dir.path().to_path_buf(),
     };
-    let isolation = IsolationPolicy::Docker(Default::default());
+    let isolation = IsolationPolicy::Docker(lilo_rm_core::IsolationProfile::default());
     let image = Some("runtime-matters-claude:local".to_string());
     let mounts = vec![MountSpec {
         source: "/host/config".into(),
@@ -247,7 +249,7 @@ async fn spawn_launch_fields_reach_spawn_driver() {
                 request: Box::new(SpawnRequest {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
-                    workspace: daemon._dir.path().display().to_string(),
+                    workspace: daemon.dir.path().display().to_string(),
                     dir: None,
                     namespace: None,
                     target: "tmux:test:0.0".to_string(),
@@ -270,7 +272,7 @@ async fn spawn_launch_fields_reach_spawn_driver() {
     let RpcResponse::Spawned { .. } = spawned.response else {
         panic!("expected spawn response");
     };
-    let launch = daemon.driver.launches().pop().expect("driver saw launch");
+    let launch = daemon.driver.launches().pop().or_panic("driver saw launch");
     assert_eq!(launch.isolation, isolation);
     assert_eq!(launch.image, image);
     assert_eq!(launch.mounts, mounts);
@@ -288,6 +290,9 @@ struct HomeEnvGuard {
     original: Option<OsString>,
 }
 
+// Rust 2024 marks process env mutation unsafe. This guard keeps it scoped to
+// the named agent config test and restores the original value on drop.
+#[allow(unsafe_code)]
 impl Drop for HomeEnvGuard {
     fn drop(&mut self) {
         match self.original.take() {
@@ -297,6 +302,7 @@ impl Drop for HomeEnvGuard {
     }
 }
 
+#[allow(unsafe_code)]
 fn set_home_for_test(home: &Path) -> HomeEnvGuard {
     let guard = HomeEnvGuard {
         original: std::env::var_os("HOME"),
@@ -311,11 +317,11 @@ fn set_home_for_test(home: &Path) -> HomeEnvGuard {
 async fn spawn_launch_cwd_is_request_workspace() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let session = spawn_test_session(&daemon, &local_context(), "pm").await;
-    let launch = daemon.driver.launches().pop().expect("driver saw launch");
-    assert_eq!(launch.cwd, daemon._dir.path());
+    let launch = daemon.driver.launches().pop().or_panic("driver saw launch");
+    assert_eq!(launch.cwd, daemon.dir.path());
     assert!(!launch.force);
     assert_eq!(session.namespace, Namespace::default());
-    assert_eq!(session.dir, daemon._dir.path());
+    assert_eq!(session.dir, daemon.dir.path());
 }
 
 #[tokio::test]
@@ -323,7 +329,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let namespace = create_namespace(&daemon, "alpha");
-    let dir = daemon._dir.path().display().to_string();
+    let dir = daemon.dir.path().display().to_string();
 
     let spawned = daemon
         .state
@@ -338,7 +344,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
                     namespace: Some(namespace.clone()),
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -355,7 +361,7 @@ async fn spawn_accepts_new_dir_and_namespace_without_legacy_workspace() {
     };
     assert_eq!(response.session.workspace, dir);
     assert_eq!(response.session.namespace, namespace);
-    assert_eq!(response.session.dir, daemon._dir.path());
+    assert_eq!(response.session.dir, daemon.dir.path());
 }
 
 #[tokio::test]
@@ -363,8 +369,8 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let namespace = create_namespace(&daemon, "alpha");
-    let legacy_workspace = tempfile::tempdir().expect("legacy workspace creates");
-    let dir = daemon._dir.path().display().to_string();
+    let legacy_workspace = tempfile::tempdir().or_panic("legacy workspace creates");
+    let dir = daemon.dir.path().display().to_string();
 
     let spawned = daemon
         .state
@@ -379,7 +385,7 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
                     namespace: Some(namespace.clone()),
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -394,8 +400,8 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
     let RpcResponse::Spawned { response } = spawned.response else {
         panic!("expected spawn response");
     };
-    let launch = daemon.driver.launches().pop().expect("driver saw launch");
-    assert_eq!(launch.cwd, daemon._dir.path());
+    let launch = daemon.driver.launches().pop().or_panic("driver saw launch");
+    assert_eq!(launch.cwd, daemon.dir.path());
     assert_eq!(response.session.workspace, dir);
     assert_eq!(response.session.namespace, namespace);
 }
@@ -404,7 +410,7 @@ async fn spawn_prefers_new_dir_when_legacy_workspace_is_also_present() {
 async fn spawn_rejects_unknown_namespace_before_launch() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let namespace = Namespace::new("missing").expect("namespace validates");
+    let namespace = Namespace::new("missing").or_panic("namespace validates");
 
     let spawned = daemon
         .state
@@ -415,11 +421,11 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
                     runtime: RuntimeKind::Claude,
                     role: "pm".to_string(),
                     workspace: String::new(),
-                    dir: Some(daemon._dir.path().display().to_string()),
+                    dir: Some(daemon.dir.path().display().to_string()),
                     namespace: Some(namespace),
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -442,8 +448,8 @@ async fn spawn_rejects_unknown_namespace_before_launch() {
 async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let child = daemon._dir.path().join("child");
-    std::fs::create_dir(&child).expect("child dir creates");
+    let child = daemon.dir.path().join("child");
+    std::fs::create_dir(&child).or_panic("child dir creates");
     let raw_dir = child.join("..").display().to_string();
 
     let spawned = daemon
@@ -459,7 +465,7 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -478,10 +484,10 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
         .state
         .store
         .lock()
-        .expect("store lock poisoned")
+        .or_panic("store lock poisoned")
         .get_session_namespace(&response.session.id)
-        .expect("session namespace loads")
-        .expect("session namespace exists");
+        .or_panic("session namespace loads")
+        .or_panic("session namespace exists");
     assert_eq!(session_namespace.dir.display().to_string(), raw_dir);
 }
 
@@ -489,8 +495,8 @@ async fn spawn_persists_dir_as_received_without_daemon_canonicalisation() {
 async fn spawn_persists_driver_stdout_path_for_logs() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let transcript = daemon._dir.path().join("runtime.stdout.log");
-    std::fs::write(&transcript, "daemon spawned\n").expect("transcript writes");
+    let transcript = daemon.dir.path().join("runtime.stdout.log");
+    std::fs::write(&transcript, "daemon spawned\n").or_panic("transcript writes");
     daemon.driver.set_spawn_stdout_path(transcript.clone());
 
     let session = spawn_test_session(&daemon, &context, "engineer").await;
@@ -518,14 +524,14 @@ async fn spawn_persists_driver_stdout_path_for_logs() {
 }
 
 fn create_namespace(daemon: &TestDaemon, value: &str) -> Namespace {
-    let namespace = Namespace::for_create(value).expect("namespace validates");
+    let namespace = Namespace::for_create(value).or_panic("namespace validates");
     daemon
         .state
         .store
         .lock()
-        .expect("store lock poisoned")
+        .or_panic("store lock poisoned")
         .create_namespace(&namespace, Utc::now())
-        .expect("namespace creates");
+        .or_panic("namespace creates");
     namespace
 }
 
@@ -534,16 +540,16 @@ async fn logs_wait_and_doctor_polish_paths_work() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
     let session = spawn_test_session(&daemon, &context, "engineer").await;
-    let transcript = daemon._dir.path().join("transcript.jsonl");
-    std::fs::write(&transcript, "first\nsecond\n").expect("transcript writes");
+    let transcript = daemon.dir.path().join("transcript.jsonl");
+    std::fs::write(&transcript, "first\nsecond\n").or_panic("transcript writes");
     daemon
         .state
         .store
         .lock()
-        .expect("store lock poisoned")
+        .or_panic("store lock poisoned")
         .record_transcript_path(&session.id, &transcript, Utc::now())
-        .expect("transcript path records")
-        .expect("session exists");
+        .or_panic("transcript path records")
+        .or_panic("session exists");
 
     let logs = daemon
         .state
@@ -584,9 +590,9 @@ async fn logs_wait_and_doctor_polish_paths_work() {
         .state
         .store
         .lock()
-        .expect("store lock poisoned")
+        .or_panic("store lock poisoned")
         .mark_session_lost(&session.id, LostEvidence::PidNotAlive, chrono::Utc::now())
-        .expect("session marks lost");
+        .or_panic("session marks lost");
     let doctor = daemon
         .state
         .handle(
@@ -611,7 +617,7 @@ async fn logs_wait_and_doctor_polish_paths_work() {
 async fn doctor_includes_runtime_matters_payload() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let (socket_path, server) = mock_rtmd_doctor(runtime_doctor_response()).await;
+    let (socket_path, server) = mock_rtmd_doctor(runtime_doctor_response());
     let state = daemon.state.with_rtmd_socket_path(socket_path);
 
     let doctor = state
@@ -633,19 +639,19 @@ async fn doctor_includes_runtime_matters_payload() {
         response
             .runtime_matters
             .doctor
-            .expect("runtime doctor payload")
+            .or_panic("runtime doctor payload")
             .watchers
             .process_exit_watchers,
         1
     );
-    server.await.expect("rtmd doctor server");
+    server.await.or_panic("rtmd doctor server");
 }
 
 #[tokio::test]
 async fn doctor_reports_runtime_matters_unavailable() {
     let daemon = TestDaemon::new(LOCAL_UID).await;
     let context = local_context();
-    let socket_path = daemon._dir.path().join("missing-rtmd.sock");
+    let socket_path = daemon.dir.path().join("missing-rtmd.sock");
     let state = daemon.state.with_rtmd_socket_path(socket_path);
 
     let doctor = state

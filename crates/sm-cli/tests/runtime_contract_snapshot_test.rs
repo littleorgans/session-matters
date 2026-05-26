@@ -1,4 +1,7 @@
+mod common;
+
 use chrono::{TimeZone, Utc};
+use common::OrPanic as _;
 use lilo_rm_core::{
     CaptureError, CapturePayload, CaptureResponse, CursorExpiredPayload, DoctorPayload, EventBatch,
     EventsPayload, IsolationPolicy, KillOutcome, KilledPayload, Lifecycle, LifecycleCounts,
@@ -39,7 +42,7 @@ fn rtmd_payload_json_shapes_are_snapshotted() {
             response: ValidateTargetResponse {
                 valid: false,
                 outcome: ValidateTargetOutcome::TmuxPaneDead {
-                    address: "agents:0.1".parse().expect("tmux address"),
+                    address: "agents:0.1".parse().or_panic("tmux address"),
                 },
             },
         }),
@@ -93,7 +96,7 @@ fn lifecycle(session_id: Uuid) -> Lifecycle {
         shim_pid: Some(4241),
         runtime_pid: Some(4242),
         start_time: Some(timestamp()),
-        tmux_pane: Some("agents:0.1".parse().expect("tmux address")),
+        tmux_pane: Some("agents:0.1".parse().or_panic("tmux address")),
         log_availability: Some(LogAvailability::TmuxPaneSnapshot),
     }
 }
@@ -152,9 +155,11 @@ fn doctor_payload(session_id: Uuid) -> lilo_rm_core::DoctorResponse {
 }
 
 fn session_id() -> Uuid {
-    Uuid::parse_str("018f6e28-0000-7000-8000-000000000001").expect("uuid")
+    Uuid::parse_str("018f6e28-0000-7000-8000-000000000001").or_panic("uuid")
 }
 
 fn timestamp() -> chrono::DateTime<Utc> {
-    Utc.timestamp_opt(1_700_000_000, 0).unwrap()
+    Utc.timestamp_opt(1_700_000_000, 0)
+        .single()
+        .or_panic("timestamp is valid")
 }

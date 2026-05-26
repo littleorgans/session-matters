@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 
@@ -35,11 +35,22 @@ pub fn tool_success<T>(text: String, structured: &T) -> Value
 where
     T: Serialize,
 {
-    json!({
-        "content": [{"type": "text", "text": text}],
-        "structuredContent": serde_json::to_value(structured)
-            .expect("structured MCP result serializes")
-    })
+    let structured_content = match serde_json::to_value(structured) {
+        Ok(value) => value,
+        Err(error) => panic!("structured MCP result serializes: {error}"),
+    };
+
+    let mut content_item = Map::new();
+    content_item.insert("type".to_string(), Value::String("text".to_string()));
+    content_item.insert("text".to_string(), Value::String(text));
+
+    let mut result = Map::new();
+    result.insert(
+        "content".to_string(),
+        Value::Array(vec![Value::Object(content_item)]),
+    );
+    result.insert("structuredContent".to_string(), structured_content);
+    Value::Object(result)
 }
 
 pub fn tool_error(message: impl Into<String>) -> Value {

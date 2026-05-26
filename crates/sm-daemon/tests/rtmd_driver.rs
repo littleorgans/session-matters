@@ -1,3 +1,6 @@
+mod common;
+
+use common::OrPanic as _;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -10,8 +13,8 @@ use lilo_rm_core::{Lifecycle, LifecycleState, StatusFilter};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use sm_core::{
-    DeleteRequest, LogsRequest, RpcRequest, RpcResponse, RuntimeKind, Selector, Session,
-    SessionState, SpawnRequest,
+    DeleteRequest, IsolationPolicy, LogsRequest, RpcRequest, RpcResponse, RuntimeKind, Selector,
+    Session, SessionState, SpawnRequest,
 };
 use sm_daemon::handler::DaemonState;
 use sm_daemon::identity_client::{IdentityClient, RequestContext};
@@ -25,15 +28,15 @@ async fn rtmd_driver_spawn_is_visible_to_sm_and_rtmd() {
         eprintln!("skipping rtmd integration test; set RTM_TEST_BIN to an rtm binary");
         return;
     };
-    let temp = tempfile::tempdir().expect("tempdir");
+    let temp = tempfile::tempdir().or_panic("tempdir");
     write_fake_runtime(temp.path(), "claude");
     let mut rtmd = RtmdHarness::start(&rtm, temp.path());
 
     let identity = IdentityClient::connect(&temp.path().join("audit.sqlite"), 42)
         .await
-        .expect("identity connects");
+        .or_panic("identity connects");
     let state = DaemonState::new(
-        SqliteStore::open_in_memory().expect("store opens"),
+        SqliteStore::open_in_memory().or_panic("store opens"),
         std::sync::Arc::new(RtmdDriver::new(rtmd.socket.clone())),
         std::sync::Arc::new(identity),
     );
@@ -41,7 +44,10 @@ async fn rtmd_driver_spawn_is_visible_to_sm_and_rtmd() {
 
     let session = spawn_session(&state, context, temp.path()).await;
     assert_eq!(session.runtime, RuntimeKind::Claude);
-    let transcript_path = session.transcript_path.as_deref().expect("transcript path");
+    let transcript_path = session
+        .transcript_path
+        .as_deref()
+        .or_panic("transcript path");
     assert!(
         wait_for_log_content(transcript_path)
             .await
@@ -67,7 +73,7 @@ async fn rtmd_driver_delete_signalled_session_marks_terminated() {
         eprintln!("skipping rtmd integration test; set RTM_TEST_BIN to an rtm binary");
         return;
     };
-    let temp = tempfile::tempdir().expect("tempdir");
+    let temp = tempfile::tempdir().or_panic("tempdir");
     write_fake_runtime(temp.path(), "claude");
     let mut rtmd = RtmdHarness::start(&rtm, temp.path());
     let state = rtmd_state(&rtmd, temp.path()).await;
@@ -91,15 +97,15 @@ async fn rtmd_driver_delete_already_exited_session_marks_terminated() {
         eprintln!("skipping rtmd integration test; set RTM_TEST_BIN to an rtm binary");
         return;
     };
-    let temp = tempfile::tempdir().expect("tempdir");
+    let temp = tempfile::tempdir().or_panic("tempdir");
     write_fake_runtime(temp.path(), "claude");
     let mut rtmd = RtmdHarness::start(&rtm, temp.path());
     let state = rtmd_state(&rtmd, temp.path()).await;
     let context = RequestContext::new(Principal::Local(42));
     let session = spawn_session(&state, context.clone(), temp.path()).await;
 
-    kill(Pid::from_raw(session.runtime_pid as i32), Signal::SIGKILL)
-        .expect("runtime process can be killed");
+    let runtime_pid = i32::try_from(session.runtime_pid).or_panic("runtime pid fits i32");
+    kill(Pid::from_raw(runtime_pid), Signal::SIGKILL).or_panic("runtime process can be killed");
     wait_for_runtime_exit(&rtmd, session.id).await;
     let deleted = delete_session(&state, context, session.id, 2).await;
 
@@ -111,9 +117,9 @@ async fn rtmd_driver_delete_already_exited_session_marks_terminated() {
 async fn rtmd_state(rtmd: &RtmdHarness, dir: &Path) -> DaemonState {
     let identity = IdentityClient::connect(&dir.join("audit.sqlite"), 42)
         .await
-        .expect("identity connects");
+        .or_panic("identity connects");
     DaemonState::new(
-        SqliteStore::open_in_memory().expect("store opens"),
+        SqliteStore::open_in_memory().or_panic("store opens"),
         std::sync::Arc::new(RtmdDriver::new(rtmd.socket.clone())),
         std::sync::Arc::new(identity),
     )
@@ -132,7 +138,7 @@ async fn spawn_session(state: &DaemonState, context: RequestContext, workspace: 
                     namespace: None,
                     target: "headless".to_string(),
                     agent_config: None,
-                    isolation: Default::default(),
+                    isolation: IsolationPolicy::default(),
                     image: None,
                     env: Vec::new(),
                     mounts: Vec::new(),
@@ -175,7 +181,7 @@ async fn delete_session(
         .sessions
         .into_iter()
         .next()
-        .expect("deleted session")
+        .or_panic("deleted session")
 }
 
 async fn logs_session(state: &DaemonState, context: RequestContext, id: Uuid) -> String {
@@ -217,7 +223,7 @@ impl RtmdHarness {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("rtmd starts");
+            .or_panic("rtmd starts");
         wait_for_socket(&socket, &mut child);
         Self {
             rtm: rtm.to_path_buf(),
@@ -249,7 +255,7 @@ async fn runtime_pid(harness: &RtmdHarness, session_id: Uuid) -> u32 {
         lifecycle.state,
         LifecycleState::Forking | LifecycleState::Running
     ));
-    lifecycle.runtime_pid.expect("runtime pid")
+    lifecycle.runtime_pid.or_panic("runtime pid")
 }
 
 async fn runtime_lifecycle(harness: &RtmdHarness, session_id: Uuid) -> Lifecycle {
@@ -262,12 +268,12 @@ async fn runtime_lifecycle(harness: &RtmdHarness, session_id: Uuid) -> Lifecycle
             state: None,
         })
         .await
-        .expect("rtmd status");
+        .or_panic("rtmd status");
     payload
         .lifecycles
         .into_iter()
         .find(|lifecycle| lifecycle.session_id == session_id)
-        .expect("rtmd lifecycle exists")
+        .or_panic("rtmd lifecycle exists")
 }
 
 async fn wait_for_runtime_exit(harness: &RtmdHarness, session_id: Uuid) {
@@ -310,7 +316,7 @@ fn helioy_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
-        .expect("workspace has helioy root ancestor")
+        .or_panic("workspace has helioy root ancestor")
         .to_path_buf()
 }
 
@@ -320,17 +326,17 @@ fn write_fake_runtime(dir: &Path, name: &str) {
         &path,
         "#!/bin/sh\nprintf 'rtm fake runtime ready\\n'\nexec sleep 60\n",
     )
-    .expect("fake runtime writes");
-    let mut permissions = std::fs::metadata(&path).expect("metadata").permissions();
+    .or_panic("fake runtime writes");
+    let mut permissions = std::fs::metadata(&path).or_panic("metadata").permissions();
     permissions.set_mode(0o755);
-    std::fs::set_permissions(&path, permissions).expect("permissions");
+    std::fs::set_permissions(&path, permissions).or_panic("permissions");
 }
 
 fn test_path(dir: &Path) -> String {
     let current = std::env::var_os("PATH").unwrap_or_default();
     let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&current));
     std::env::join_paths(paths)
-        .expect("joined path")
+        .or_panic("joined path")
         .to_string_lossy()
         .into_owned()
 }
@@ -341,9 +347,10 @@ fn wait_for_socket(socket: &Path, child: &mut Child) {
         if UnixStream::connect(socket).is_ok() {
             return;
         }
-        if child.try_wait().expect("rtmd try_wait").is_some() {
-            panic!("rtmd exited before socket appeared");
-        }
+        assert!(
+            child.try_wait().or_panic("rtmd try_wait").is_none(),
+            "rtmd exited before socket appeared"
+        );
         std::thread::sleep(Duration::from_millis(25));
     }
     panic!("rtmd socket never appeared at {}", socket.display());

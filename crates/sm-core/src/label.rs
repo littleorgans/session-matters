@@ -54,6 +54,7 @@ pub(crate) fn parse_label_token(value: &str, field: &'static str) -> SmResult<St
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::OrPanic as _;
     use std::str::FromStr;
 
     use super::*;
@@ -61,14 +62,14 @@ mod tests {
     #[test]
     fn label_mutation_parser_distinguishes_set_and_remove() {
         assert_eq!(
-            LabelMutation::from_str("pri=urgent").unwrap(),
+            LabelMutation::from_str("pri=urgent").or_panic("expected value"),
             LabelMutation::Set(Label {
                 key: "pri".to_string(),
                 value: "urgent".to_string()
             })
         );
         assert_eq!(
-            LabelMutation::from_str("pri-").unwrap(),
+            LabelMutation::from_str("pri-").or_panic("expected value"),
             LabelMutation::Remove {
                 key: "pri".to_string()
             }

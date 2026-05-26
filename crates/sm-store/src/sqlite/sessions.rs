@@ -43,7 +43,7 @@ impl SqliteStore {
                 session.namespace.as_str(),
                 session.dir.display().to_string(),
                 session.state.sql_name(),
-                session_lost_evidence(&session.state),
+                session_lost_evidence(session.state),
                 session.runtime_pid,
                 session.runtime_session.as_deref(),
                 session
@@ -308,9 +308,9 @@ fn session_state_from_row(row: &Row<'_>) -> Result<SessionState, SessionRowError
     )?)
 }
 
-fn session_lost_evidence(state: &SessionState) -> Option<&'static str> {
+fn session_lost_evidence(state: SessionState) -> Option<&'static str> {
     match state {
-        SessionState::Lost { evidence } => Some(lost_evidence_to_sql(*evidence)),
+        SessionState::Lost { evidence } => Some(lost_evidence_to_sql(evidence)),
         _ => None,
     }
 }

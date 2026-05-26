@@ -1,3 +1,6 @@
+mod common;
+
+use common::OrPanic as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -159,7 +162,7 @@ fn collect_rust_sources(dir: &Path, paths: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(dir)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()))
     {
-        let path = entry.expect("source entry reads").path();
+        let path = entry.or_panic("source entry reads").path();
         if path.is_dir() {
             collect_rust_sources(&path, paths);
         } else if path.extension().is_some_and(|extension| extension == "rs") {
@@ -172,7 +175,7 @@ fn tool_source_paths() -> Vec<PathBuf> {
     let tools_dir = repo_root().join("tools");
     fs::read_dir(&tools_dir)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", tools_dir.display()))
-        .map(|entry| entry.expect("tool source entry reads").path())
+        .map(|entry| entry.or_panic("tool source entry reads").path())
         .filter(|path| {
             path.extension()
                 .is_some_and(|extension| extension == "toml")
@@ -184,7 +187,7 @@ fn generated_schema_paths() -> Vec<PathBuf> {
     let schema_dir = repo_root().join("crates/sm-cli/src/mcp/generated_schema");
     fs::read_dir(&schema_dir)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", schema_dir.display()))
-        .map(|entry| entry.expect("generated schema entry reads").path())
+        .map(|entry| entry.or_panic("generated schema entry reads").path())
         .filter(|path| {
             path.extension()
                 .is_some_and(|extension| extension == "json")
@@ -203,7 +206,7 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
-        .expect("sm-cli manifest is under crates/sm-cli")
+        .or_panic("sm-cli manifest is under crates/sm-cli")
         .to_path_buf()
 }
 
